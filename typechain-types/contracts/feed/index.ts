@@ -2,4 +2,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type { FeedProtocol } from "./FeedProtocol";
+export type { FeederSelector } from "./FeederSelector";
 export type { VolumeBasedFeed } from "./VolumeBasedFeed";

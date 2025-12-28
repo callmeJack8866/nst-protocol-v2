@@ -2,4 +2,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export { FeedProtocol__factory } from "./FeedProtocol__factory";
+export { FeederSelector__factory } from "./FeederSelector__factory";
 export { VolumeBasedFeed__factory } from "./VolumeBasedFeed__factory";

@@ -26,6 +26,9 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
     // ==================== 状态变量 ====================
     Config public config;
     IERC20 public usdt;
+    
+    // FeederSelector for VRF random selection
+    address public feederSelector;
 
     uint256 public nextRequestId = 1;
 
@@ -423,6 +426,47 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
 
     function getSubmissions(uint256 requestId) external view returns (FeedSubmission[] memory) {
         return requestSubmissions[requestId];
+    }
+
+    // ==================== VRF 集成功能 ====================
+
+    /**
+     * @notice 获取活跃喂价员列表（供 FeederSelector 使用）
+     * @return activeFeeders 活跃喂价员地址数组
+     */
+    function getActiveFeeders() external view returns (address[] memory) {
+        uint256 activeCount = 0;
+        
+        // 先统计活跃数量
+        for (uint256 i = 0; i < feederList.length; i++) {
+            if (feeders[feederList[i]].isActive && 
+                !feeders[feederList[i]].isBlacklisted &&
+                feeders[feederList[i]].stakedAmount >= config.minFeederStake()) {
+                activeCount++;
+            }
+        }
+        
+        // 创建结果数组
+        address[] memory activeFeeders = new address[](activeCount);
+        uint256 index = 0;
+        
+        for (uint256 i = 0; i < feederList.length; i++) {
+            if (feeders[feederList[i]].isActive && 
+                !feeders[feederList[i]].isBlacklisted &&
+                feeders[feederList[i]].stakedAmount >= config.minFeederStake()) {
+                activeFeeders[index] = feederList[i];
+                index++;
+            }
+        }
+        
+        return activeFeeders;
+    }
+
+    /**
+     * @notice 设置 FeederSelector 地址
+     */
+    function setFeederSelector(address _feederSelector) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        feederSelector = _feederSelector;
     }
 
     // ==================== 管理功能 ====================

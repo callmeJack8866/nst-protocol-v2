@@ -117,8 +117,10 @@ export interface FeedProtocolInterface extends Interface {
       | "createFeedRequest"
       | "feedRequests"
       | "feederList"
+      | "feederSelector"
       | "feeders"
       | "finalizeFeed"
+      | "getActiveFeeders"
       | "getFeedFee"
       | "getFeedRequest"
       | "getFeeder"
@@ -141,6 +143,7 @@ export interface FeedProtocolInterface extends Interface {
       | "requestSubmissions"
       | "revokeRole"
       | "setConfig"
+      | "setFeederSelector"
       | "submitFeed"
       | "supportsInterface"
       | "tierConfigs"
@@ -205,12 +208,20 @@ export interface FeedProtocolInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "feederSelector",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "feeders",
     values: [AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "finalizeFeed",
     values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getActiveFeeders",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "getFeedFee",
@@ -295,6 +306,10 @@ export interface FeedProtocolInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "setFeederSelector",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
     functionFragment: "submitFeed",
     values: [BigNumberish, BigNumberish]
   ): string;
@@ -348,9 +363,17 @@ export interface FeedProtocolInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "feederList", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "feederSelector",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "feeders", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "finalizeFeed",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getActiveFeeders",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "getFeedFee", data: BytesLike): Result;
@@ -414,6 +437,10 @@ export interface FeedProtocolInterface extends Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "revokeRole", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "setConfig", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "setFeederSelector",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "submitFeed", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "supportsInterface",
@@ -817,6 +844,8 @@ export interface FeedProtocol extends BaseContract {
 
   feederList: TypedContractMethod<[arg0: BigNumberish], [string], "view">;
 
+  feederSelector: TypedContractMethod<[], [string], "view">;
+
   feeders: TypedContractMethod<
     [arg0: AddressLike],
     [
@@ -838,6 +867,8 @@ export interface FeedProtocol extends BaseContract {
     [bigint],
     "nonpayable"
   >;
+
+  getActiveFeeders: TypedContractMethod<[], [string[]], "view">;
 
   getFeedFee: TypedContractMethod<[tier: BigNumberish], [bigint], "view">;
 
@@ -949,6 +980,12 @@ export interface FeedProtocol extends BaseContract {
   >;
 
   setConfig: TypedContractMethod<[_config: AddressLike], [void], "nonpayable">;
+
+  setFeederSelector: TypedContractMethod<
+    [_feederSelector: AddressLike],
+    [void],
+    "nonpayable"
+  >;
 
   submitFeed: TypedContractMethod<
     [requestId: BigNumberish, price: BigNumberish],
@@ -1063,6 +1100,9 @@ export interface FeedProtocol extends BaseContract {
     nameOrSignature: "feederList"
   ): TypedContractMethod<[arg0: BigNumberish], [string], "view">;
   getFunction(
+    nameOrSignature: "feederSelector"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
     nameOrSignature: "feeders"
   ): TypedContractMethod<
     [arg0: AddressLike],
@@ -1082,6 +1122,9 @@ export interface FeedProtocol extends BaseContract {
   getFunction(
     nameOrSignature: "finalizeFeed"
   ): TypedContractMethod<[requestId: BigNumberish], [bigint], "nonpayable">;
+  getFunction(
+    nameOrSignature: "getActiveFeeders"
+  ): TypedContractMethod<[], [string[]], "view">;
   getFunction(
     nameOrSignature: "getFeedFee"
   ): TypedContractMethod<[tier: BigNumberish], [bigint], "view">;
@@ -1199,6 +1242,9 @@ export interface FeedProtocol extends BaseContract {
   getFunction(
     nameOrSignature: "setConfig"
   ): TypedContractMethod<[_config: AddressLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "setFeederSelector"
+  ): TypedContractMethod<[_feederSelector: AddressLike], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "submitFeed"
   ): TypedContractMethod<

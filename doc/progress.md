@@ -2,6 +2,27 @@
 
 ## 2024-12-28
 
+### [20:11] - Chainlink VRF 集成完成
+
+**Status**: Done
+
+**Changes**:
+- 安装 `@chainlink/contracts`（154 packages）
+- 创建 `FeederSelector.sol` - Chainlink VRF V2.5 随机喂价员选择合约
+  - 使用 Fisher-Yates 洗牌算法公平随机选择
+  - 支持 BSC Mainnet/Testnet VRF Coordinator
+  - 处理候选人数量等于需求数量的边界情况
+- 更新 `FeedProtocol.sol`
+  - 添加 `feederSelector` 状态变量
+  - 添加 `getActiveFeeders()` 查询活跃喂价员列表
+  - 添加 `setFeederSelector()` 配置函数
+- 编译验证通过：23个 Solidity 文件
+
+**Next Step**:
+- 继续其他功能或编写测试
+
+---
+
 ### [20:05] - 跟量成交喂价功能完成
 
 **Status**: Done
