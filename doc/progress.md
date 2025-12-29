@@ -2,6 +2,65 @@
 
 ## 2024-12-28
 
+### [20:44] - 合约 ABI 和 React Hooks 完成
+
+**Status**: Done
+
+**Changes**:
+- 创建 `contracts/config.ts` - BSC Mainnet/Testnet 合约地址配置
+- 创建 `contracts/abis.ts` - 合约 ABI 定义（human-readable 格式）
+- 创建 `hooks/useContracts.ts`：
+  - `useWallet()` - 钱包连接、网络切换
+  - `useContracts()` - 合约实例管理
+  - `useUSDT()` - USDT 余额查询、授权
+  - `useOptions()` - 期权交易操作
+- 创建 `hooks/useFeedAndPoints.ts`：
+  - `useFeedProtocol()` - 喂价协议操作
+  - `usePoints()` - 积分查询和空投领取
+- 前端构建成功
+
+**Next Step**:
+- 继续开发或部署
+
+---
+
+### [20:35] - 前端页面开发完成
+
+**Status**: Done
+
+**Changes**:
+- 创建 `SellerHall.tsx` - 卖方订单大厅（买方询价列表、报价提交模态框）
+- 创建 `FeederPanel.tsx` - 喂价工作台（待喂价列表、喂价提交/拒绝）
+- 创建 `MyOrders.tsx` - 我的订单（买方/卖方视角切换、盈亏显示）
+- 创建 `PointsCenter.tsx` - 积分中心（积分余额、空投领取、历史记录）
+- 更新 `App.tsx` - 路由配置
+- 前端构建成功：240KB JS + 23KB CSS
+
+**Next Step**:
+- 连接合约或继续其他开发
+
+---
+
+### [20:20] - 前端项目初始化完成
+
+**Status**: Done
+
+**Changes**:
+- 创建 React + TypeScript + Vite 项目
+- 安装依赖：ethers v6、@web3-react、react-router-dom、i18next、tailwindcss v4
+- 配置 TailwindCSS v4（使用 @theme 定义自定义颜色） 
+- 创建核心组件：
+  - `Header.tsx` - 导航栏、MetaMask 连接
+  - `OrderCard.tsx` - 订单卡片组件
+  - `BuyerHall.tsx` - 买方订单大厅页面
+  - `App.tsx` - 路由配置
+- 前端构建成功：240KB JS + 19KB CSS
+
+**Next Step**:
+- 继续开发其他页面
+
+---
+
 ### [20:11] - Chainlink VRF 集成完成
 
 **Status**: Done

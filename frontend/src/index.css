@@ -1,0 +1,196 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@theme {
+  --color-primary-50: #fef7e6;
+  --color-primary-100: #fdecc7;
+  --color-primary-200: #fbd78c;
+  --color-primary-300: #f9c051;
+  --color-primary-400: #f7a81f;
+  --color-primary-500: #e08b0a;
+  --color-primary-600: #c46a06;
+  --color-primary-700: #9e4b09;
+  --color-primary-800: #823c10;
+  --color-primary-900: #6e3211;
+
+  --color-dark-50: #f6f6f9;
+  --color-dark-100: #ececf2;
+  --color-dark-200: #d5d6e2;
+  --color-dark-300: #b1b3c8;
+  --color-dark-400: #8789a9;
+  --color-dark-500: #686a8f;
+  --color-dark-600: #535576;
+  --color-dark-700: #444560;
+  --color-dark-800: #3b3b51;
+  --color-dark-900: #1a1a2e;
+  --color-dark-950: #0f0f1a;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: linear-gradient(135deg, var(--color-dark-950) 0%, var(--color-dark-900) 50%, var(--color-dark-950) 100%);
+  min-height: 100vh;
+  color: white;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-dark-900);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-dark-700);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-dark-600);
+}
+
+/* Component classes */
+.glass-card {
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(20px);
+  border-radius: 1rem;
+  border: 1px solid rgba(68, 69, 96, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.glass-card-hover {
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(20px);
+  border-radius: 1rem;
+  border: 1px solid rgba(68, 69, 96, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.glass-card-hover:hover {
+  border-color: rgba(247, 168, 31, 0.3);
+  box-shadow: 0 8px 32px rgba(247, 168, 31, 0.1);
+  transform: translateY(-2px);
+}
+
+.btn-primary {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(to right, var(--color-primary-500), var(--color-primary-600));
+  color: white;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 16px rgba(247, 168, 31, 0.25);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(to right, var(--color-primary-400), var(--color-primary-500));
+  box-shadow: 0 4px 16px rgba(247, 168, 31, 0.4);
+}
+
+.btn-secondary {
+  padding: 0.75rem 1.5rem;
+  background: var(--color-dark-800);
+  color: white;
+  font-weight: 500;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-dark-600);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  background: var(--color-dark-700);
+  border-color: rgba(247, 168, 31, 0.5);
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(59, 59, 81, 0.8);
+  border: 1px solid var(--color-dark-600);
+  border-radius: 0.75rem;
+  color: white;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.input-field::placeholder {
+  color: var(--color-dark-400);
+}
+
+.input-field:focus {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(247, 168, 31, 0.2);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.badge-success {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-info {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Animations */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out;
+}
