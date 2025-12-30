@@ -441,10 +441,9 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         emit MarginChanged(orderId, msg.sender, oldMargin, order.currentMargin, "withdraw", block.timestamp);
     }
 
-    // ==================== 结算功能实现 ====================
-
     /**
      * @notice 到期结算
+     * @dev 根据最终喂价与开仓价计算盈亏，划转资金
      */
     function settle(uint256 orderId) external override 
         validOrder(orderId) 
@@ -453,16 +452,91 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
     {
         Order storage order = orders[orderId];
         require(order.status == OrderStatus.PENDING_SETTLEMENT, "OptionsCore: not pending settlement");
+        require(order.lastFeedPrice > 0, "OptionsCore: no feed price");
 
         // 计算盈亏
-        // TODO: 实现具体结算逻辑
+        uint256 strikePrice = _parsePrice(order.refPrice);
+        uint256 finalPrice = order.lastFeedPrice;
+        
+        uint256 buyerProfit = 0;
+        
+        if (order.direction == Direction.Call) {
+            // 看涨期权：买方盈利 = max(0, 最终价 - 开仓价) * 名义本金 / 开仓价
+            if (finalPrice > strikePrice) {
+                buyerProfit = (finalPrice - strikePrice) * order.notionalUSDT / strikePrice;
+            }
+        } else {
+            // 看跌期权：买方盈利 = max(0, 开仓价 - 最终价) * 名义本金 / 开仓价
+            if (strikePrice > finalPrice) {
+                buyerProfit = (strikePrice - finalPrice) * order.notionalUSDT / strikePrice;
+            }
+        }
+
+        // 限制盈利不超过卖方保证金
+        uint256 buyerPayout = 0;
+        uint256 sellerPayout = 0;
+        
+        if (buyerProfit > 0) {
+            // 买方盈利，从卖方保证金中划出
+            if (buyerProfit > order.currentMargin) {
+                buyerProfit = order.currentMargin; // 最多赔完保证金
+            }
+            buyerPayout = buyerProfit;
+            sellerPayout = order.currentMargin - buyerProfit;
+        } else {
+            // 买方亏损或平价，卖方拿回全部保证金
+            sellerPayout = order.currentMargin;
+        }
+
+        // 划转资金
+        if (buyerPayout > 0) {
+            vaultManager.transferMargin(
+                order.seller,
+                order.buyer,
+                address(usdt),
+                buyerPayout,
+                "settlement payout"
+            );
+        }
+        
+        // 释放剩余保证金给卖方
+        if (sellerPayout > 0) {
+            vaultManager.withdrawMargin(order.seller, address(usdt), sellerPayout);
+        }
 
         OrderStatus oldStatus = order.status;
         order.status = OrderStatus.SETTLED;
         order.settledAt = block.timestamp;
 
-        emit OrderSettled(orderId, 0, 0, block.timestamp);
+        emit OrderSettled(orderId, buyerPayout, sellerPayout, block.timestamp);
         emit OrderStatusChanged(orderId, oldStatus, OrderStatus.SETTLED, "settled", block.timestamp);
+    }
+
+    /**
+     * @notice 解析价格字符串为 uint256 (简化实现，实际需要更复杂的解析)
+     */
+    function _parsePrice(string memory priceStr) internal pure returns (uint256) {
+        bytes memory b = bytes(priceStr);
+        uint256 result = 0;
+        uint256 decimals = 0;
+        bool afterDot = false;
+        
+        for (uint256 i = 0; i < b.length; i++) {
+            if (b[i] == '.') {
+                afterDot = true;
+                continue;
+            }
+            if (b[i] >= '0' && b[i] <= '9') {
+                result = result * 10 + (uint8(b[i]) - 48);
+                if (afterDot) decimals++;
+            }
+        }
+        
+        // 标准化到 18 位小数
+        if (decimals < 18) {
+            result = result * (10 ** (18 - decimals));
+        }
+        return result;
     }
 
     /**

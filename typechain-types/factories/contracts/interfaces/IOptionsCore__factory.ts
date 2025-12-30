@@ -181,15 +181,15 @@ const _abi = [
       },
       {
         indexed: false,
-        internalType: "int256",
-        name: "buyerPnL",
-        type: "int256",
+        internalType: "uint256",
+        name: "buyerPayout",
+        type: "uint256",
       },
       {
         indexed: false,
-        internalType: "int256",
-        name: "sellerPnL",
-        type: "int256",
+        internalType: "uint256",
+        name: "sellerPayout",
+        type: "uint256",
       },
       {
         indexed: false,

@@ -33,8 +33,8 @@ interface IOptionsCore {
 
     event OrderSettled(
         uint256 indexed orderId,
-        int256 buyerPnL,
-        int256 sellerPnL,
+        uint256 buyerPayout,
+        uint256 sellerPayout,
         uint256 timestamp
     );
 

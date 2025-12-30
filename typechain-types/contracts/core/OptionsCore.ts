@@ -667,20 +667,20 @@ export namespace OrderMatchedEvent {
 export namespace OrderSettledEvent {
   export type InputTuple = [
     orderId: BigNumberish,
-    buyerPnL: BigNumberish,
-    sellerPnL: BigNumberish,
+    buyerPayout: BigNumberish,
+    sellerPayout: BigNumberish,
     timestamp: BigNumberish
   ];
   export type OutputTuple = [
     orderId: bigint,
-    buyerPnL: bigint,
-    sellerPnL: bigint,
+    buyerPayout: bigint,
+    sellerPayout: bigint,
     timestamp: bigint
   ];
   export interface OutputObject {
     orderId: bigint;
-    buyerPnL: bigint;
-    sellerPnL: bigint;
+    buyerPayout: bigint;
+    sellerPayout: bigint;
     timestamp: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
@@ -1729,7 +1729,7 @@ export interface OptionsCore extends BaseContract {
       OrderMatchedEvent.OutputObject
     >;
 
-    "OrderSettled(uint256,int256,int256,uint256)": TypedContractEvent<
+    "OrderSettled(uint256,uint256,uint256,uint256)": TypedContractEvent<
       OrderSettledEvent.InputTuple,
       OrderSettledEvent.OutputTuple,
       OrderSettledEvent.OutputObject

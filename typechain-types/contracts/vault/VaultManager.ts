@@ -28,9 +28,14 @@ export interface VaultManagerInterface extends Interface {
     nameOrSignature:
       | "DEFAULT_ADMIN_ROLE"
       | "VAULT_OPERATOR_ROLE"
+      | "allocateProfitToSubPools"
+      | "batchDistributeNodeRewards"
       | "collectFee"
       | "config"
       | "depositMargin"
+      | "depositToDonationPool"
+      | "depositToInteractPool"
+      | "depositToLPPool"
       | "distributeProfits"
       | "donationPoolBalance"
       | "getProfitPoolBalance"
@@ -54,6 +59,9 @@ export interface VaultManagerInterface extends Interface {
       | "transferToFeedProtocol"
       | "unpause"
       | "userMarginBalance"
+      | "withdrawFromDonationPool"
+      | "withdrawFromInteractPool"
+      | "withdrawFromLPPool"
       | "withdrawMargin"
   ): FunctionFragment;
 
@@ -80,6 +88,14 @@ export interface VaultManagerInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "allocateProfitToSubPools",
+    values: [AddressLike, BigNumberish, BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "batchDistributeNodeRewards",
+    values: [AddressLike, AddressLike[], BigNumberish[]]
+  ): string;
+  encodeFunctionData(
     functionFragment: "collectFee",
     values: [AddressLike, AddressLike, BigNumberish, string]
   ): string;
@@ -87,6 +103,18 @@ export interface VaultManagerInterface extends Interface {
   encodeFunctionData(
     functionFragment: "depositMargin",
     values: [AddressLike, AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "depositToDonationPool",
+    values: [AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "depositToInteractPool",
+    values: [AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "depositToLPPool",
+    values: [AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "distributeProfits",
@@ -172,6 +200,18 @@ export interface VaultManagerInterface extends Interface {
     values: [AddressLike, AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "withdrawFromDonationPool",
+    values: [AddressLike, BigNumberish, AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "withdrawFromInteractPool",
+    values: [AddressLike, BigNumberish, AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "withdrawFromLPPool",
+    values: [AddressLike, BigNumberish, AddressLike]
+  ): string;
+  encodeFunctionData(
     functionFragment: "withdrawMargin",
     values: [AddressLike, AddressLike, BigNumberish]
   ): string;
@@ -184,10 +224,30 @@ export interface VaultManagerInterface extends Interface {
     functionFragment: "VAULT_OPERATOR_ROLE",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "allocateProfitToSubPools",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "batchDistributeNodeRewards",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "collectFee", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "config", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "depositMargin",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "depositToDonationPool",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "depositToInteractPool",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "depositToLPPool",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -259,6 +319,18 @@ export interface VaultManagerInterface extends Interface {
   decodeFunctionResult(functionFragment: "unpause", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "userMarginBalance",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "withdrawFromDonationPool",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "withdrawFromInteractPool",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "withdrawFromLPPool",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -527,6 +599,23 @@ export interface VaultManager extends BaseContract {
 
   VAULT_OPERATOR_ROLE: TypedContractMethod<[], [string], "view">;
 
+  allocateProfitToSubPools: TypedContractMethod<
+    [
+      _token: AddressLike,
+      _lpAmount: BigNumberish,
+      _interactAmount: BigNumberish,
+      _donationAmount: BigNumberish
+    ],
+    [void],
+    "nonpayable"
+  >;
+
+  batchDistributeNodeRewards: TypedContractMethod<
+    [_token: AddressLike, _recipients: AddressLike[], _amounts: BigNumberish[]],
+    [void],
+    "nonpayable"
+  >;
+
   collectFee: TypedContractMethod<
     [
       _user: AddressLike,
@@ -542,6 +631,24 @@ export interface VaultManager extends BaseContract {
 
   depositMargin: TypedContractMethod<
     [_user: AddressLike, _token: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  depositToDonationPool: TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  depositToInteractPool: TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  depositToLPPool: TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish],
     [void],
     "nonpayable"
   >;
@@ -658,6 +765,24 @@ export interface VaultManager extends BaseContract {
     "view"
   >;
 
+  withdrawFromDonationPool: TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish, _recipient: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
+  withdrawFromInteractPool: TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish, _recipient: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
+  withdrawFromLPPool: TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish, _recipient: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
   withdrawMargin: TypedContractMethod<
     [_user: AddressLike, _token: AddressLike, _amount: BigNumberish],
     [void],
@@ -674,6 +799,25 @@ export interface VaultManager extends BaseContract {
   getFunction(
     nameOrSignature: "VAULT_OPERATOR_ROLE"
   ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "allocateProfitToSubPools"
+  ): TypedContractMethod<
+    [
+      _token: AddressLike,
+      _lpAmount: BigNumberish,
+      _interactAmount: BigNumberish,
+      _donationAmount: BigNumberish
+    ],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "batchDistributeNodeRewards"
+  ): TypedContractMethod<
+    [_token: AddressLike, _recipients: AddressLike[], _amounts: BigNumberish[]],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "collectFee"
   ): TypedContractMethod<
@@ -693,6 +837,27 @@ export interface VaultManager extends BaseContract {
     nameOrSignature: "depositMargin"
   ): TypedContractMethod<
     [_user: AddressLike, _token: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "depositToDonationPool"
+  ): TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "depositToInteractPool"
+  ): TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "depositToLPPool"
+  ): TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish],
     [void],
     "nonpayable"
   >;
@@ -806,6 +971,27 @@ export interface VaultManager extends BaseContract {
     [arg0: AddressLike, arg1: AddressLike],
     [bigint],
     "view"
+  >;
+  getFunction(
+    nameOrSignature: "withdrawFromDonationPool"
+  ): TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish, _recipient: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "withdrawFromInteractPool"
+  ): TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish, _recipient: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "withdrawFromLPPool"
+  ): TypedContractMethod<
+    [_token: AddressLike, _amount: BigNumberish, _recipient: AddressLike],
+    [void],
+    "nonpayable"
   >;
   getFunction(
     nameOrSignature: "withdrawMargin"

@@ -198,8 +198,6 @@ contract VaultManager is AccessControl, ReentrancyGuard, Pausable {
         emit ProfitDistributed(_token, _amount, "all", block.timestamp);
     }
 
-    // ==================== 喂价费用操作 ====================
-
     /**
      * @notice 转移喂价费用到喂价生态
      * @param _token 代币地址
@@ -211,8 +209,156 @@ contract VaultManager is AccessControl, ReentrancyGuard, Pausable {
         uint256 _amount,
         address _feedProtocol
     ) external onlyOperator nonReentrant whenNotPaused {
+        require(interactPoolBalance[_token] >= _amount, "VaultManager: insufficient interact pool");
         interactPoolBalance[_token] -= _amount;
         IERC20(_token).safeTransfer(_feedProtocol, _amount);
+    }
+
+    // ==================== LP池操作 ====================
+
+    /**
+     * @notice 存入LP池
+     */
+    function depositToLPPool(
+        address _token,
+        uint256 _amount
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(_amount > 0, "VaultManager: amount must be greater than 0");
+        IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+        lpPoolBalance[_token] += _amount;
+        
+        emit ProfitDistributed(_token, _amount, "lp_deposit", block.timestamp);
+    }
+
+    /**
+     * @notice 从LP池提取
+     */
+    function withdrawFromLPPool(
+        address _token,
+        uint256 _amount,
+        address _recipient
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(lpPoolBalance[_token] >= _amount, "VaultManager: insufficient LP pool");
+        lpPoolBalance[_token] -= _amount;
+        IERC20(_token).safeTransfer(_recipient, _amount);
+        
+        emit ProfitDistributed(_token, _amount, "lp_withdraw", block.timestamp);
+    }
+
+    // ==================== 交互池操作 ====================
+
+    /**
+     * @notice 存入交互池（用于支付合约交互费用）
+     */
+    function depositToInteractPool(
+        address _token,
+        uint256 _amount
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(_amount > 0, "VaultManager: amount must be greater than 0");
+        IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+        interactPoolBalance[_token] += _amount;
+        
+        emit ProfitDistributed(_token, _amount, "interact_deposit", block.timestamp);
+    }
+
+    /**
+     * @notice 从交互池提取
+     */
+    function withdrawFromInteractPool(
+        address _token,
+        uint256 _amount,
+        address _recipient
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(interactPoolBalance[_token] >= _amount, "VaultManager: insufficient interact pool");
+        interactPoolBalance[_token] -= _amount;
+        IERC20(_token).safeTransfer(_recipient, _amount);
+        
+        emit ProfitDistributed(_token, _amount, "interact_withdraw", block.timestamp);
+    }
+
+    // ==================== 捐赠节点池操作 ====================
+
+    /**
+     * @notice 存入捐赠节点池
+     */
+    function depositToDonationPool(
+        address _token,
+        uint256 _amount
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(_amount > 0, "VaultManager: amount must be greater than 0");
+        IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+        donationPoolBalance[_token] += _amount;
+        
+        emit ProfitDistributed(_token, _amount, "donation_deposit", block.timestamp);
+    }
+
+    /**
+     * @notice 从捐赠节点池提取（用于节点奖励分配）
+     */
+    function withdrawFromDonationPool(
+        address _token,
+        uint256 _amount,
+        address _recipient
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(donationPoolBalance[_token] >= _amount, "VaultManager: insufficient donation pool");
+        donationPoolBalance[_token] -= _amount;
+        IERC20(_token).safeTransfer(_recipient, _amount);
+        
+        emit ProfitDistributed(_token, _amount, "donation_withdraw", block.timestamp);
+    }
+
+    /**
+     * @notice 批量分配节点奖励
+     * @param _token 代币地址
+     * @param _recipients 接收者列表
+     * @param _amounts 金额列表
+     */
+    function batchDistributeNodeRewards(
+        address _token,
+        address[] calldata _recipients,
+        uint256[] calldata _amounts
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(_recipients.length == _amounts.length, "VaultManager: length mismatch");
+        
+        uint256 totalAmount = 0;
+        for (uint256 i = 0; i < _amounts.length; i++) {
+            totalAmount += _amounts[i];
+        }
+        require(donationPoolBalance[_token] >= totalAmount, "VaultManager: insufficient donation pool");
+        
+        donationPoolBalance[_token] -= totalAmount;
+        
+        for (uint256 i = 0; i < _recipients.length; i++) {
+            IERC20(_token).safeTransfer(_recipients[i], _amounts[i]);
+        }
+        
+        emit ProfitDistributed(_token, totalAmount, "node_rewards_batch", block.timestamp);
+    }
+
+    // ==================== 利润池高级操作 ====================
+
+    /**
+     * @notice 从利润池转入其他子池
+     * @param _token 代币地址
+     * @param _lpAmount LP池金额
+     * @param _interactAmount 交互池金额
+     * @param _donationAmount 捐赠池金额
+     */
+    function allocateProfitToSubPools(
+        address _token,
+        uint256 _lpAmount,
+        uint256 _interactAmount,
+        uint256 _donationAmount
+    ) external onlyOperator nonReentrant whenNotPaused {
+        uint256 totalAmount = _lpAmount + _interactAmount + _donationAmount;
+        require(profitPoolBalance[_token] >= totalAmount, "VaultManager: insufficient profit pool");
+        
+        profitPoolBalance[_token] -= totalAmount;
+        lpPoolBalance[_token] += _lpAmount;
+        interactPoolBalance[_token] += _interactAmount;
+        donationPoolBalance[_token] += _donationAmount;
+        
+        emit ProfitDistributed(_token, totalAmount, "profit_allocation", block.timestamp);
     }
 
     // ==================== 查询函数 ====================
