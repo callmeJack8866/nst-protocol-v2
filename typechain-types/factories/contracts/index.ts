@@ -4,6 +4,7 @@
 export * as core from "./core";
 export * as feed from "./feed";
 export * as interfaces from "./interfaces";
+export * as mocks from "./mocks";
 export * as points from "./points";
 export * as seat from "./seat";
 export * as vault from "./vault";

@@ -7,6 +7,8 @@ import type * as feed from "./feed";
 export type { feed };
 import type * as interfaces from "./interfaces";
 export type { interfaces };
+import type * as mocks from "./mocks";
+export type { mocks };
 import type * as points from "./points";
 export type { points };
 import type * as seat from "./seat";
