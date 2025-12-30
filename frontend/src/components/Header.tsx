@@ -1,106 +1,109 @@
 ﻿import { Link, useLocation } from 'react-router-dom';
 import { useWallet } from '../hooks';
-
-const navItems = [
-  { path: '/buyer', label: '买方大厅', icon: '' },
-  { path: '/seller', label: '卖方大厅', icon: '' },
-  { path: '/orders', label: '我的订单', icon: '' },
-  { path: '/feeder', label: '喂价工作台', icon: '' },
-  { path: '/points', label: '积分中心', icon: '' },
-];
+import { useState } from 'react';
 
 export function Header() {
   const location = useLocation();
-  const { account, chainId, isConnected, isConnecting, connect, disconnect, switchToBSC } = useWallet();
+  const { account, chainId, isConnected, isConnecting, connect, disconnect } = useWallet();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  const getNetworkName = (id: number | null) => id === 56 ? 'BSC' : id === 97 ? 'BSC Testnet' : 'Wrong Network';
-  const isCorrectNetwork = chainId === 56 || chainId === 97;
+  const navLinks = [
+    { name: '买方大厅', path: '/buyer' },
+    { name: '卖方大厅', path: '/seller' },
+    { name: '我的订单', path: '/orders' },
+    { name: '喂价工作台', path: '/feeder' },
+    { name: '积分中心', path: '/points' },
+  ];
+
+  const isActive = (path: string) => location.pathname === path || (path === '/buyer' && location.pathname === '/');
 
   return (
-    <header className="sticky top-0 z-50 bg-dark-950/40 backdrop-blur-2xl border-b border-white/5">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary-400 via-primary-500 to-primary-700 flex items-center justify-center shadow-lg shadow-primary-500/20 group-hover:scale-105 transition-transform">
-              <span className="text-black font-extrabold text-xl">N</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-black text-white leading-none tracking-tight">NST Options</span>
-              <span className="text-[10px] text-primary-400 font-bold uppercase tracking-[0.2em] mt-1">Institutional Grade</span>
-            </div>
-          </Link>
+    <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-dark-950/80 backdrop-blur-xl">
+      <div className="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between">
 
-          {/* Navigation */}
-          <nav className="hidden xl:flex items-center space-x-2">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center space-x-2 ${
-                  location.pathname === item.path
-                    ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20 shadow-inner'
-                    : 'text-dark-300 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <span className="opacity-80 grayscale group-hover:grayscale-0">{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </nav>
-
-          {/* Wallet Section */}
-          <div className="flex items-center space-x-4">
-            {isConnected && account ? (
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => !isCorrectNetwork && switchToBSC(true)}
-                  className={`hidden sm:flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border transition-all ${
-                    isCorrectNetwork 
-                      ? 'text-green-400 bg-green-500/5 border-green-500/20 hover:bg-green-500/10' 
-                      : 'text-red-400 bg-red-500/5 border-red-500/20 hover:pulse-red'
-                  }`}
-                >
-                  <div className={`w-1.5 h-1.5 rounded-full ${isCorrectNetwork ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]' : 'bg-red-400 animate-pulse'}`} />
-                  <span>{getNetworkName(chainId)}</span>
-                </button>
-                
-                <div className="relative group">
-                  <button className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-4 py-2 transition-all">
-                    <div className="w-2 h-2 rounded-full bg-primary-400 shadow-[0_0_8px_rgba(247,168,31,0.6)]" />
-                    <span className="text-sm font-bold text-white font-mono">{formatAddress(account)}</span>
-                  </button>
-                  
-                  <div className="absolute right-0 top-full mt-3 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-                    <div className="bg-dark-900/90 backdrop-blur-3xl border border-white/10 rounded-2xl p-2 shadow-2xl">
-                      <button 
-                        onClick={disconnect} 
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-red-500/10 text-red-400 hover:text-red-300 text-sm font-bold rounded-xl transition-colors"
-                      >
-                        <span>断开连接</span>
-                        <span></span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <button 
-                onClick={connect} 
-                disabled={isConnecting} 
-                className="btn-primary flex items-center space-x-2 relative overflow-hidden group"
-              >
-                <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12" />
-                <span className="relative z-10">{isConnecting ? '连接中...' : '连接钱包'}</span>
-                <span className="relative z-10 text-base"></span>
-              </button>
-            )}
+        {/* Left: Logo */}
+        <Link to="/" className="flex items-center group">
+          <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/20 group-hover:scale-105 transition-transform">
+            <span className="text-black font-black text-xl">N</span>
           </div>
+          <div className="ml-3">
+            <h1 className="text-lg font-black text-white tracking-tighter leading-none">NST Options</h1>
+            <p className="text-[8px] font-black text-primary-500 uppercase tracking-[0.2em] mt-1 opacity-70">Institutional Grade</p>
+          </div>
+        </Link>
+
+        {/* Center: Navigation - Balanced and Spaced */}
+        <nav className="hidden lg:flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/5">
+          {navLinks.map((link) => (
+            <Link
+              key={link.path}
+              to={link.path}
+              className={`px-6 py-2 rounded-xl text-xs font-black transition-all duration-300 uppercase tracking-widest
+                ${isActive(link.path)
+                  ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/10'
+                  : 'text-dark-400 hover:text-white hover:bg-white/5'}`}
+            >
+              {link.name}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Right: Wallet Actions */}
+        <div className="flex items-center space-x-4">
+          {isConnected && (
+            <div className="hidden sm:flex items-center px-3 py-1.5 rounded-xl bg-dark-900 border border-white/5 text-[10px] font-black uppercase tracking-widest text-dark-400">
+              <span className={`w-2 h-2 rounded-full mr-2 ${chainId === 97 ? 'bg-green-500' : 'bg-amber-500'}`} />
+              {chainId === 97 ? 'BSC Testnet' : 'Mainnet'}
+            </div>
+          )}
+
+          {!isConnected ? (
+            <button
+              onClick={connect}
+              disabled={isConnecting}
+              className="btn-primary px-8 py-2.5 text-xs font-black group relative overflow-hidden"
+            >
+              <span className="relative z-10">{isConnecting ? 'Connecting...' : 'Connect Wallet'}</span>
+              <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+            </button>
+          ) : (
+            <div className="relative">
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center space-x-3 bg-dark-900 border border-white/10 hover:border-primary-500/30 px-4 py-2 rounded-xl transition-all group"
+              >
+                <div className="text-right hidden md:block">
+                  <p className="text-[9px] font-black text-dark-500 uppercase tracking-widest">Active Account</p>
+                  <p className="text-xs font-bold text-white font-mono">{account?.slice(0, 6)}...{account?.slice(-4)}</p>
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-dark-700 to-dark-900 border border-white/10 flex items-center justify-center text-primary-500 group-hover:text-white transition-colors">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+              </button>
+
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-3 w-56 glass-card p-2 border-white/10 animate-fade-in-up">
+                  <div className="p-3 mb-2 bg-white/5 rounded-xl">
+                    <p className="text-[8px] font-black text-dark-500 uppercase tracking-[0.2em] mb-1">Network Balance</p>
+                    <p className="text-sm font-black text-white">--- BNB</p>
+                  </div>
+                  <button
+                    onClick={() => { disconnect(); setIsDropdownOpen(false); }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors text-xs font-bold"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span>Disconnect Wallet</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </header>
   );
 }
-
-export default Header;
