@@ -1,11 +1,12 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 // Mock data for user orders
 const mockUserOrders = {
     asBuyer: [
         {
             orderId: 1,
-            underlyingName: '黄金 AU',
+            underlyingName: '黄金 Gold',
             underlyingCode: 'XAU',
             market: 'CN',
             direction: 'Call' as const,
@@ -56,9 +57,9 @@ const mockUserOrders = {
 
 export function MyOrders() {
     const [viewMode, setViewMode] = useState<'buyer' | 'seller'>('buyer');
-    const [statusFilter, setStatusFilter] = useState('全部');
+    const [statusFilter, setStatusFilter] = useState('全部 All');
 
-    const statusFilters = ['全部', '持仓中', '待结算', '已结算', '已取消'];
+    const statusFilters = ['全部 All', '持仓中 Live', '待结算 Pending', '已结算 Settled', '已取消 Cancelled'];
 
     const formatAmount = (amount: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -76,52 +77,56 @@ export function MyOrders() {
         });
     };
 
-    const getStatusBadge = (status: string) => {
-        const styles: Record<string, string> = {
-            LIVE: 'badge-success',
-            SETTLED: 'badge-info',
-            PENDING_SETTLEMENT: 'badge-warning',
-            CANCELLED: 'badge-error',
-        };
-        return styles[status] || 'badge-info';
+    const getStatusTheme = (status: string) => {
+        switch (status) {
+            case 'LIVE': return 'text-green-400 bg-green-500/10 border-green-500/20';
+            case 'SETTLED': return 'text-primary-400 bg-primary-500/10 border-primary-500/20';
+            case 'PENDING_SETTLEMENT': return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+            case 'CANCELLED': return 'text-dark-400 bg-dark-500/10 border-dark-500/20';
+            default: return 'text-dark-300 bg-dark-500/10 border-dark-500/20';
+        }
     };
 
     const orders = viewMode === 'buyer' ? mockUserOrders.asBuyer : mockUserOrders.asSeller;
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             {/* Page Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2">我的订单</h1>
-                <p className="text-dark-400">查看和管理您的所有期权订单</p>
+            <div className="mb-14 animate-fade-in-up">
+                <div className="flex items-center space-x-2 mb-3">
+                    <span className="w-8 h-1 bg-primary-500 rounded-full" />
+                    <span className="text-[10px] font-black text-primary-400 uppercase tracking-[0.3em]">Portfolio Management</span>
+                </div>
+                <h1 className="text-5xl font-black text-white mb-3 tracking-tighter">我的订单 <span className="text-gradient-gold">My Orders</span></h1>
+                <p className="text-dark-400 text-lg font-medium">Monitor your active positions, manage margins, and review historical performance.</p>
             </div>
 
-            {/* View Toggle */}
-            <div className="flex items-center space-x-4 mb-6">
-                <div className="flex bg-dark-800/50 rounded-xl p-1">
+            {/* View & Filter Bar */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-10">
+                <div className="flex bg-dark-900 border border-white/5 rounded-2xl p-1.5 shadow-2xl">
                     <button
                         onClick={() => setViewMode('buyer')}
-                        className={`px-6 py-2 rounded-lg text-sm font-medium transition-all
-              ${viewMode === 'buyer' ? 'bg-primary-500 text-white' : 'text-dark-300 hover:text-white'}`}
+                        className={`px-8 py-3 rounded-xl text-sm font-black transition-all uppercase tracking-widest
+                            ${viewMode === 'buyer' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'text-dark-400 hover:text-white'}`}
                     >
-                        📋 买方订单
+                         买方 Buyer
                     </button>
                     <button
                         onClick={() => setViewMode('seller')}
-                        className={`px-6 py-2 rounded-lg text-sm font-medium transition-all
-              ${viewMode === 'seller' ? 'bg-primary-500 text-white' : 'text-dark-300 hover:text-white'}`}
+                        className={`px-8 py-3 rounded-xl text-sm font-black transition-all uppercase tracking-widest
+                            ${viewMode === 'seller' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'text-dark-400 hover:text-white'}`}
                     >
-                        📊 卖方订单
+                         卖方 Seller
                     </button>
                 </div>
 
-                <div className="flex bg-dark-800/50 rounded-xl p-1">
+                <div className="flex bg-dark-900/50 border border-white/5 rounded-2xl p-1.5 overflow-x-auto max-w-full">
                     {statusFilters.map((filter) => (
                         <button
                             key={filter}
                             onClick={() => setStatusFilter(filter)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all
-                ${statusFilter === filter ? 'bg-dark-600 text-white' : 'text-dark-400 hover:text-white'}`}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap
+                                ${statusFilter === filter ? 'bg-white/10 text-white' : 'text-dark-500 hover:text-dark-300'}`}
                         >
                             {filter}
                         </button>
@@ -130,127 +135,118 @@ export function MyOrders() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="glass-card p-4">
-                    <p className="text-sm text-dark-400 mb-1">持仓订单</p>
-                    <p className="text-2xl font-bold text-white">
-                        {orders.filter(o => o.status === 'LIVE').length}
-                    </p>
-                </div>
-                <div className="glass-card p-4">
-                    <p className="text-sm text-dark-400 mb-1">总名义本金</p>
-                    <p className="text-2xl font-bold text-primary-400">
-                        {formatAmount(orders.reduce((sum, o) => sum + o.notionalUSDT, 0))}
-                    </p>
-                </div>
-                <div className="glass-card p-4">
-                    <p className="text-sm text-dark-400 mb-1">
-                        {viewMode === 'buyer' ? '未实现盈亏' : '当前保证金'}
-                    </p>
-                    <p className={`text-2xl font-bold ${viewMode === 'buyer' ? 'text-green-400' : 'text-white'}`}>
-                        {viewMode === 'buyer'
-                            ? formatAmount(orders.reduce((sum, o: any) => sum + (o.unrealizedPnL || 0), 0))
-                            : formatAmount(orders.reduce((sum, o: any) => sum + (o.currentMargin || 0), 0))
-                        }
-                    </p>
-                </div>
-                <div className="glass-card p-4">
-                    <p className="text-sm text-dark-400 mb-1">
-                        {viewMode === 'buyer' ? '支付期权费' : '收取期权费'}
-                    </p>
-                    <p className="text-2xl font-bold text-white">
-                        {formatAmount(orders.reduce((sum, o) => sum + o.premiumAmount, 0))}
-                    </p>
-                </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                {[
+                    { label: 'Active Positions 持仓', value: orders.filter(o => o.status === 'LIVE').length, color: 'text-white' },
+                    { label: 'Total Exposure 名义本金', value: formatAmount(orders.reduce((sum, o) => sum + o.notionalUSDT, 0)), color: 'text-primary-400' },
+                    { label: viewMode === 'buyer' ? 'Total PnL 盈亏' : 'Active Margin 保证金', 
+                      value: viewMode === 'buyer' 
+                        ? formatAmount(orders.reduce((sum, o: any) => sum + (o.unrealizedPnL || 0), 0))
+                        : formatAmount(orders.reduce((sum, o: any) => sum + (o.currentMargin || 0), 0)), 
+                      color: viewMode === 'buyer' ? 'text-green-400' : 'text-white' },
+                    { label: viewMode === 'buyer' ? 'Paid Premiums 期权费' : 'Collected Premiums 期权费', 
+                      value: formatAmount(orders.reduce((sum, o) => sum + o.premiumAmount, 0)), color: 'text-white' },
+                ].map((stat, i) => (
+                    <div key={i} className="glass-card p-6 relative group overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-primary-500/5 rounded-full blur-2xl -mr-12 -mt-12 group-hover:bg-primary-500/10 transition-colors" />
+                        <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-2">{stat.label}</p>
+                        <p className={`text-2xl font-black tracking-tight ${stat.color}`}>{stat.value}</p>
+                    </div>
+                ))}
             </div>
 
             {/* Order List */}
-            <div className="space-y-4">
-                {orders.map((order) => (
-                    <div key={order.orderId} className="glass-card p-5">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-12 h-12 rounded-xl bg-dark-800 flex items-center justify-center">
-                                    <span className="text-2xl">
-                                        {order.market === 'Crypto' ? '₿' : order.market === 'US' ? '🇺🇸' : '🇨🇳'}
+            <div className="space-y-6">
+                {orders.map((order, i) => (
+                    <div key={order.orderId} className="glass-card-hover group animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+                        <div className="p-6">
+                            {/* Header */}
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+                                <div className="flex items-center space-x-5">
+                                    <div className="w-14 h-14 rounded-2xl bg-dark-900 border border-white/5 flex items-center justify-center text-3xl shadow-2xl">
+                                        {order.market === 'Crypto' ? '' : order.market === 'US' ? '' : ''}
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center space-x-3">
+                                            <h3 className="text-xl font-black text-white tracking-tight">{order.underlyingName}</h3>
+                                            <span className="text-[10px] font-black text-dark-500 tracking-widest uppercase">{order.underlyingCode}</span>
+                                        </div>
+                                        <p className="text-[10px] font-black text-primary-500/60 uppercase tracking-widest mt-1">Portfolio Item #{order.orderId}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center space-x-4">
+                                    <div className={`px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] shadow-inner ${order.direction === 'Call'
+                                        ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                                        : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                        {order.direction === 'Call' ? ' Bullish Call' : ' Bearish Put'}
+                                    </div>
+                                    <span className={`px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] ${getStatusTheme(order.status)}`}>
+                                        {order.status.replace('_', ' ')}
                                     </span>
                                 </div>
-                                <div>
-                                    <h3 className="text-lg font-semibold text-white">{order.underlyingName}</h3>
-                                    <p className="text-sm text-dark-400">#{order.orderId} · {order.underlyingCode}</p>
+                            </div>
+
+                            {/* Metrics Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                    <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Notional Exposure</p>
+                                    <p className="text-lg font-bold text-white">{formatAmount(order.notionalUSDT)}</p>
+                                </div>
+                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                    <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Strike Price</p>
+                                    <p className="text-lg font-bold text-white">${order.strikePrice}</p>
+                                </div>
+                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                    <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Mark Price</p>
+                                    <p className="text-lg font-bold text-gradient-gold">${order.currentPrice}</p>
+                                </div>
+                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                    <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Maturity Date</p>
+                                    <p className="text-lg font-bold text-white">{formatDate(order.expiryTimestamp)}</p>
+                                </div>
+                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                    <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">
+                                        {(order as any).unrealizedPnL !== undefined ? 'Position PnL' : 'Active Collateral'}
+                                    </p>
+                                    <p className={`text-lg font-extrabold ${(order as any).unrealizedPnL > 0 ? 'text-green-400' :
+                                            (order as any).unrealizedPnL < 0 ? 'text-red-400' : 'text-white'
+                                        }`}>
+                                        {(order as any).unrealizedPnL !== undefined
+                                            ? formatAmount((order as any).unrealizedPnL)
+                                            : formatAmount((order as any).currentMargin)
+                                        }
+                                    </p>
                                 </div>
                             </div>
 
-                            <div className="flex items-center space-x-2">
-                                <span className={`badge border ${order.direction === 'Call'
-                                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                                    : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
-                                    {order.direction === 'Call' ? '📈 看涨' : '📉 看跌'}
-                                </span>
-                                <span className={getStatusBadge(order.status)}>
-                                    {order.status}
-                                </span>
+                            {/* Actions */}
+                            <div className="flex justify-end space-x-4 pt-6 border-t border-white/5">
+                                {order.status === 'LIVE' && viewMode === 'buyer' && (
+                                    <button className="btn-primary text-xs px-6 py-2.5">Execute Assignment</button>
+                                )}
+                                {order.status === 'LIVE' && viewMode === 'seller' && (
+                                    <button className="btn-secondary text-xs px-6 py-2.5 border-white/10 hover:border-primary-500/30">Add Collateral</button>
+                                )}
+                                <button className="btn-secondary text-xs px-6 py-2.5 border-white/10">Detailed Analytics</button>
                             </div>
-                        </div>
-
-                        {/* Metrics */}
-                        <div className="grid grid-cols-5 gap-4 mb-4">
-                            <div className="bg-dark-800/50 rounded-xl p-3">
-                                <p className="text-xs text-dark-400 mb-1">名义本金</p>
-                                <p className="text-lg font-semibold text-white">{formatAmount(order.notionalUSDT)}</p>
-                            </div>
-                            <div className="bg-dark-800/50 rounded-xl p-3">
-                                <p className="text-xs text-dark-400 mb-1">行权价</p>
-                                <p className="text-lg font-semibold text-white">${order.strikePrice}</p>
-                            </div>
-                            <div className="bg-dark-800/50 rounded-xl p-3">
-                                <p className="text-xs text-dark-400 mb-1">当前价格</p>
-                                <p className="text-lg font-semibold text-primary-400">${order.currentPrice}</p>
-                            </div>
-                            <div className="bg-dark-800/50 rounded-xl p-3">
-                                <p className="text-xs text-dark-400 mb-1">到期日</p>
-                                <p className="text-lg font-semibold text-white">{formatDate(order.expiryTimestamp)}</p>
-                            </div>
-                            <div className="bg-dark-800/50 rounded-xl p-3">
-                                <p className="text-xs text-dark-400 mb-1">
-                                    {(order as any).unrealizedPnL !== undefined ? '盈亏' : '保证金'}
-                                </p>
-                                <p className={`text-lg font-semibold ${(order as any).unrealizedPnL > 0 ? 'text-green-400' :
-                                        (order as any).unrealizedPnL < 0 ? 'text-red-400' : 'text-white'
-                                    }`}>
-                                    {(order as any).unrealizedPnL !== undefined
-                                        ? formatAmount((order as any).unrealizedPnL)
-                                        : formatAmount((order as any).currentMargin)
-                                    }
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex justify-end space-x-3">
-                            {order.status === 'LIVE' && viewMode === 'buyer' && (
-                                <button className="btn-secondary text-sm">提前行权</button>
-                            )}
-                            {order.status === 'LIVE' && viewMode === 'seller' && (
-                                <button className="btn-secondary text-sm">追加保证金</button>
-                            )}
-                            <button className="btn-secondary text-sm">查看详情</button>
                         </div>
                     </div>
                 ))}
 
                 {orders.length === 0 && (
-                    <div className="glass-card p-12 text-center">
-                        <div className="text-6xl mb-4">📁</div>
-                        <h3 className="text-xl font-semibold text-white mb-2">暂无订单</h3>
-                        <p className="text-dark-400 mb-6">您还没有{viewMode === 'buyer' ? '买入' : '卖出'}任何期权</p>
-                        <button className="btn-primary">
-                            {viewMode === 'buyer' ? '去买方大厅' : '去卖方大厅'}
-                        </button>
+                    <div className="glass-card py-24 text-center border-dashed border-2 border-white/10">
+                        <div className="text-8xl mb-8 opacity-40 grayscale"></div>
+                        <h3 className="text-3xl font-black text-white mb-4 tracking-tighter">No Active Positions</h3>
+                        <p className="text-dark-400 text-lg mb-12 max-w-sm mx-auto">You do not currently have any active orders for this view. Explore the marketplace to seed your institutional portfolio.</p>
+                        <Link to={viewMode === 'buyer' ? '/buyer' : '/seller'} className="btn-primary px-10 py-4 font-black">
+                            {viewMode === 'buyer' ? 'Explore Buyer Hall' : 'Explore Seller Hall'}
+                        </Link>
                     </div>
                 )}
             </div>
+            
+            <div className="h-20" />
         </div>
     );
 }
