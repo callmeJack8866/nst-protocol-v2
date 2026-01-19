@@ -13,7 +13,7 @@ function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950">
         <Header />
-        <main className="max-w-7xl mx-auto px-4 py-8">
+        <main className="max-w-[1500px] w-full mx-auto px-8 py-20 flex-grow">
           <Routes>
             <Route path="/" element={<Navigate to="/buyer" replace />} />
             <Route path="/buyer" element={<BuyerHall />} />
@@ -25,9 +25,9 @@ function App() {
             <Route path="/create-order" element={<CreateSellerOrder />} />
           </Routes>
         </main>
-        <footer className="bg-dark-950 border-t border-dark-800 py-6 mt-auto">
-          <div className="max-w-7xl mx-auto px-4 text-center">
-            <p className="text-dark-500 text-sm">
+        <footer className="bg-dark-950/50 border-t border-white/5 py-10 mt-20">
+          <div className="max-w-[1500px] mx-auto px-8 text-center">
+            <p className="text-dark-500 text-xs font-medium uppercase tracking-[0.2em]">
               2024 NST Options. 场外期权撮合系统 | BSC Chain
             </p>
           </div>

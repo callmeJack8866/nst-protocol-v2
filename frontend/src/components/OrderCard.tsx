@@ -55,55 +55,55 @@ export function OrderCard({ order, type, onAction }: OrderCardProps) {
     };
 
     return (
-        <div 
+        <div
             className={`glass-card-hover overflow-hidden border-white/[0.05] transition-all duration-300 ${isExpanded ? 'bg-white/[0.04]' : ''}`}
             onClick={() => setIsExpanded(!isExpanded)}
         >
-            <div className="px-6 py-5">
+            <div className="px-8 py-6">
                 {/* Compact Header Row */}
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 rounded-xl bg-dark-900 flex items-center justify-center border border-white/5">
+                <div className="flex items-center justify-between mb-6 gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-12 h-12 rounded-xl bg-dark-900 flex items-center justify-center border border-white/5 flex-shrink-0">
                             <span className="text-2xl grayscale group-hover:grayscale-0 transition-all">
-                                {order.market === 'Crypto' ? '' : order.market === 'US' ? '' : ''}
+                                {order.market === 'Crypto' ? '₿' : order.market === 'US' ? '🇺🇸' : '🇨🇳'}
                             </span>
                         </div>
-                        <div>
-                            <div className="flex items-center space-x-2">
-                                <h3 className="text-lg font-bold text-white tracking-tight">{order.underlyingName}</h3>
-                                <span className="text-[10px] font-black text-dark-500 bg-dark-800/50 px-1.5 py-0.5 rounded border border-white/5 uppercase font-mono">{order.underlyingCode}</span>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-lg font-bold text-white tracking-tight truncate">{order.underlyingName}</h3>
+                                <span className="text-xs font-bold text-dark-500 bg-dark-800/50 px-2 py-0.5 rounded border border-white/5 uppercase font-mono flex-shrink-0">{order.underlyingCode}</span>
                             </div>
-                            <p className="text-[9px] font-bold text-dark-500 uppercase tracking-widest mt-0.5">Order ID #{order.orderId}</p>
+                            <p className="text-xs font-bold text-dark-500 uppercase tracking-wide mt-1">Order ID #{order.orderId}</p>
                         </div>
                     </div>
 
-                    <div className="flex items-center space-x-3">
-                        <div className={`px-2.5 py-1 rounded-md border text-[9px] font-black uppercase tracking-wider ${getDirectionTheme(order.direction)} border-current/10 bg-current/5`}>
+                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                        <div className={`px-3 py-1.5 rounded-md border text-xs font-bold uppercase tracking-wide ${getDirectionTheme(order.direction)} border-current/10 bg-current/5`}>
                             {order.direction} Option
                         </div>
-                        <div className={`px-2.5 py-1 rounded-md border text-[9px] font-black uppercase tracking-wider ${getStatusTheme(order.status)}`}>
+                        <div className={`px-3 py-1.5 rounded-md border text-xs font-bold uppercase tracking-wide ${getStatusTheme(order.status)}`}>
                             {order.status.replace('_', ' ')}
                         </div>
                     </div>
                 </div>
 
                 {/* Clean Horizontal Metrics */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4 px-2">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="flex flex-col">
-                        <span className="metric-label mb-1">Notional</span>
-                        <span className="metric-value">{formatAmount(order.notionalUSDT)}</span>
+                        <span className="metric-label mb-1.5">Notional</span>
+                        <span className="metric-value text-base lg:text-lg">{formatAmount(order.notionalUSDT)}</span>
                     </div>
-                    <div className="flex flex-col relative md:before:content-[''] md:before:absolute md:before:left-[-1rem] md:before:top-1 md:before:bottom-1 md:before:w-[1px] md:before:bg-white/5">
-                        <span className="metric-label mb-1">Premium Rate</span>
-                        <span className="metric-value text-gradient-gold">{(order.premiumRate / 100).toFixed(2)}%</span>
+                    <div className="flex flex-col lg:border-l lg:border-white/5 lg:pl-6">
+                        <span className="metric-label mb-1.5">Premium Rate</span>
+                        <span className="metric-value text-gradient-gold text-base lg:text-lg">{(order.premiumRate / 100).toFixed(2)}%</span>
                     </div>
-                    <div className="flex flex-col relative md:before:content-[''] md:before:absolute md:before:left-[-1rem] md:before:top-1 md:before:bottom-1 md:before:w-[1px] md:before:bg-white/5">
-                        <span className="metric-label mb-1">Expiry Date</span>
-                        <span className="metric-value">{formatDate(order.expiryTimestamp)}</span>
+                    <div className="flex flex-col lg:border-l lg:border-white/5 lg:pl-6">
+                        <span className="metric-label mb-1.5">Expiry Date</span>
+                        <span className="metric-value text-base lg:text-lg">{formatDate(order.expiryTimestamp)}</span>
                     </div>
-                    <div className="flex flex-col relative md:before:content-[''] md:before:absolute md:before:left-[-1rem] md:before:top-1 md:before:bottom-1 md:before:w-[1px] md:before:bg-white/5">
-                        <span className="metric-label mb-1">Estimated Yield</span>
-                        <span className="metric-value text-green-400">{formatAmount(order.notionalUSDT * order.premiumRate / 10000)}</span>
+                    <div className="flex flex-col lg:border-l lg:border-white/5 lg:pl-6">
+                        <span className="metric-label mb-1.5">Estimated Yield</span>
+                        <span className="metric-value text-green-400 text-base lg:text-lg">{formatAmount(order.notionalUSDT * order.premiumRate / 10000)}</span>
                     </div>
                 </div>
             </div>
@@ -123,7 +123,7 @@ export function OrderCard({ order, type, onAction }: OrderCardProps) {
                                 <p className="text-sm font-semibold text-dark-200">1.00 USDT</p>
                             </div>
                         </div>
-                        
+
                         <div className="flex items-center space-x-3">
                             {type === 'buyer' && order.status === 'RFQ_CREATED' && (
                                 <button
@@ -151,7 +151,7 @@ export function OrderCard({ order, type, onAction }: OrderCardProps) {
                     </div>
                 </div>
             )}
-            
+
             {/* Visual indicator bar */}
             <div className={`h-[2px] w-full transition-all duration-300 ${isExpanded ? 'bg-primary-500/40' : 'bg-transparent group-hover:bg-primary-500/10'}`} />
         </div>

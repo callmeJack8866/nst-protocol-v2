@@ -19,7 +19,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-dark-950/80 backdrop-blur-xl">
-      <div className="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between">
+      <div className="max-w-[1500px] mx-auto px-8 h-20 flex items-center justify-between">
 
         {/* Left: Logo */}
         <Link to="/" className="flex items-center group">
