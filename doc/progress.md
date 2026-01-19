@@ -1,5 +1,35 @@
 # NST Options MVP 开发进展日志
 
+## 2026-01-19
+
+### [19:55] - BSC Testnet 合约部署完成
+
+**Status**: Done
+
+**Changes**:
+- 成功部署 6 个核心合约到 BSC Testnet
+- 创建部署记录 `doc/deployments/bsc-testnet.json`
+- 更新前端 `contracts/config.ts` 地址配置
+
+**Deployed Contracts**:
+| Contract | Address |
+|----------|---------|
+| Config | `0xCb58B6e82d7D94480A62C1D95cc9Eb9D0dba67Fd` |
+| VaultManager | `0xd4487A3E5041148c08c3A3B1d31F59618B7C43DE` |
+| FeedProtocol | `0x6cD9cf774b6BC085338AbfB47a091592bA01A7C0` |
+| SeatManager | `0xe7948Bdd1BB5Ee41C2B0fE7f97CdB6Fe938e1d41` |
+| PointsManager | `0x1C9296ce4a87A5d6fdDF71142Deff6471Aa9E0E8` |
+| OptionsCore | `0xa484b6EbC5fb06E619362aeD70822404464b5435` |
+
+**Testnet USDT**: `0x337610d27c682E347C9cD60BD4b3b107C9d34dDd`
+
+**Next Step**:
+- 手动验证合约源码 (BSCScan API v2 迁移问题)
+- 前端对接真实合约数据
+- 核心流程端到端测试
+
+---
+
 ## 2024-12-28
 
 ### [20:44] - 合约 ABI 和 React Hooks 完成

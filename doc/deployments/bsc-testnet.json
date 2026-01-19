@@ -1,0 +1,19 @@
+{
+    "network": "bscTestnet",
+    "chainId": 97,
+    "deployedAt": "2026-01-19T19:55:00+08:00",
+    "deployer": "0xeaDD55Cf2eCaA09f2667d5a53DD1e825F05777a0",
+    "contracts": {
+        "Config": "0xCb58B6e82d7D94480A62C1D95cc9Eb9D0dba67Fd",
+        "VaultManager": "0xd4487A3E5041148c08c3A3B1d31F59618B7C43DE",
+        "FeedProtocol": "0x6cD9cf774b6BC085338AbfB47a091592bA01A7C0",
+        "SeatManager": "0xe7948Bdd1BB5Ee41C2B0fE7f97CdB6Fe938e1d41",
+        "PointsManager": "0x1C9296ce4a87A5d6fdDF71142Deff6471Aa9E0E8",
+        "OptionsCore": "0xa484b6EbC5fb06E619362aeD70822404464b5435"
+    },
+    "tokens": {
+        "USDT": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
+        "NST": "0x0000000000000000000000000000000000000000"
+    },
+    "explorerBaseUrl": "https://testnet.bscscan.com/address/"
+}
