@@ -10,14 +10,14 @@ export const OptionsCoreABI = [
     'function getQuote(uint256 quoteId) view returns (tuple(uint256 quoteId, uint256 orderId, address seller, uint8 sellerType, uint256 premiumRate, uint256 premiumAmount, uint256 marginRate, uint256 marginAmount, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint256 createdAt, uint256 expiresAt, uint8 status))',
     'function getBuyerOrders(address buyer) view returns (uint256[])',
     'function getSellerOrders(address seller) view returns (uint256[])',
-    'function getOrderQuotes(uint256 orderId) view returns (uint256[])',
+    'function getQuotes(uint256 orderId) view returns (tuple(uint256 quoteId, uint256 orderId, address seller, uint8 sellerType, uint256 premiumRate, uint256 premiumAmount, uint256 marginRate, uint256 marginAmount, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint256 createdAt, uint256 expiresAt, uint8 status)[])',
     'function nextOrderId() view returns (uint256)',
     'function nextQuoteId() view returns (uint256)',
 
     // Write functions
     'function createBuyerRFQ(string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 expiryTimestamp, uint256 maxPremiumRate, uint256 minMarginRate, uint8 acceptedSellerType, address designatedSeller, uint256 arbitrationWindow, uint256 marginCallDeadline, bool dividendAdjustment) returns (uint256 orderId)',
     'function createSellerOrder(string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 expiryTimestamp, uint256 premiumRate, uint256 marginAmount, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint256 arbitrationWindow, bool dividendAdjustment) returns (uint256 orderId)',
-    'function submitQuote(uint256 orderId, uint256 premiumRate, uint256 marginAmount, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint256 expiresAt) returns (uint256 quoteId)',
+    'function submitQuote(uint256 orderId, uint256 premiumRate, uint256 marginRate, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent) returns (uint256 quoteId)',
     'function acceptQuote(uint256 quoteId)',
     'function cancelRFQ(uint256 orderId)',
     'function addMargin(uint256 orderId, uint256 amount)',

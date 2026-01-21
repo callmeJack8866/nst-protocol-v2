@@ -1,4 +1,37 @@
-# NST Options MVP 开发进展日志
+## 2026-01-21
+**[Status]**: Done  
+**[Changes]**:
+- 完成 SellerHall 数据对接（从链上获取 RFQ 订单）
+- 实现 `submitQuote` 报价功能（自动 USDT 授权 + 合约调用）
+- 修复 ABI submitQuote/getQuotes 函数签名不匹配问题
+- 修复 USDT 精度问题（从 18 位改为 6 位小数）
+- 实现 `acceptQuote` 接受报价功能（买方视图 + 报价列表模态框）
+- 修复 OrderCard 组件支持自定义 actionLabel
+- **完成端到端流程**：Create RFQ → Submit Quote → Accept Quote (Match) ✅
+
+**[Next Step]**: 
+- MyOrders 页面展示真实订单数据
+- PointsManager 积分系统集成
+- 边缘情况处理（报价过期、订单取消等）
+- MyOrders 页面展示真实订单数据
+- PointsManager 积分系统集成
+
+---
+
+## 2026-01-20
+**[Status]**: Done  
+**[Changes]**:
+- 修复了钱包状态隔离 Bug（创建 WalletContext 全局共享钱包/合约状态）
+- 重新部署合约以支持新 USDT 地址 `0x9f2140319726F9b851073a303415f13EC0cdA269`
+- 修复 USDT 精度不匹配问题（从 18 位改为 6 位小数）
+- 成功测试 CreateBuyerRFQ 功能，RFQ 订单已上链
+
+**[Next Step]**: 
+- 完成 BuyerHall/SellerHall 数据对接（从链上读取真实订单）
+- 实现报价功能（卖方对买方 RFQ 报价）
+- 完善 MyOrders 页面展示真实订单数据
+
+---
 
 ## 2026-01-19
 

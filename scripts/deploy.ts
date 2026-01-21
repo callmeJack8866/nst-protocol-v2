@@ -24,7 +24,7 @@ interface DeployedContracts {
 }
 
 // BSC Testnet USDT address (can use mock for testing)
-const BSC_TESTNET_USDT = "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd";
+const BSC_TESTNET_USDT = "0x9f2140319726F9b851073a303415f13EC0cdA269";
 const BSC_MAINNET_USDT = "0x55d398326f99059fF775485246999027B3197955";
 
 async function main() {

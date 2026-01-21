@@ -1,75 +1,144 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useOptions } from '../hooks';
+import { useWalletContext } from '../context/WalletContext';
+import { formatUnits } from 'ethers';
 
-// Mock data for user orders
-const mockUserOrders = {
-    asBuyer: [
-        {
-            orderId: 1,
-            underlyingName: '黄金 Gold',
-            underlyingCode: 'XAU',
-            market: 'CN',
-            direction: 'Call' as const,
-            notionalUSDT: 100000,
-            premiumRate: 700,
-            premiumAmount: 7000,
-            expiryTimestamp: Math.floor(Date.now() / 1000) + 86400 * 30,
-            status: 'LIVE',
-            strikePrice: 2150.50,
-            currentPrice: 2200.30,
-            unrealizedPnL: 2500,
-        },
-        {
-            orderId: 2,
-            underlyingName: 'Apple Inc.',
-            underlyingCode: 'AAPL',
-            market: 'US',
-            direction: 'Put' as const,
-            notionalUSDT: 50000,
-            premiumRate: 500,
-            premiumAmount: 2500,
-            expiryTimestamp: Math.floor(Date.now() / 1000) - 86400 * 5,
-            status: 'SETTLED',
-            strikePrice: 180.00,
-            currentPrice: 175.00,
-            realizedPnL: 1250,
-        },
-    ],
-    asSeller: [
-        {
-            orderId: 101,
-            underlyingName: 'Bitcoin',
-            underlyingCode: 'BTC',
-            market: 'Crypto',
-            direction: 'Call' as const,
-            notionalUSDT: 200000,
-            premiumRate: 1000,
-            premiumAmount: 20000,
-            expiryTimestamp: Math.floor(Date.now() / 1000) + 86400 * 14,
-            status: 'LIVE',
-            strikePrice: 95000,
-            currentPrice: 97500,
-            currentMargin: 25000,
-            marginRate: 12.5,
-        },
-    ],
+interface Order {
+    orderId: number;
+    buyer: string;
+    seller: string;
+    underlyingName: string;
+    underlyingCode: string;
+    market: string;
+    country: string;
+    direction: 'Call' | 'Put';
+    notionalUSDT: bigint;
+    premiumRate: number;
+    premiumAmount: bigint;
+    expiryTimestamp: number;
+    status: string;
+    initialMargin: bigint;
+    currentMargin: bigint;
+    createdAt: number;
+    matchedAt: number;
+}
+
+const STATUS_MAP: { [key: number]: string } = {
+    0: 'RFQ_CREATED',
+    1: 'QUOTING',
+    2: 'MATCHED',
+    3: 'LIVE',
+    4: 'PENDING_SETTLEMENT',
+    5: 'SETTLED',
+    6: 'CANCELLED',
+    7: 'LIQUIDATED',
+    8: 'ARBITRATION',
 };
 
 export function MyOrders() {
+    const { account } = useWalletContext();
+    const { getBuyerOrders, getSellerOrders, getOrder, isConnected } = useOptions();
     const [viewMode, setViewMode] = useState<'buyer' | 'seller'>('buyer');
-    const [statusFilter, setStatusFilter] = useState('全部 All');
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [buyerOrders, setBuyerOrders] = useState<Order[]>([]);
+    const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const statusFilters = ['全部 All', '持仓中 Live', '待结算 Pending', '已结算 Settled', '已取消 Cancelled'];
+    const statusFilters = ['ALL', 'LIVE', 'MATCHED', 'SETTLED', 'CANCELLED'];
 
-    const formatAmount = (amount: number) => {
+    // Fetch orders from blockchain
+    useEffect(() => {
+        const fetchOrders = async () => {
+            if (!isConnected || !account) {
+                setLoading(false);
+                return;
+            }
+
+            setLoading(true);
+            try {
+                // Fetch buyer orders
+                const buyerIds = await getBuyerOrders();
+                const buyerOrdersData: Order[] = [];
+                for (const id of buyerIds) {
+                    try {
+                        const order = await getOrder(id);
+                        buyerOrdersData.push({
+                            orderId: Number(order.orderId),
+                            buyer: order.buyer,
+                            seller: order.seller,
+                            underlyingName: order.underlyingName,
+                            underlyingCode: order.underlyingCode,
+                            market: order.market,
+                            country: order.country,
+                            direction: Number(order.direction) === 0 ? 'Call' : 'Put',
+                            notionalUSDT: order.notionalUSDT,
+                            premiumRate: Number(order.premiumRate),
+                            premiumAmount: order.premiumAmount,
+                            expiryTimestamp: Number(order.expiryTimestamp),
+                            status: STATUS_MAP[Number(order.status)] || 'UNKNOWN',
+                            initialMargin: order.initialMargin,
+                            currentMargin: order.currentMargin,
+                            createdAt: Number(order.createdAt),
+                            matchedAt: Number(order.matchedAt),
+                        });
+                    } catch {
+                        // Skip invalid orders
+                    }
+                }
+                setBuyerOrders(buyerOrdersData);
+
+                // Fetch seller orders
+                const sellerIds = await getSellerOrders();
+                const sellerOrdersData: Order[] = [];
+                for (const id of sellerIds) {
+                    try {
+                        const order = await getOrder(id);
+                        sellerOrdersData.push({
+                            orderId: Number(order.orderId),
+                            buyer: order.buyer,
+                            seller: order.seller,
+                            underlyingName: order.underlyingName,
+                            underlyingCode: order.underlyingCode,
+                            market: order.market,
+                            country: order.country,
+                            direction: Number(order.direction) === 0 ? 'Call' : 'Put',
+                            notionalUSDT: order.notionalUSDT,
+                            premiumRate: Number(order.premiumRate),
+                            premiumAmount: order.premiumAmount,
+                            expiryTimestamp: Number(order.expiryTimestamp),
+                            status: STATUS_MAP[Number(order.status)] || 'UNKNOWN',
+                            initialMargin: order.initialMargin,
+                            currentMargin: order.currentMargin,
+                            createdAt: Number(order.createdAt),
+                            matchedAt: Number(order.matchedAt),
+                        });
+                    } catch {
+                        // Skip invalid orders
+                    }
+                }
+                setSellerOrders(sellerOrdersData);
+            } catch (err) {
+                console.error('Failed to fetch orders:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchOrders();
+    }, [isConnected, account, getBuyerOrders, getSellerOrders, getOrder]);
+
+    const formatAmount = (amount: number | bigint, decimals = 6) => {
+        const value = typeof amount === 'bigint' ? Number(formatUnits(amount, decimals)) : amount;
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
             minimumFractionDigits: 0,
-        }).format(amount);
+        }).format(value);
     };
 
     const formatDate = (timestamp: number) => {
+        if (!timestamp) return '--';
         return new Date(timestamp * 1000).toLocaleDateString('zh-CN', {
             year: 'numeric',
             month: 'short',
@@ -79,15 +148,30 @@ export function MyOrders() {
 
     const getStatusTheme = (status: string) => {
         switch (status) {
-            case 'LIVE': return 'text-green-400 bg-green-500/10 border-green-500/20';
+            case 'LIVE':
+            case 'MATCHED': return 'text-green-400 bg-green-500/10 border-green-500/20';
             case 'SETTLED': return 'text-primary-400 bg-primary-500/10 border-primary-500/20';
             case 'PENDING_SETTLEMENT': return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-            case 'CANCELLED': return 'text-dark-400 bg-dark-500/10 border-dark-500/20';
+            case 'RFQ_CREATED':
+            case 'QUOTING': return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+            case 'CANCELLED':
+            case 'LIQUIDATED': return 'text-red-400 bg-red-500/10 border-red-500/20';
             default: return 'text-dark-300 bg-dark-500/10 border-dark-500/20';
         }
     };
 
-    const orders = viewMode === 'buyer' ? mockUserOrders.asBuyer : mockUserOrders.asSeller;
+    const rawOrders = viewMode === 'buyer' ? buyerOrders : sellerOrders;
+    const orders = statusFilter === 'ALL'
+        ? rawOrders
+        : rawOrders.filter(o => o.status === statusFilter);
+
+    // Calculate stats
+    const totalNotional = orders.reduce((sum, o) => sum + Number(formatUnits(o.notionalUSDT, 6)), 0);
+    const totalPremium = orders.reduce((sum, o) => sum + Number(formatUnits(o.premiumAmount, 6)), 0);
+    const totalMargin = viewMode === 'seller'
+        ? orders.reduce((sum, o) => sum + Number(formatUnits(o.currentMargin, 6)), 0)
+        : 0;
+    const activeCount = orders.filter(o => ['LIVE', 'MATCHED', 'QUOTING'].includes(o.status)).length;
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -109,14 +193,14 @@ export function MyOrders() {
                         className={`px-8 py-3 rounded-xl text-sm font-black transition-all uppercase tracking-widest
                             ${viewMode === 'buyer' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'text-dark-400 hover:text-white'}`}
                     >
-                         买方 Buyer
+                        买方 Buyer ({buyerOrders.length})
                     </button>
                     <button
                         onClick={() => setViewMode('seller')}
                         className={`px-8 py-3 rounded-xl text-sm font-black transition-all uppercase tracking-widest
                             ${viewMode === 'seller' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'text-dark-400 hover:text-white'}`}
                     >
-                         卖方 Seller
+                        卖方 Seller ({sellerOrders.length})
                     </button>
                 </div>
 
@@ -137,15 +221,14 @@ export function MyOrders() {
             {/* Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 {[
-                    { label: 'Active Positions 持仓', value: orders.filter(o => o.status === 'LIVE').length, color: 'text-white' },
-                    { label: 'Total Exposure 名义本金', value: formatAmount(orders.reduce((sum, o) => sum + o.notionalUSDT, 0)), color: 'text-primary-400' },
-                    { label: viewMode === 'buyer' ? 'Total PnL 盈亏' : 'Active Margin 保证金', 
-                      value: viewMode === 'buyer' 
-                        ? formatAmount(orders.reduce((sum, o: any) => sum + (o.unrealizedPnL || 0), 0))
-                        : formatAmount(orders.reduce((sum, o: any) => sum + (o.currentMargin || 0), 0)), 
-                      color: viewMode === 'buyer' ? 'text-green-400' : 'text-white' },
-                    { label: viewMode === 'buyer' ? 'Paid Premiums 期权费' : 'Collected Premiums 期权费', 
-                      value: formatAmount(orders.reduce((sum, o) => sum + o.premiumAmount, 0)), color: 'text-white' },
+                    { label: 'Active Positions 活跃', value: activeCount, color: 'text-white' },
+                    { label: 'Total Exposure 名义本金', value: formatAmount(totalNotional, 6), color: 'text-primary-400' },
+                    {
+                        label: viewMode === 'buyer' ? 'Premiums Paid 期权费' : 'Active Margin 保证金',
+                        value: viewMode === 'buyer' ? formatAmount(totalPremium, 6) : formatAmount(totalMargin, 6),
+                        color: 'text-white'
+                    },
+                    { label: 'Total Orders 订单总数', value: orders.length, color: 'text-white' },
                 ].map((stat, i) => (
                     <div key={i} className="glass-card p-6 relative group overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-primary-500/5 rounded-full blur-2xl -mr-12 -mt-12 group-hover:bg-primary-500/10 transition-colors" />
@@ -155,97 +238,122 @@ export function MyOrders() {
                 ))}
             </div>
 
+            {/* Loading State */}
+            {loading && (
+                <div className="glass-card p-16 text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500 mx-auto mb-6"></div>
+                    <p className="text-dark-400 font-medium">Loading orders from blockchain...</p>
+                </div>
+            )}
+
+            {/* Not Connected State */}
+            {!isConnected && !loading && (
+                <div className="glass-card p-16 text-center border-dashed border-2 border-white/10">
+                    <div className="text-7xl mb-6 opacity-30 grayscale">🔗</div>
+                    <h3 className="text-2xl font-black text-white mb-2 tracking-tighter">Connect Wallet</h3>
+                    <p className="text-dark-400 font-medium mb-8 max-w-sm mx-auto">
+                        Please connect your wallet to view your orders.
+                    </p>
+                </div>
+            )}
+
             {/* Order List */}
-            <div className="space-y-6">
-                {orders.map((order, i) => (
-                    <div key={order.orderId} className="glass-card-hover group animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
-                        <div className="p-6">
-                            {/* Header */}
-                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
-                                <div className="flex items-center space-x-5">
-                                    <div className="w-14 h-14 rounded-2xl bg-dark-900 border border-white/5 flex items-center justify-center text-3xl shadow-2xl">
-                                        {order.market === 'Crypto' ? '' : order.market === 'US' ? '' : ''}
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center space-x-3">
-                                            <h3 className="text-xl font-black text-white tracking-tight">{order.underlyingName}</h3>
-                                            <span className="text-[10px] font-black text-dark-500 tracking-widest uppercase">{order.underlyingCode}</span>
+            {!loading && isConnected && (
+                <div className="space-y-6">
+                    {orders.map((order, i) => (
+                        <div key={order.orderId} className="glass-card-hover group animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+                            <div className="p-6">
+                                {/* Header */}
+                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+                                    <div className="flex items-center space-x-5">
+                                        <div className="w-14 h-14 rounded-2xl bg-dark-900 border border-white/5 flex items-center justify-center text-3xl shadow-2xl">
+                                            {order.market === 'Crypto' ? '₿' : order.country === 'US' ? '🇺🇸' : '🇨🇳'}
                                         </div>
-                                        <p className="text-[10px] font-black text-primary-500/60 uppercase tracking-widest mt-1">Portfolio Item #{order.orderId}</p>
+                                        <div>
+                                            <div className="flex items-center space-x-3">
+                                                <h3 className="text-xl font-black text-white tracking-tight">{order.underlyingName}</h3>
+                                                <span className="text-[10px] font-black text-dark-500 tracking-widest uppercase">{order.underlyingCode}</span>
+                                            </div>
+                                            <p className="text-[10px] font-black text-primary-500/60 uppercase tracking-widest mt-1">Order #{order.orderId}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center space-x-4">
+                                        <div className={`px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] shadow-inner ${order.direction === 'Call'
+                                            ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                                            : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                            {order.direction === 'Call' ? '📈 Call' : '📉 Put'}
+                                        </div>
+                                        <span className={`px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] ${getStatusTheme(order.status)}`}>
+                                            {order.status.replace('_', ' ')}
+                                        </span>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center space-x-4">
-                                    <div className={`px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] shadow-inner ${order.direction === 'Call'
-                                        ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                                        : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                        {order.direction === 'Call' ? ' Bullish Call' : ' Bearish Put'}
+                                {/* Metrics Grid */}
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+                                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                        <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Notional</p>
+                                        <p className="text-lg font-bold text-white">{formatAmount(order.notionalUSDT)}</p>
                                     </div>
-                                    <span className={`px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] ${getStatusTheme(order.status)}`}>
-                                        {order.status.replace('_', ' ')}
-                                    </span>
+                                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                        <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Premium Rate</p>
+                                        <p className="text-lg font-bold text-gradient-gold">{(order.premiumRate / 100).toFixed(2)}%</p>
+                                    </div>
+                                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                        <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Premium</p>
+                                        <p className="text-lg font-bold text-primary-400">{formatAmount(order.premiumAmount)}</p>
+                                    </div>
+                                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                        <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Expiry</p>
+                                        <p className="text-lg font-bold text-white">{formatDate(order.expiryTimestamp)}</p>
+                                    </div>
+                                    {viewMode === 'seller' && (
+                                        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                            <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Margin</p>
+                                            <p className="text-lg font-bold text-white">{formatAmount(order.currentMargin)}</p>
+                                        </div>
+                                    )}
+                                    {viewMode === 'buyer' && (
+                                        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                                            <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Created</p>
+                                            <p className="text-lg font-bold text-white">{formatDate(order.createdAt)}</p>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
 
-                            {/* Metrics Grid */}
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                    <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Notional Exposure</p>
-                                    <p className="text-lg font-bold text-white">{formatAmount(order.notionalUSDT)}</p>
+                                {/* Actions */}
+                                <div className="flex justify-end space-x-4 pt-6 border-t border-white/5">
+                                    {order.status === 'LIVE' && viewMode === 'buyer' && (
+                                        <button className="btn-primary text-xs px-6 py-2.5">Request Settlement</button>
+                                    )}
+                                    {order.status === 'LIVE' && viewMode === 'seller' && (
+                                        <button className="btn-secondary text-xs px-6 py-2.5 border-white/10 hover:border-primary-500/30">Add Margin</button>
+                                    )}
+                                    <button className="btn-secondary text-xs px-6 py-2.5 border-white/10">View Details</button>
                                 </div>
-                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                    <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Strike Price</p>
-                                    <p className="text-lg font-bold text-white">${order.strikePrice}</p>
-                                </div>
-                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                    <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Mark Price</p>
-                                    <p className="text-lg font-bold text-gradient-gold">${order.currentPrice}</p>
-                                </div>
-                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                    <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Maturity Date</p>
-                                    <p className="text-lg font-bold text-white">{formatDate(order.expiryTimestamp)}</p>
-                                </div>
-                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                    <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">
-                                        {(order as any).unrealizedPnL !== undefined ? 'Position PnL' : 'Active Collateral'}
-                                    </p>
-                                    <p className={`text-lg font-extrabold ${(order as any).unrealizedPnL > 0 ? 'text-green-400' :
-                                            (order as any).unrealizedPnL < 0 ? 'text-red-400' : 'text-white'
-                                        }`}>
-                                        {(order as any).unrealizedPnL !== undefined
-                                            ? formatAmount((order as any).unrealizedPnL)
-                                            : formatAmount((order as any).currentMargin)
-                                        }
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex justify-end space-x-4 pt-6 border-t border-white/5">
-                                {order.status === 'LIVE' && viewMode === 'buyer' && (
-                                    <button className="btn-primary text-xs px-6 py-2.5">Execute Assignment</button>
-                                )}
-                                {order.status === 'LIVE' && viewMode === 'seller' && (
-                                    <button className="btn-secondary text-xs px-6 py-2.5 border-white/10 hover:border-primary-500/30">Add Collateral</button>
-                                )}
-                                <button className="btn-secondary text-xs px-6 py-2.5 border-white/10">Detailed Analytics</button>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
 
-                {orders.length === 0 && (
-                    <div className="glass-card py-24 text-center border-dashed border-2 border-white/10">
-                        <div className="text-8xl mb-8 opacity-40 grayscale"></div>
-                        <h3 className="text-3xl font-black text-white mb-4 tracking-tighter">No Active Positions</h3>
-                        <p className="text-dark-400 text-lg mb-12 max-w-sm mx-auto">You do not currently have any active orders for this view. Explore the marketplace to seed your institutional portfolio.</p>
-                        <Link to={viewMode === 'buyer' ? '/buyer' : '/seller'} className="btn-primary px-10 py-4 font-black">
-                            {viewMode === 'buyer' ? 'Explore Buyer Hall' : 'Explore Seller Hall'}
-                        </Link>
-                    </div>
-                )}
-            </div>
-            
+                    {orders.length === 0 && (
+                        <div className="glass-card py-24 text-center border-dashed border-2 border-white/10">
+                            <div className="text-8xl mb-8 opacity-40 grayscale">📋</div>
+                            <h3 className="text-3xl font-black text-white mb-4 tracking-tighter">No Orders Found</h3>
+                            <p className="text-dark-400 text-lg mb-12 max-w-sm mx-auto">
+                                {statusFilter === 'ALL'
+                                    ? `You don't have any ${viewMode} orders yet.`
+                                    : `No ${statusFilter} orders found.`
+                                }
+                            </p>
+                            <Link to={viewMode === 'buyer' ? '/create-rfq' : '/create-order'} className="btn-primary px-10 py-4 font-black">
+                                {viewMode === 'buyer' ? 'Create RFQ' : 'Create Sell Order'}
+                            </Link>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="h-20" />
         </div>
     );

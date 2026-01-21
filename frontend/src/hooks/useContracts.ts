@@ -1,127 +1,14 @@
-﻿import { useState, useEffect, useCallback } from 'react';
-import { BrowserProvider, Contract, parseUnits } from 'ethers';
-import { getContractAddresses, CHAINS } from '../contracts/config';
-import { OptionsCoreABI, ERC20ABI } from '../contracts/abis';
+﻿import { useState, useCallback } from 'react';
+import { parseUnits, getAddress } from 'ethers';
+import { useWalletContext } from '../context/WalletContext';
+import { getContractAddresses } from '../contracts/config';
 
-// Wallet Hook
-export function useWallet() {
-    const [account, setAccount] = useState<string | null>(null);
-    const [chainId, setChainId] = useState<number | null>(null);
-    const [provider, setProvider] = useState<BrowserProvider | null>(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const [isConnecting, setIsConnecting] = useState(false);
-
-    const connect = useCallback(async () => {
-        if (!window.ethereum) {
-            alert('请安装 MetaMask!');
-            return;
-        }
-        try {
-            setIsConnecting(true);
-            const browserProvider = new BrowserProvider(window.ethereum);
-            const accounts = await browserProvider.send('eth_requestAccounts', []);
-            const network = await browserProvider.getNetwork();
-            
-            setProvider(browserProvider);
-            setAccount(accounts[0]);
-            setChainId(Number(network.chainId));
-            setIsConnected(true);
-        } catch (err) {
-            console.error('Connect error:', err);
-        } finally {
-            setIsConnecting(false);
-        }
-    }, []);
-
-    const disconnect = useCallback(() => {
-        setAccount(null);
-        setChainId(null);
-        setProvider(null);
-        setIsConnected(false);
-    }, []);
-
-    const switchToBSC = useCallback(async (testnet = true) => {
-        if (!window.ethereum) return;
-        const chain = testnet ? CHAINS.BSC_TESTNET : CHAINS.BSC_MAINNET;
-        try {
-            await window.ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: `0x${chain.chainId.toString(16)}` }],
-            });
-        } catch (err: unknown) {
-            const error = err as { code?: number };
-            if (error.code === 4902) {
-                await window.ethereum.request({
-                    method: 'wallet_addEthereumChain',
-                    params: [{
-                        chainId: `0x${chain.chainId.toString(16)}`,
-                        chainName: chain.name,
-                        nativeCurrency: chain.nativeCurrency,
-                        rpcUrls: [chain.rpcUrl],
-                        blockExplorerUrls: [chain.blockExplorer],
-                    }],
-                });
-            }
-        }
-    }, []);
-
-    useEffect(() => {
-        if (window.ethereum) {
-            const handleAccountsChanged = (...args: unknown[]) => {
-                const accounts = args[0] as string[];
-                if (accounts.length === 0) disconnect();
-                else setAccount(accounts[0]);
-            };
-            const handleChainChanged = () => window.location.reload();
-
-            window.ethereum.on?.('accountsChanged', handleAccountsChanged);
-            window.ethereum.on?.('chainChanged', handleChainChanged);
-
-            return () => {
-                if (window.ethereum) {
-                    window.ethereum.removeListener?.('accountsChanged', handleAccountsChanged);
-                    window.ethereum.removeListener?.('chainChanged', handleChainChanged);
-                }
-            };
-        }
-    }, [disconnect]);
-
-    return { account, chainId, provider, isConnected, isConnecting, connect, disconnect, switchToBSC };
-}
-
-// Contract Instances Hook
-export function useContracts() {
-    const { provider, chainId } = useWallet();
-    const [optionsCore, setOptionsCore] = useState<Contract | null>(null);
-    const [usdt, setUsdt] = useState<Contract | null>(null);
-
-    useEffect(() => {
-        if (!provider || !chainId) return;
-
-        const initContracts = async () => {
-            const signer = await provider.getSigner();
-            const addresses = getContractAddresses(chainId);
-
-            if (addresses.OptionsCore) {
-                const options = new Contract(addresses.OptionsCore, OptionsCoreABI, signer);
-                setOptionsCore(options);
-            }
-            if (addresses.USDT) {
-                const usdtContract = new Contract(addresses.USDT, ERC20ABI, signer);
-                setUsdt(usdtContract);
-            }
-        };
-
-        initContracts();
-    }, [provider, chainId]);
-
-    return { optionsCore, usdt };
-}
+// Re-export the wallet context hook for backwards compatibility
+export { useWalletContext as useWallet } from '../context/WalletContext';
 
 // USDT Operations Hook
 export function useUSDT() {
-    const { account } = useWallet();
-    const { usdt } = useContracts();
+    const { account, usdt } = useWalletContext();
     const [balance, setBalance] = useState<bigint>(0n);
     const [allowance, setAllowance] = useState<bigint>(0n);
     const [loading, setLoading] = useState(false);
@@ -160,23 +47,20 @@ export function useUSDT() {
         }
     }, [usdt, fetchAllowance]);
 
-    useEffect(() => {
-        fetchBalance();
-    }, [fetchBalance]);
-
     return { balance, allowance, approve, fetchBalance, fetchAllowance, loading };
 }
 
 // Options Core Operations Hook
 export function useOptions() {
-    const { account, chainId } = useWallet();
-    const { optionsCore, usdt } = useContracts();
+    const { account, chainId, optionsCore, usdt, isConnected } = useWalletContext();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const getOptionsCoreAddress = useCallback(() => {
         if (!chainId) return '';
-        return getContractAddresses(chainId).OptionsCore;
+        const rawAddress = getContractAddresses(chainId).OptionsCore;
+        // Use toLowerCase() to bypass ethers v6 strict checksum validation
+        return rawAddress ? rawAddress.toLowerCase() : '';
     }, [chainId]);
 
     const createBuyerRFQ = useCallback(async (params: {
@@ -196,15 +80,17 @@ export function useOptions() {
         marginCallDeadline: number;
         dividendAdjustment: boolean;
     }) => {
-        if (!optionsCore || !usdt) throw new Error('Contracts not initialized');
-        
+        if (!optionsCore || !usdt) {
+            throw new Error('Contracts not initialized. Please connect your wallet first.');
+        }
+
         setLoading(true);
         setError(null);
         try {
             const creationFee = parseUnits('1', 18);
             const optionsCoreAddr = getOptionsCoreAddress();
             const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
-            
+
             if (currentAllowance < creationFee) {
                 const approveTx = await usdt.approve(optionsCoreAddr, parseUnits('1000000', 18));
                 await approveTx.wait();
@@ -217,7 +103,7 @@ export function useOptions() {
                 params.designatedSeller, params.arbitrationWindow, params.marginCallDeadline,
                 params.dividendAdjustment
             );
-            
+
             return await tx.wait();
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Transaction failed';
@@ -245,8 +131,10 @@ export function useOptions() {
         arbitrationWindow: number;
         dividendAdjustment: boolean;
     }) => {
-        if (!optionsCore || !usdt) throw new Error('Contracts not initialized');
-        
+        if (!optionsCore || !usdt) {
+            throw new Error('Contracts not initialized. Please connect your wallet first.');
+        }
+
         setLoading(true);
         setError(null);
         try {
@@ -254,7 +142,7 @@ export function useOptions() {
             const totalRequired = creationFee + params.marginAmount;
             const optionsCoreAddr = getOptionsCoreAddress();
             const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
-            
+
             if (currentAllowance < totalRequired) {
                 const approveTx = await usdt.approve(optionsCoreAddr, parseUnits('1000000', 18));
                 await approveTx.wait();
@@ -267,7 +155,7 @@ export function useOptions() {
                 params.consecutiveDays, params.dailyLimitPercent, params.arbitrationWindow,
                 params.dividendAdjustment
             );
-            
+
             return await tx.wait();
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Transaction failed';
@@ -305,5 +193,172 @@ export function useOptions() {
         }
     }, [optionsCore, account]);
 
-    return { loading, error, createBuyerRFQ, createSellerOrder, getOrder, getBuyerOrders, getSellerOrders, getOptionsCoreAddress };
+    // Fetch all active RFQs (orders with status RFQ_CREATED or QUOTING)
+    const getAllActiveRFQs = useCallback(async () => {
+        if (!optionsCore) return [];
+        try {
+            const nextId = await optionsCore.nextOrderId();
+            const totalOrders = Number(nextId);
+            const activeRFQs = [];
+
+            for (let i = 1; i < totalOrders; i++) {
+                try {
+                    const order = await optionsCore.getOrder(i);
+                    // Status 0 = RFQ_CREATED, 1 = QUOTING (active buyer orders)
+                    // Also check if buyer address exists (buyer orders have buyer != 0x0)
+                    if (order.buyer !== '0x0000000000000000000000000000000000000000' &&
+                        (Number(order.status) === 0 || Number(order.status) === 1)) {
+                        activeRFQs.push({
+                            orderId: Number(order.orderId),
+                            buyer: order.buyer,
+                            underlyingName: order.underlyingName,
+                            underlyingCode: order.underlyingCode,
+                            market: order.market,
+                            country: order.country,
+                            refPrice: order.refPrice,
+                            direction: Number(order.direction) === 0 ? 'Call' : 'Put',
+                            notionalUSDT: order.notionalUSDT,
+                            premiumRate: Number(order.premiumRate),
+                            expiryTimestamp: Number(order.expiryTimestamp),
+                            status: Number(order.status) === 0 ? 'RFQ_CREATED' : 'QUOTING',
+                            createdAt: Number(order.createdAt),
+                        });
+                    }
+                } catch {
+                    // Skip invalid orders
+                }
+            }
+            return activeRFQs;
+        } catch (err) {
+            console.error('Fetch all active RFQs error:', err);
+            return [];
+        }
+    }, [optionsCore]);
+
+    // Submit a quote for a buyer RFQ
+    const submitQuote = useCallback(async (params: {
+        orderId: number;
+        premiumRate: number;      // In basis points (e.g., 650 = 6.5%)
+        marginRate: number;       // In basis points (e.g., 1000 = 10%)
+        liquidationRule: number;  // 0 = Consecutive, 1 = Single
+        consecutiveDays: number;
+        dailyLimitPercent: number;
+        notionalUSDT: bigint;     // For calculating margin amount
+    }) => {
+        if (!optionsCore || !usdt) {
+            throw new Error('Contracts not initialized. Please connect your wallet first.');
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            // Calculate margin amount (notional * marginRate / 10000)
+            const marginAmount = (params.notionalUSDT * BigInt(params.marginRate)) / 10000n;
+            const optionsCoreAddr = getOptionsCoreAddress();
+
+            // Check and approve USDT for margin
+            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            if (currentAllowance < marginAmount) {
+                const approveTx = await usdt.approve(optionsCoreAddr, marginAmount * 10n); // Approve 10x for future quotes
+                await approveTx.wait();
+            }
+
+            // Submit the quote
+            const tx = await optionsCore.submitQuote(
+                params.orderId,
+                params.premiumRate,
+                params.marginRate,
+                params.liquidationRule,
+                params.consecutiveDays,
+                params.dailyLimitPercent
+            );
+
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Quote submission failed';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [optionsCore, usdt, account, getOptionsCoreAddress]);
+
+    // Get all quotes for a specific order
+    const getQuotesForOrder = useCallback(async (orderId: number) => {
+        if (!optionsCore) return [];
+        try {
+            // getQuotes returns an array of Quote structs
+            const quotes = await optionsCore.getQuotes(orderId);
+            return quotes.map((quote: any) => ({
+                quoteId: Number(quote.quoteId),
+                orderId: Number(quote.orderId),
+                seller: quote.seller,
+                sellerType: Number(quote.sellerType),
+                premiumRate: Number(quote.premiumRate),
+                premiumAmount: quote.premiumAmount,
+                marginRate: Number(quote.marginRate),
+                marginAmount: quote.marginAmount,
+                liquidationRule: Number(quote.liquidationRule),
+                consecutiveDays: Number(quote.consecutiveDays),
+                dailyLimitPercent: Number(quote.dailyLimitPercent),
+                createdAt: Number(quote.createdAt),
+                expiresAt: Number(quote.expiresAt),
+                status: Number(quote.status), // 0=Active, 1=Accepted, 2=Rejected, 3=Expired
+            }));
+        } catch (err) {
+            console.error('Fetch quotes error:', err);
+            return [];
+        }
+    }, [optionsCore]);
+
+    // Accept a quote (buyer action)
+    const acceptQuote = useCallback(async (quoteId: number, premiumAmount: bigint, notionalUSDT: bigint) => {
+        if (!optionsCore || !usdt) {
+            throw new Error('Contracts not initialized. Please connect your wallet first.');
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            // Calculate trading fee (0.1% of notional)
+            const tradingFee = (notionalUSDT * 10n) / 10000n;
+            const totalPayment = premiumAmount + tradingFee;
+            const optionsCoreAddr = getOptionsCoreAddress();
+
+            // Check and approve USDT for premium + fee
+            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            if (currentAllowance < totalPayment) {
+                const approveTx = await usdt.approve(optionsCoreAddr, totalPayment * 2n); // Approve 2x for safety
+                await approveTx.wait();
+            }
+
+            // Accept the quote
+            const tx = await optionsCore.acceptQuote(quoteId);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Accept quote failed';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [optionsCore, usdt, account, getOptionsCoreAddress]);
+
+    return {
+        loading,
+        error,
+        isConnected,
+        createBuyerRFQ,
+        createSellerOrder,
+        submitQuote,
+        acceptQuote,
+        getOrder,
+        getBuyerOrders,
+        getSellerOrders,
+        getAllActiveRFQs,
+        getQuotesForOrder,
+        getOptionsCoreAddress
+    };
 }

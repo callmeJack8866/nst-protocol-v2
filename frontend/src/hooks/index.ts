@@ -1,2 +1,2 @@
-﻿export { useWallet, useContracts, useUSDT, useOptions } from './useContracts';
+﻿export { useWallet, useUSDT, useOptions } from './useContracts';
 export { useFeedProtocol, usePoints } from './useFeedAndPoints';

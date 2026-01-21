@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Contract, parseUnits, formatUnits } from 'ethers';
-import { useWallet } from './useContracts';
+import { useWalletContext } from '../context/WalletContext';
 import { getContractAddresses } from '../contracts/config';
 import { FeedProtocolABI, PointsManagerABI } from '../contracts/abis';
 
@@ -46,7 +46,7 @@ export interface Airdrop {
 
 // Feed Protocol Hook
 export function useFeedProtocol() {
-    const { provider, chainId, account } = useWallet();
+    const { provider, chainId, account } = useWalletContext();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -176,7 +176,7 @@ export function useFeedProtocol() {
 
 // Points Manager Hook
 export function usePoints() {
-    const { provider, chainId, account } = useWallet();
+    const { provider, chainId, account } = useWalletContext();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [userPoints, setUserPoints] = useState<UserPoints | null>(null);

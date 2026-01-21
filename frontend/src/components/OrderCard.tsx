@@ -14,10 +14,11 @@ interface OrderCardProps {
         sellerType: string;
     };
     type: 'buyer' | 'seller';
-    onAction?: (orderId: number, action: string) => void;
+    onAction?: (orderId: number) => void;
+    actionLabel?: string;
 }
 
-export function OrderCard({ order, type, onAction }: OrderCardProps) {
+export function OrderCard({ order, type, onAction, actionLabel }: OrderCardProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     const formatDate = (timestamp: number) => {
@@ -125,24 +126,26 @@ export function OrderCard({ order, type, onAction }: OrderCardProps) {
                         </div>
 
                         <div className="flex items-center space-x-3">
-                            {type === 'buyer' && order.status === 'RFQ_CREATED' && (
+                            {/* Custom action button (View Quotes for buyer's QUOTING orders) */}
+                            {onAction && actionLabel && (
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); onAction?.(order.orderId, 'cancel'); }}
-                                    className="px-4 py-2 rounded-lg border border-red-500/30 text-red-500 text-xs font-bold hover:bg-red-500/10 transition-colors"
+                                    onClick={(e) => { e.stopPropagation(); onAction(order.orderId); }}
+                                    className="btn-primary text-xs py-2 px-5"
                                 >
-                                    Cancel Request
+                                    {actionLabel}
                                 </button>
                             )}
-                            {type === 'seller' && order.status === 'RFQ_CREATED' && (
+                            {/* Seller quote button */}
+                            {type === 'seller' && (order.status === 'RFQ_CREATED' || order.status === 'QUOTING') && onAction && !actionLabel && (
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); onAction?.(order.orderId, 'quote'); }}
+                                    onClick={(e) => { e.stopPropagation(); onAction(order.orderId); }}
                                     className="btn-primary text-xs py-2 px-5"
                                 >
                                     Submit Quote
                                 </button>
                             )}
                             <button
-                                onClick={(e) => { e.stopPropagation(); onAction?.(order.orderId, 'view'); }}
+                                onClick={(e) => { e.stopPropagation(); }}
                                 className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold hover:bg-white/10 transition-colors"
                             >
                                 Detailed View

@@ -1,10 +1,10 @@
 ﻿import { Link, useLocation } from 'react-router-dom';
-import { useWallet } from '../hooks';
+import { useWalletContext } from '../context/WalletContext';
 import { useState } from 'react';
 
 export function Header() {
   const location = useLocation();
-  const { account, chainId, isConnected, isConnecting, connect, disconnect } = useWallet();
+  const { account, chainId, isConnected, isConnecting, connect, disconnect } = useWalletContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const navLinks = [
@@ -19,7 +19,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-dark-950/80 backdrop-blur-xl">
-      <div className="max-w-[1500px] mx-auto px-8 h-20 flex items-center justify-between">
+      <div className="max-w-[1800px] mx-auto w-full flex items-center justify-between px-6 md:px-12">
 
         {/* Left: Logo */}
         <Link to="/" className="flex items-center group">
