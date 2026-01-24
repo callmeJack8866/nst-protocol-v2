@@ -8,13 +8,13 @@
 - 实现 `acceptQuote` 接受报价功能（买方视图 + 报价列表模态框）
 - 修复 OrderCard 组件支持自定义 actionLabel
 - **完成端到端流程**：Create RFQ → Submit Quote → Accept Quote (Match) ✅
+- 完成 MyOrders 页面真实数据集成
+- 完成 PointsManager 积分系统集成
+- **Solidity 单元测试全通过**：24 tests passing ✅
 
 **[Next Step]**: 
-- MyOrders 页面展示真实订单数据
-- PointsManager 积分系统集成
 - 边缘情况处理（报价过期、订单取消等）
-- MyOrders 页面展示真实订单数据
-- PointsManager 积分系统集成
+- 生产构建检查
 
 ---
 

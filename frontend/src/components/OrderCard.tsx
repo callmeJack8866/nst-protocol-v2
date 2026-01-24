@@ -6,7 +6,7 @@ interface OrderCardProps {
         underlyingName: string;
         underlyingCode: string;
         market: string;
-        direction: 'Call' | 'Put';
+        direction: string;
         notionalUSDT: number;
         premiumRate: number;
         expiryTimestamp: number;

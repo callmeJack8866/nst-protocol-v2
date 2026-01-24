@@ -176,7 +176,7 @@ export function useFeedProtocol() {
 
 // Points Manager Hook
 export function usePoints() {
-    const { provider, chainId, account } = useWalletContext();
+    const { provider, chainId, account, isConnected } = useWalletContext();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [userPoints, setUserPoints] = useState<UserPoints | null>(null);
@@ -198,33 +198,45 @@ export function usePoints() {
 
         try {
             const points = await contract.getUserPoints(account);
-            setUserPoints(points as UserPoints);
+            setUserPoints({
+                totalPoints: points.totalPoints,
+                claimedPoints: points.claimedPoints,
+                availablePoints: points.availablePoints,
+                lastUpdateTime: points.lastUpdateTime,
+            });
         } catch (err) {
             console.error('Failed to fetch user points:', err);
         }
     }, [getContract, account]);
 
-    // Get airdrop info
-    const getAirdrop = useCallback(async (airdropId: number): Promise<Airdrop | null> => {
+    // Get current airdrop config
+    const getCurrentAirdrop = useCallback(async () => {
         const contract = await getContract();
         if (!contract) return null;
 
         try {
-            const airdrop = await contract.getAirdrop(airdropId);
-            return airdrop as Airdrop;
+            const airdrop = await contract.getCurrentAirdrop();
+            return {
+                totalPool: airdrop.totalPool,
+                startTime: Number(airdrop.startTime),
+                endTime: Number(airdrop.endTime),
+                totalPointsSnapshot: airdrop.totalPointsSnapshot,
+                isActive: airdrop.isActive,
+                airdropId: Number(airdrop.airdropId),
+            };
         } catch (err) {
-            console.error('Failed to fetch airdrop:', err);
+            console.error('Failed to fetch current airdrop:', err);
             return null;
         }
     }, [getContract]);
 
     // Calculate claimable NST
-    const calculateClaimableNST = useCallback(async (airdropId: number): Promise<string> => {
+    const calculateClaimableNST = useCallback(async (): Promise<string> => {
         const contract = await getContract();
         if (!contract || !account) return '0';
 
         try {
-            const amount = await contract.calculateClaimableNST(account, airdropId);
+            const amount = await contract.getClaimableAirdrop(account);
             return formatUnits(amount, 18);
         } catch (err) {
             console.error('Failed to calculate claimable NST:', err);
@@ -233,7 +245,7 @@ export function usePoints() {
     }, [getContract, account]);
 
     // Claim airdrop
-    const claimAirdrop = useCallback(async (airdropId: number) => {
+    const claimAirdrop = useCallback(async () => {
         const contract = await getContract();
         if (!contract) throw new Error('Contract not initialized');
 
@@ -241,7 +253,7 @@ export function usePoints() {
         setError(null);
 
         try {
-            const tx = await contract.claimAirdrop(airdropId);
+            const tx = await contract.claimAirdrop();
             const receipt = await tx.wait();
             await fetchUserPoints(); // Refresh points after claiming
             return receipt;
@@ -253,13 +265,13 @@ export function usePoints() {
         }
     }, [getContract, fetchUserPoints]);
 
-    // Get current airdrop ID
+    // Get current airdrop ID (airdrop counter)
     const getCurrentAirdropId = useCallback(async (): Promise<number> => {
         const contract = await getContract();
         if (!contract) return 0;
 
         try {
-            const id = await contract.currentAirdropId();
+            const id = await contract.airdropCounter();
             return Number(id);
         } catch (err) {
             console.error('Failed to get current airdrop ID:', err);
@@ -271,8 +283,9 @@ export function usePoints() {
         isLoading,
         error,
         userPoints,
+        isConnected,
         fetchUserPoints,
-        getAirdrop,
+        getCurrentAirdrop,
         calculateClaimableNST,
         claimAirdrop,
         getCurrentAirdropId,

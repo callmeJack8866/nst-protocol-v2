@@ -12,7 +12,7 @@ interface RFQOrder {
   market: string;
   country: string;
   refPrice: string;
-  direction: 'Call' | 'Put';
+  direction: string;
   notionalUSDT: bigint;
   premiumRate: number;
   expiryTimestamp: number;

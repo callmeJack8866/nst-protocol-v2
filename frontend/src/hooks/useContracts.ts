@@ -1,5 +1,5 @@
 ﻿import { useState, useCallback } from 'react';
-import { parseUnits, getAddress } from 'ethers';
+import { parseUnits } from 'ethers';
 import { useWalletContext } from '../context/WalletContext';
 import { getContractAddresses } from '../contracts/config';
 
