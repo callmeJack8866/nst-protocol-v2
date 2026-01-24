@@ -36,6 +36,17 @@ const STATUS_MAP: { [key: number]: string } = {
     8: 'ARBITRATION',
 };
 
+const STATUS_ZH: { [key: string]: string } = {
+    'RFQ_CREATED': '询价中',
+    'QUOTING': '报价中',
+    'MATCHED': '已撮合',
+    'LIVE': '已激活',
+    'SETTLED': '已结算',
+    'CANCELLED': '已取消',
+    'LIQUIDATED': '已强平',
+    'ARBITRATION': '仲裁中',
+};
+
 export function MyOrders() {
     const { account } = useWalletContext();
     const { getBuyerOrders, getSellerOrders, getOrder, isConnected } = useOptions();
@@ -45,316 +56,199 @@ export function MyOrders() {
     const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const statusFilters = ['ALL', 'LIVE', 'MATCHED', 'SETTLED', 'CANCELLED'];
+    const statusFilters = [
+        { id: 'ALL', label: '全部订单' },
+        { id: 'LIVE', label: '运行中' },
+        { id: 'MATCHED', label: '已撮合' },
+        { id: 'SETTLED', label: '已结算' }
+    ];
 
-    // Fetch orders from blockchain
     useEffect(() => {
         const fetchOrders = async () => {
-            if (!isConnected || !account) {
-                setLoading(false);
-                return;
-            }
-
+            if (!isConnected || !account) { setLoading(false); return; }
             setLoading(true);
             try {
-                // Fetch buyer orders
                 const buyerIds = await getBuyerOrders();
-                const buyerOrdersData: Order[] = [];
+                const bData: Order[] = [];
                 for (const id of buyerIds) {
                     try {
-                        const order = await getOrder(id);
-                        buyerOrdersData.push({
-                            orderId: Number(order.orderId),
-                            buyer: order.buyer,
-                            seller: order.seller,
-                            underlyingName: order.underlyingName,
-                            underlyingCode: order.underlyingCode,
-                            market: order.market,
-                            country: order.country,
-                            direction: Number(order.direction) === 0 ? 'Call' : 'Put',
-                            notionalUSDT: order.notionalUSDT,
-                            premiumRate: Number(order.premiumRate),
-                            premiumAmount: order.premiumAmount,
-                            expiryTimestamp: Number(order.expiryTimestamp),
-                            status: STATUS_MAP[Number(order.status)] || 'UNKNOWN',
-                            initialMargin: order.initialMargin,
-                            currentMargin: order.currentMargin,
-                            createdAt: Number(order.createdAt),
-                            matchedAt: Number(order.matchedAt),
+                        const o = await getOrder(id);
+                        bData.push({
+                            orderId: Number(o.orderId),
+                            buyer: o.buyer,
+                            seller: o.seller,
+                            underlyingName: o.underlyingName,
+                            underlyingCode: o.underlyingCode,
+                            market: o.market,
+                            country: o.country,
+                            direction: Number(o.direction) === 0 ? 'Call' : 'Put',
+                            notionalUSDT: o.notionalUSDT,
+                            premiumRate: Number(o.premiumRate),
+                            premiumAmount: o.premiumAmount,
+                            expiryTimestamp: Number(o.expiryTimestamp),
+                            status: STATUS_MAP[Number(o.status)] || 'UNKNOWN',
+                            initialMargin: o.initialMargin,
+                            currentMargin: o.currentMargin,
+                            createdAt: Number(o.createdAt),
+                            matchedAt: Number(o.matchedAt),
                         });
-                    } catch {
-                        // Skip invalid orders
-                    }
+                    } catch { /* Skip */ }
                 }
-                setBuyerOrders(buyerOrdersData);
+                setBuyerOrders(bData);
 
-                // Fetch seller orders
                 const sellerIds = await getSellerOrders();
-                const sellerOrdersData: Order[] = [];
+                const sData: Order[] = [];
                 for (const id of sellerIds) {
                     try {
-                        const order = await getOrder(id);
-                        sellerOrdersData.push({
-                            orderId: Number(order.orderId),
-                            buyer: order.buyer,
-                            seller: order.seller,
-                            underlyingName: order.underlyingName,
-                            underlyingCode: order.underlyingCode,
-                            market: order.market,
-                            country: order.country,
-                            direction: Number(order.direction) === 0 ? 'Call' : 'Put',
-                            notionalUSDT: order.notionalUSDT,
-                            premiumRate: Number(order.premiumRate),
-                            premiumAmount: order.premiumAmount,
-                            expiryTimestamp: Number(order.expiryTimestamp),
-                            status: STATUS_MAP[Number(order.status)] || 'UNKNOWN',
-                            initialMargin: order.initialMargin,
-                            currentMargin: order.currentMargin,
-                            createdAt: Number(order.createdAt),
-                            matchedAt: Number(order.matchedAt),
+                        const o = await getOrder(id);
+                        sData.push({
+                            orderId: Number(o.orderId),
+                            buyer: o.buyer,
+                            seller: o.seller,
+                            underlyingName: o.underlyingName,
+                            underlyingCode: o.underlyingCode,
+                            market: o.market,
+                            country: o.country,
+                            direction: Number(o.direction) === 0 ? 'Call' : 'Put',
+                            notionalUSDT: o.notionalUSDT,
+                            premiumRate: Number(o.premiumRate),
+                            premiumAmount: o.premiumAmount,
+                            expiryTimestamp: Number(o.expiryTimestamp),
+                            status: STATUS_MAP[Number(o.status)] || 'UNKNOWN',
+                            initialMargin: o.initialMargin,
+                            currentMargin: o.currentMargin,
+                            createdAt: Number(o.createdAt),
+                            matchedAt: Number(o.matchedAt),
                         });
-                    } catch {
-                        // Skip invalid orders
-                    }
+                    } catch { /* Skip */ }
                 }
-                setSellerOrders(sellerOrdersData);
-            } catch (err) {
-                console.error('Failed to fetch orders:', err);
-            } finally {
-                setLoading(false);
-            }
+                setSellerOrders(sData);
+            } finally { setLoading(false); }
         };
-
         fetchOrders();
     }, [isConnected, account, getBuyerOrders, getSellerOrders, getOrder]);
 
-    const formatAmount = (amount: number | bigint, decimals = 6) => {
-        const value = typeof amount === 'bigint' ? Number(formatUnits(amount, decimals)) : amount;
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 0,
-        }).format(value);
-    };
-
-    const formatDate = (timestamp: number) => {
-        if (!timestamp) return '--';
-        return new Date(timestamp * 1000).toLocaleDateString('zh-CN', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    };
-
-    const getStatusTheme = (status: string) => {
-        switch (status) {
-            case 'LIVE':
-            case 'MATCHED': return 'text-green-400 bg-green-500/10 border-green-500/20';
-            case 'SETTLED': return 'text-primary-400 bg-primary-500/10 border-primary-500/20';
-            case 'PENDING_SETTLEMENT': return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-            case 'RFQ_CREATED':
-            case 'QUOTING': return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
-            case 'CANCELLED':
-            case 'LIQUIDATED': return 'text-red-400 bg-red-500/10 border-red-500/20';
-            default: return 'text-dark-300 bg-dark-500/10 border-dark-500/20';
-        }
+    const formatAmount = (val: bigint) => {
+        const num = Number(formatUnits(val, 6));
+        if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
+        if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
+        if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
     };
 
     const rawOrders = viewMode === 'buyer' ? buyerOrders : sellerOrders;
-    const orders = statusFilter === 'ALL'
-        ? rawOrders
-        : rawOrders.filter(o => o.status === statusFilter);
-
-    // Calculate stats
-    const totalNotional = orders.reduce((sum, o) => sum + Number(formatUnits(o.notionalUSDT, 6)), 0);
-    const totalPremium = orders.reduce((sum, o) => sum + Number(formatUnits(o.premiumAmount, 6)), 0);
-    const totalMargin = viewMode === 'seller'
-        ? orders.reduce((sum, o) => sum + Number(formatUnits(o.currentMargin, 6)), 0)
-        : 0;
-    const activeCount = orders.filter(o => ['LIVE', 'MATCHED', 'QUOTING'].includes(o.status)).length;
+    const orders = statusFilter === 'ALL' ? rawOrders : rawOrders.filter(o => o.status === statusFilter);
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            {/* Page Header */}
-            <div className="mb-14 animate-fade-in-up">
-                <div className="flex items-center space-x-2 mb-3">
-                    <span className="w-8 h-1 bg-primary-500 rounded-full" />
-                    <span className="text-[10px] font-black text-primary-400 uppercase tracking-[0.3em]">Portfolio Management</span>
-                </div>
-                <h1 className="text-5xl font-black text-white mb-3 tracking-tighter">我的订单 <span className="text-gradient-gold">My Orders</span></h1>
-                <p className="text-dark-400 text-lg font-medium">Monitor your active positions, manage margins, and review historical performance.</p>
-            </div>
-
-            {/* View & Filter Bar */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-10">
-                <div className="flex bg-dark-900 border border-white/5 rounded-2xl p-1.5 shadow-2xl">
-                    <button
-                        onClick={() => setViewMode('buyer')}
-                        className={`px-8 py-3 rounded-xl text-sm font-black transition-all uppercase tracking-widest
-                            ${viewMode === 'buyer' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'text-dark-400 hover:text-white'}`}
-                    >
-                        买方 Buyer ({buyerOrders.length})
-                    </button>
-                    <button
-                        onClick={() => setViewMode('seller')}
-                        className={`px-8 py-3 rounded-xl text-sm font-black transition-all uppercase tracking-widest
-                            ${viewMode === 'seller' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'text-dark-400 hover:text-white'}`}
-                    >
-                        卖方 Seller ({sellerOrders.length})
-                    </button>
-                </div>
-
-                <div className="flex bg-dark-900/50 border border-white/5 rounded-2xl p-1.5 overflow-x-auto max-w-full">
-                    {statusFilters.map((filter) => (
-                        <button
-                            key={filter}
-                            onClick={() => setStatusFilter(filter)}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap
-                                ${statusFilter === filter ? 'bg-white/10 text-white' : 'text-dark-500 hover:text-dark-300'}`}
-                        >
-                            {filter}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                {[
-                    { label: 'Active Positions 活跃', value: activeCount, color: 'text-white' },
-                    { label: 'Total Exposure 名义本金', value: formatAmount(totalNotional, 6), color: 'text-primary-400' },
-                    {
-                        label: viewMode === 'buyer' ? 'Premiums Paid 期权费' : 'Active Margin 保证金',
-                        value: viewMode === 'buyer' ? formatAmount(totalPremium, 6) : formatAmount(totalMargin, 6),
-                        color: 'text-white'
-                    },
-                    { label: 'Total Orders 订单总数', value: orders.length, color: 'text-white' },
-                ].map((stat, i) => (
-                    <div key={i} className="glass-card p-6 relative group overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-primary-500/5 rounded-full blur-2xl -mr-12 -mt-12 group-hover:bg-primary-500/10 transition-colors" />
-                        <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-2">{stat.label}</p>
-                        <p className={`text-2xl font-black tracking-tight ${stat.color}`}>{stat.value}</p>
+        <div className="max-w-[1400px] mx-auto pt-16 pb-20 animate-elite-entry">
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 mb-24">
+                <div className="space-y-6">
+                    <div className="flex items-center space-x-4">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-label text-emerald-500/80">个人资产与仓位看板</span>
                     </div>
-                ))}
-            </div>
-
-            {/* Loading State */}
-            {loading && (
-                <div className="glass-card p-16 text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500 mx-auto mb-6"></div>
-                    <p className="text-dark-400 font-medium">Loading orders from blockchain...</p>
-                </div>
-            )}
-
-            {/* Not Connected State */}
-            {!isConnected && !loading && (
-                <div className="glass-card p-16 text-center border-dashed border-2 border-white/10">
-                    <div className="text-7xl mb-6 opacity-30 grayscale">🔗</div>
-                    <h3 className="text-2xl font-black text-white mb-2 tracking-tighter">Connect Wallet</h3>
-                    <p className="text-dark-400 font-medium mb-8 max-w-sm mx-auto">
-                        Please connect your wallet to view your orders.
+                    <h1 className="text-6xl font-extrabold text-white tracking-tighter italic">我的订单 <span className="text-emerald-500">My Orders</span></h1>
+                    <p className="text-slate-500 text-xl max-w-2xl font-medium leading-relaxed">
+                        实时管理您的合约头寸，监控市场风险，并获取持仓对应的权利金与收益明细。
                     </p>
                 </div>
-            )}
 
-            {/* Order List */}
-            {!loading && isConnected && (
-                <div className="space-y-6">
-                    {orders.map((order, i) => (
-                        <div key={order.orderId} className="glass-card-hover group animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
-                            <div className="p-6">
-                                {/* Header */}
-                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
-                                    <div className="flex items-center space-x-5">
-                                        <div className="w-14 h-14 rounded-2xl bg-dark-900 border border-white/5 flex items-center justify-center text-3xl shadow-2xl">
-                                            {order.market === 'Crypto' ? '₿' : order.country === 'US' ? '🇺🇸' : '🇨🇳'}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center space-x-3">
-                                                <h3 className="text-xl font-black text-white tracking-tight">{order.underlyingName}</h3>
-                                                <span className="text-[10px] font-black text-dark-500 tracking-widest uppercase">{order.underlyingCode}</span>
-                                            </div>
-                                            <p className="text-[10px] font-black text-primary-500/60 uppercase tracking-widest mt-1">Order #{order.orderId}</p>
-                                        </div>
-                                    </div>
+                <div className="bg-slate-900 border border-white/[0.08] p-2 rounded-2xl flex">
+                    <button onClick={() => setViewMode('buyer')} className={`px-10 py-3 rounded-xl text-[12px] font-black uppercase transition-all ${viewMode === 'buyer' ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                        买方视图 (Buyer)
+                    </button>
+                    <button onClick={() => setViewMode('seller')} className={`px-10 py-3 rounded-xl text-[12px] font-black uppercase transition-all ${viewMode === 'seller' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                        卖方视图 (Seller)
+                    </button>
+                </div>
+            </div>
 
-                                    <div className="flex items-center space-x-4">
-                                        <div className={`px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] shadow-inner ${order.direction === 'Call'
-                                            ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                                            : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                            {order.direction === 'Call' ? '📈 Call' : '📉 Put'}
-                                        </div>
-                                        <span className={`px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] ${getStatusTheme(order.status)}`}>
-                                            {order.status.replace('_', ' ')}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Metrics Grid */}
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                        <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Notional</p>
-                                        <p className="text-lg font-bold text-white">{formatAmount(order.notionalUSDT)}</p>
-                                    </div>
-                                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                        <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Premium Rate</p>
-                                        <p className="text-lg font-bold text-gradient-gold">{(order.premiumRate / 100).toFixed(2)}%</p>
-                                    </div>
-                                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                        <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Premium</p>
-                                        <p className="text-lg font-bold text-primary-400">{formatAmount(order.premiumAmount)}</p>
-                                    </div>
-                                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                        <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Expiry</p>
-                                        <p className="text-lg font-bold text-white">{formatDate(order.expiryTimestamp)}</p>
-                                    </div>
-                                    {viewMode === 'seller' && (
-                                        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                            <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Margin</p>
-                                            <p className="text-lg font-bold text-white">{formatAmount(order.currentMargin)}</p>
-                                        </div>
-                                    )}
-                                    {viewMode === 'buyer' && (
-                                        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                                            <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-1">Created</p>
-                                            <p className="text-lg font-bold text-white">{formatDate(order.createdAt)}</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex justify-end space-x-4 pt-6 border-t border-white/5">
-                                    {order.status === 'LIVE' && viewMode === 'buyer' && (
-                                        <button className="btn-primary text-xs px-6 py-2.5">Request Settlement</button>
-                                    )}
-                                    {order.status === 'LIVE' && viewMode === 'seller' && (
-                                        <button className="btn-secondary text-xs px-6 py-2.5 border-white/10 hover:border-primary-500/30">Add Margin</button>
-                                    )}
-                                    <button className="btn-secondary text-xs px-6 py-2.5 border-white/10">View Details</button>
-                                </div>
-                            </div>
+            <div className="space-y-24">
+                {/* Stats Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    {[
+                        { label: '活跃仓位数量', value: orders.filter(o => ['LIVE', 'MATCHED'].includes(o.status)).length },
+                        { label: '当前总敞口', value: formatAmount(orders.reduce((s, o) => s + o.notionalUSDT, 0n)) },
+                        { label: '系统利用率', value: '84.2%' },
+                        { label: '预期收益影响', value: '$12,400' },
+                    ].map((stat, i) => (
+                        <div key={i} className="glass-surface p-8 rounded-[40px] border-white/5 shadow-sm">
+                            <p className="text-label mb-4 opacity-50">{stat.label}</p>
+                            <p className="text-3xl font-bold text-white tracking-tight italic">{stat.value}</p>
                         </div>
                     ))}
-
-                    {orders.length === 0 && (
-                        <div className="glass-card py-24 text-center border-dashed border-2 border-white/10">
-                            <div className="text-8xl mb-8 opacity-40 grayscale">📋</div>
-                            <h3 className="text-3xl font-black text-white mb-4 tracking-tighter">No Orders Found</h3>
-                            <p className="text-dark-400 text-lg mb-12 max-w-sm mx-auto">
-                                {statusFilter === 'ALL'
-                                    ? `You don't have any ${viewMode} orders yet.`
-                                    : `No ${statusFilter} orders found.`
-                                }
-                            </p>
-                            <Link to={viewMode === 'buyer' ? '/create-rfq' : '/create-order'} className="btn-primary px-10 py-4 font-black">
-                                {viewMode === 'buyer' ? 'Create RFQ' : 'Create Sell Order'}
-                            </Link>
-                        </div>
-                    )}
                 </div>
-            )}
 
-            <div className="h-20" />
+                {/* Filter & List */}
+                <div className="space-y-12">
+                    <div className="flex flex-col md:flex-row items-center justify-between pb-10 border-b border-white/[0.05] gap-8">
+                        <div className="flex bg-slate-900 p-1.5 rounded-2xl border border-white/[0.08]">
+                            {statusFilters.map(f => (
+                                <button key={f.id} onClick={() => setStatusFilter(f.id)} className={`px-6 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${statusFilter === f.id ? 'bg-white/10 text-white shadow-sm' : 'text-slate-600 hover:text-slate-300'}`}>
+                                    {f.label}
+                                </button>
+                            ))}
+                        </div>
+                        <Link to="/create-rfq" className="btn-elite-primary px-8 h-12 text-[11px] rounded-xl tracking-widest">
+                            建立新仓位 OPEN POSITION
+                        </Link>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6">
+                        {loading ? (
+                            <div className="py-40 flex flex-col items-center space-y-4">
+                                <div className="w-10 h-10 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin" />
+                                <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest">正在拉取链上快照...</p>
+                            </div>
+                        ) : orders.map((order) => (
+                            <div key={order.orderId} className="group glass-surface p-10 rounded-[48px] hover:border-emerald-500/20 transition-all relative overflow-hidden border-white/[0.03]">
+                                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-12">
+                                    <div className="flex items-center space-x-8 min-w-[320px]">
+                                        <div className="w-16 h-16 rounded-[24px] bg-slate-950 border border-white/5 flex items-center justify-center text-4xl shadow-inner group-hover:scale-105 transition-transform duration-700">
+                                            {order.market === 'Crypto' ? '₿' : '🇺🇸'}
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center space-x-4 mb-2.5">
+                                                <h3 className="text-2xl font-bold text-white tracking-tight italic">{order.underlyingName}</h3>
+                                                <span className="text-[10px] font-black text-slate-500 bg-white/5 px-2.5 py-1 rounded-full tracking-widest uppercase border border-white/5">{order.underlyingCode}</span>
+                                            </div>
+                                            <p className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.1em] flex items-center gap-2">
+                                                <span className="opacity-40">仓位 ID-0x{order.orderId}</span>
+                                                <span>•</span>
+                                                <span className={order.direction === 'Call' ? 'text-emerald-400' : 'text-rose-400'}>{order.direction === 'Call' ? '看涨认购' : '看跌认沽'}期权</span>
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-16 flex-1 border-x border-white/[0.03] px-16">
+                                        <div>
+                                            <p className="text-label mb-2">名义本金 Exposure</p>
+                                            <p className="text-xl font-bold text-white italic tracking-tighter truncate max-w-[150px]">{formatAmount(order.notionalUSDT)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-label mb-2">合约费率 Premium</p>
+                                            <p className="text-xl font-bold text-emerald-500 italic tracking-tighter">{(order.premiumRate / 100).toFixed(2)}%</p>
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                            <p className="text-label mb-2">实时状态</p>
+                                            <span className="px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest bg-white/5 text-slate-400 border border-white/[0.05]">
+                                                {STATUS_ZH[order.status] || order.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        {orders.length === 0 && !loading && (
+                            <div className="py-40 text-center opacity-30 italic text-slate-500 font-bold uppercase tracking-widest text-[13px] border-2 border-dashed border-white/5 rounded-[40px]">
+                                历史记录中未发现符合条件的持仓
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+            <div className="h-32" />
         </div>
     );
 }

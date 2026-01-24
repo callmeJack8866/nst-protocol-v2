@@ -12,24 +12,23 @@ interface OrderCardProps {
         expiryTimestamp: number;
         status: string;
         sellerType: string;
+        refPrice?: string;
     };
-    type: 'buyer' | 'seller';
     onAction?: (orderId: number) => void;
     actionLabel?: string;
 }
 
-export function OrderCard({ order, type, onAction, actionLabel }: OrderCardProps) {
-    const [isExpanded, setIsExpanded] = useState(false);
+export function OrderCard({ order, onAction, actionLabel }: OrderCardProps) {
+    const [isHovered, setIsHovered] = useState(false);
 
-    const formatDate = (timestamp: number) => {
-        return new Date(timestamp * 1000).toLocaleDateString('zh-CN', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
-    };
-
+    // Compact number formatting for extremely large amounts (e.g. $1.00Q)
     const formatAmount = (amount: number) => {
+        if (amount >= 1e18) return `$${(amount / 1e18).toFixed(2)}Q`;
+        if (amount >= 1e15) return `$${(amount / 1e15).toFixed(2)}P`;
+        if (amount >= 1e12) return `$${(amount / 1e12).toFixed(2)}T`;
+        if (amount >= 1e9) return `$${(amount / 1e9).toFixed(2)}B`;
+        if (amount >= 1e6) return `$${(amount / 1e6).toFixed(2)}M`;
+
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
@@ -37,126 +36,125 @@ export function OrderCard({ order, type, onAction, actionLabel }: OrderCardProps
         }).format(amount);
     };
 
-    const getDirectionTheme = (direction: string) => {
-        return direction === 'Call'
-            ? 'text-green-400'
-            : 'text-red-400';
+    const formatDate = (timestamp: number) => {
+        return new Date(timestamp * 1000).toLocaleDateString('zh-CN', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
     };
 
-    const getStatusTheme = (status: string) => {
+    const getStatusLabel = (status: string) => {
         switch (status) {
-            case 'RFQ_CREATED': return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
-            case 'QUOTING': return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-            case 'MATCHED':
-            case 'LIVE': return 'text-green-400 bg-green-500/10 border-green-500/20';
-            case 'SETTLED': return 'text-primary-400 bg-primary-500/10 border-primary-500/20';
-            case 'CANCELLED': return 'text-dark-400 bg-dark-500/10 border-dark-500/20';
-            default: return 'text-dark-300 bg-dark-500/10 border-dark-500/20';
+            case 'RFQ_CREATED': return '询价中';
+            case 'QUOTING': return '报价中';
+            case 'LIVE': return '已激活';
+            case 'MATCHED': return '已撮合';
+            case 'SETTLED': return '已结算';
+            case 'CANCELLED': return '已取消';
+            default: return '未知状态';
+        }
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'RFQ_CREATED': return 'text-emerald-400 bg-emerald-400/5 border-emerald-400/10';
+            case 'QUOTING': return 'text-amber-400 bg-amber-400/5 border-amber-400/10';
+            case 'LIVE': return 'text-white bg-emerald-500 border-emerald-500/20';
+            default: return 'text-slate-500 bg-white/5 border-white/5';
         }
     };
 
     return (
         <div
-            className={`glass-card-hover overflow-hidden border-white/[0.05] transition-all duration-300 ${isExpanded ? 'bg-white/[0.04]' : ''}`}
-            onClick={() => setIsExpanded(!isExpanded)}
+            className="group relative animate-elite-entry"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
-            <div className="px-8 py-6">
-                {/* Compact Header Row */}
-                <div className="flex items-center justify-between mb-6 gap-4">
-                    <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-12 h-12 rounded-xl bg-dark-900 flex items-center justify-center border border-white/5 flex-shrink-0">
-                            <span className="text-2xl grayscale group-hover:grayscale-0 transition-all">
-                                {order.market === 'Crypto' ? '₿' : order.market === 'US' ? '🇺🇸' : '🇨🇳'}
-                            </span>
+            {/* Background Glow */}
+            <div className={`absolute -inset-x-4 -inset-y-2 bg-emerald-500/5 blur-3xl rounded-[48px] transition-opacity duration-1000 ${isHovered ? 'opacity-100' : 'opacity-0'}`} />
+
+            <div className={`relative glass-surface p-10 rounded-[40px] transition-all duration-700 ${isHovered ? 'border-emerald-500/30 -translate-y-1.5' : ''}`}>
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-12">
+
+                    {/* Primary Asset Info */}
+                    <div className="flex items-center space-x-8 min-w-[320px]">
+                        <div className="w-16 h-16 rounded-[24px] bg-slate-950 border border-white/5 flex items-center justify-center text-4xl shadow-inner group-hover:scale-110 transition-transform duration-700">
+                            {order.direction === 'Call' ? '📈' : '📉'}
                         </div>
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="text-lg font-bold text-white tracking-tight truncate">{order.underlyingName}</h3>
-                                <span className="text-xs font-bold text-dark-500 bg-dark-800/50 px-2 py-0.5 rounded border border-white/5 uppercase font-mono flex-shrink-0">{order.underlyingCode}</span>
+                        <div>
+                            <div className="flex items-center space-x-4 mb-2.5">
+                                <h3 className="text-2xl font-bold text-white tracking-tight italic">{order.underlyingName}</h3>
+                                <div className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest ${getStatusColor(order.status)} border uppercase`}>
+                                    {getStatusLabel(order.status)}
+                                </div>
                             </div>
-                            <p className="text-xs font-bold text-dark-500 uppercase tracking-wide mt-1">Order ID #{order.orderId}</p>
+                            <div className="flex items-center space-x-3 text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">
+                                <span>{order.market}</span>
+                                <span className="text-white/10">•</span>
+                                <span className={order.direction === 'Call' ? 'text-emerald-400' : 'text-rose-400'}>{order.direction === 'Call' ? '看涨期权' : '看跌期权'}</span>
+                                <span className="text-white/10">•</span>
+                                <span className="text-white opacity-30">编号 #{order.orderId}</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-                        <div className={`px-3 py-1.5 rounded-md border text-xs font-bold uppercase tracking-wide ${getDirectionTheme(order.direction)} border-current/10 bg-current/5`}>
-                            {order.direction} Option
+                    {/* Transactional Metrics Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-12 flex-1 border-x border-white/[0.03] px-12">
+                        <div className="space-y-2">
+                            <p className="text-label">名义本金 Notional</p>
+                            <p className="text-xl font-bold text-white tracking-tight truncate max-w-[140px]" title={String(order.notionalUSDT)}>
+                                {formatAmount(order.notionalUSDT)}
+                            </p>
                         </div>
-                        <div className={`px-3 py-1.5 rounded-md border text-xs font-bold uppercase tracking-wide ${getStatusTheme(order.status)}`}>
-                            {order.status.replace('_', ' ')}
+                        <div className="space-y-2">
+                            <p className="text-label">费率 Premium</p>
+                            <p className="text-xl font-bold text-emerald-400 italic tracking-tighter">{(order.premiumRate / 100).toFixed(2)}%</p>
                         </div>
+                        <div className="space-y-2">
+                            <p className="text-label">到期时间 Expiry</p>
+                            <p className="text-xl font-bold text-slate-300 tracking-tight">{formatDate(order.expiryTimestamp)}</p>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-label">参考价 Mark</p>
+                            <p className="text-xl font-bold text-slate-500 italic">${order.refPrice || '--'}</p>
+                        </div>
+                    </div>
+
+                    {/* Action Area */}
+                    <div className="min-w-[180px] flex justify-end">
+                        {onAction ? (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onAction(order.orderId); }}
+                                className="w-full btn-elite-primary text-[12px] py-4 tracking-widest shadow-xl"
+                            >
+                                {actionLabel || '立即执行'}
+                            </button>
+                        ) : (
+                            <div className="w-full flex justify-end">
+                                <div className="w-12 h-12 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-slate-600 group-hover:text-emerald-500 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/5 transition-all duration-500">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="m9 18 6-6-6-6" /></svg>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Clean Horizontal Metrics */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="flex flex-col">
-                        <span className="metric-label mb-1.5">Notional</span>
-                        <span className="metric-value text-base lg:text-lg">{formatAmount(order.notionalUSDT)}</span>
+                {/* Footnote Metadata */}
+                <div className="mt-10 pt-8 border-t border-white/[0.03] flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                    <div className="flex items-center space-x-8">
+                        <span className="flex items-center gap-2"><span className="opacity-40">对手方:</span> <span className="text-slate-400">{order.sellerType === 'Open Market' ? '全公开市场' : '特定对手方'}</span></span>
+                        <span>•</span>
+                        <span className="flex items-center gap-2"><span className="opacity-40">结算周期:</span> <span className="text-slate-400">实时结算 (T+0)</span></span>
+                        <span>•</span>
+                        <span className="flex items-center gap-2"><span className="opacity-40">校验协议:</span> <span className="text-slate-400">NST-P2P v2.0</span></span>
                     </div>
-                    <div className="flex flex-col lg:border-l lg:border-white/5 lg:pl-6">
-                        <span className="metric-label mb-1.5">Premium Rate</span>
-                        <span className="metric-value text-gradient-gold text-base lg:text-lg">{(order.premiumRate / 100).toFixed(2)}%</span>
-                    </div>
-                    <div className="flex flex-col lg:border-l lg:border-white/5 lg:pl-6">
-                        <span className="metric-label mb-1.5">Expiry Date</span>
-                        <span className="metric-value text-base lg:text-lg">{formatDate(order.expiryTimestamp)}</span>
-                    </div>
-                    <div className="flex flex-col lg:border-l lg:border-white/5 lg:pl-6">
-                        <span className="metric-label mb-1.5">Estimated Yield</span>
-                        <span className="metric-value text-green-400 text-base lg:text-lg">{formatAmount(order.notionalUSDT * order.premiumRate / 10000)}</span>
+                    <div className="flex items-center space-x-2 text-emerald-500/40">
+                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                        <span>链上实时验证</span>
                     </div>
                 </div>
             </div>
-
-            {/* Expanded Content - Simpler */}
-            {isExpanded && (
-                <div className="px-6 pb-6 pt-4 border-t border-white/5 bg-black/10 animate-fade-in">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="flex items-center space-x-8">
-                            <div>
-                                <h4 className="metric-label mb-1">Required Verification</h4>
-                                <p className="text-sm font-semibold text-dark-200">{order.sellerType}</p>
-                            </div>
-                            <div className="w-px h-8 bg-white/5" />
-                            <div>
-                                <h4 className="metric-label mb-1">Protocol Fee</h4>
-                                <p className="text-sm font-semibold text-dark-200">1.00 USDT</p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center space-x-3">
-                            {/* Custom action button (View Quotes for buyer's QUOTING orders) */}
-                            {onAction && actionLabel && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onAction(order.orderId); }}
-                                    className="btn-primary text-xs py-2 px-5"
-                                >
-                                    {actionLabel}
-                                </button>
-                            )}
-                            {/* Seller quote button */}
-                            {type === 'seller' && (order.status === 'RFQ_CREATED' || order.status === 'QUOTING') && onAction && !actionLabel && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onAction(order.orderId); }}
-                                    className="btn-primary text-xs py-2 px-5"
-                                >
-                                    Submit Quote
-                                </button>
-                            )}
-                            <button
-                                onClick={(e) => { e.stopPropagation(); }}
-                                className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold hover:bg-white/10 transition-colors"
-                            >
-                                Detailed View
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Visual indicator bar */}
-            <div className={`h-[2px] w-full transition-all duration-300 ${isExpanded ? 'bg-primary-500/40' : 'bg-transparent group-hover:bg-primary-500/10'}`} />
         </div>
     );
 }

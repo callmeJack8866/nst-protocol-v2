@@ -2,124 +2,126 @@
 import { useWallet, useFeedProtocol } from '../hooks';
 
 export function FeederPanel() {
-  const { isConnected, account } = useWallet();
+  const { isConnected, account, connect } = useWallet();
   const { getFeederInfo } = useFeedProtocol();
   const [feederInfo, setFeederInfo] = useState<any>(null);
 
   useEffect(() => {
     if (isConnected && account) {
-      // Logic to fetch info if needed, but the original hooks didn't have these
       const loadInfo = async () => {
-        const info = await getFeederInfo();
-        setFeederInfo(info);
+        try {
+          const info = await getFeederInfo();
+          setFeederInfo(info);
+        } catch (e) { console.error(e); }
       };
       loadInfo();
     }
   }, [isConnected, account, getFeederInfo]);
 
-  // Mock data for initial UI demo
   const mockRequests = [
-    { requestId: 1, underlyingName: '黄金 Gold', underlyingCode: 'XAU', feedType: 'Price', status: 'Pending', timeLeft: '45m', reward: '5 USDT' },
-    { requestId: 2, underlyingName: 'Apple Inc.', underlyingCode: 'AAPL', feedType: 'Price', status: 'Pending', timeLeft: '12m', reward: '3 USDT' },
+    { requestId: 1, underlyingName: 'XAU/USD Spot', underlyingCode: 'XAU', feedType: 'Settlement', status: 'Pending', timeLeft: '42:15', reward: '5.20 USDT' },
+    { requestId: 2, underlyingName: 'AAPL/USD Equity', underlyingCode: 'AAPL', feedType: 'Reference', status: 'Pending', timeLeft: '11:05', reward: '3.10 USDT' },
   ];
 
   if (!isConnected) {
     return (
-      <div className="max-w-[1400px] mx-auto px-6 py-20 text-center">
-        <div className="glass-card p-20 animate-fade-in-up">
-          <div className="text-8xl mb-8 opacity-30 grayscale"></div>
-          <h3 className="text-3xl font-black text-white mb-4">Feed Access Restricted</h3>
-          <p className="text-dark-400 text-lg mb-10 max-w-sm mx-auto font-medium">Please connect your authorized data provider wallet to access the decentralized price feeding workbench.</p>
-          <button className="btn-primary px-12 py-4 font-black">CONNECT WALLET</button>
+      <div className="max-w-[1240px] mx-auto px-10 py-40 text-center animate-elite-entry">
+        <div className="glass-surface p-28 rounded-[56px] border-dashed border-white/10 flex flex-col items-center">
+          <div className="text-8xl mb-14 opacity-10">📡</div>
+          <h3 className="text-2xl font-bold text-white mb-6 italic tracking-tighter uppercase">终端离线 Station Offline</h3>
+          <p className="text-slate-500 text-lg mb-12 max-w-sm font-medium leading-relaxed">连接您的 Web3 身份以访问去中心化喂价工作台与协议共识网络。</p>
+          <button onClick={() => connect()} className="btn-elite-primary px-16 h-16 shadow-2xl">授权连接终端</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto px-6 py-12">
-      {/* Refined Page Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
-        <div className="animate-fade-in-up">
-          <div className="flex items-center space-x-3 mb-4">
-            <span className="w-12 h-[2px] bg-primary-500 rounded-full" />
-            <span className="text-[10px] font-black text-primary-500 uppercase tracking-[0.3em]">Data Oracle Interface</span>
+    <div className="max-w-[1400px] mx-auto pt-16 pb-20 w-full animate-elite-entry">
+      {/* Header */}
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-12 mb-24">
+        <div className="space-y-6">
+          <div className="flex items-center space-x-4">
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_12px_#3b82f6]" />
+            <span className="text-label text-blue-400">去中心化预言机节点集群</span>
           </div>
-          <h1 className="text-5xl font-black text-white mb-4 tracking-tighter leading-tight">
-            喂价工作台 <span className="text-gradient-gold">Feeder Panel</span>
-          </h1>
-          <p className="text-dark-400 text-lg font-medium max-w-xl">
-            Contribute real-time market data to the protocol settlement engine and earn protocol incentives for verifiable accuracy.
+          <h1 className="text-6xl font-extrabold text-white tracking-tighter italic">数据终端 <span className="text-blue-500">Feeder</span></h1>
+          <p className="text-slate-500 text-xl max-w-2xl font-medium leading-relaxed">
+            实时验证并上报全球资产的市场价格信号，确保协议在清算与交割时的公平性与准确性。
           </p>
         </div>
 
         {feederInfo?.isRegistered ? (
-          <div className="px-6 py-3 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center space-x-3">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] font-black text-green-400 uppercase tracking-widest">Active Provider Node</span>
+          <div className="bg-blue-500/5 border border-blue-500/15 px-8 py-4 rounded-[28px] flex items-center space-x-5 shadow-sm">
+            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_15px_#3b82f6]" />
+            <span className="text-[12px] font-black text-blue-400 uppercase tracking-[0.2em]">预言机节点状态: 运行中</span>
           </div>
         ) : (
-          <button className="btn-primary px-10 py-4 font-black shadow-2xl shadow-primary-500/10"> BECOME A PROVIDER </button>
+          <button className="btn-elite-primary bg-blue-600 hover:bg-blue-500 shadow-blue-600/20 h-20 px-12 rounded-[32px] text-xs tracking-widest"> 申请成为喂价节点 </button>
         )}
       </div>
 
-      {/* Spaced Stats Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-        {[
-          { label: 'Total Serviced 请求数', value: '1,429', color: 'text-white' },
-          { label: 'Avg Latency 响应速度', value: '12s', color: 'text-primary-400' },
-          { label: 'Protocol Rewards 累计奖励', value: '$840', color: 'text-green-400' },
-          { label: 'Reputation Score 信用分', value: '99.8', color: 'text-white' },
-        ].map((stat, i) => (
-          <div key={i} className="glass-card p-8 group hover:bg-white/[0.05] transition-all">
-            <p className="text-[10px] font-black text-dark-500 uppercase tracking-widest mb-3">{stat.label}</p>
-            <span className={`text-3xl font-black tracking-tight ${stat.color}`}>{stat.value}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Spaced Request List */}
-      <div className="grid grid-cols-1 gap-6">
-        <div className="flex items-center justify-between px-2 mb-2">
-          <span className="text-[10px] font-black text-dark-500 uppercase tracking-widest">Incoming Feed Inquiries ({mockRequests.length})</span>
+      <div className="space-y-24">
+        {/* Statistics Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+          {[
+            { label: '累计数据上报', value: '1,429', color: 'text-white' },
+            { label: '全网同步延迟', value: '0.8s', color: 'text-blue-500' },
+            { label: '节点激励上限', value: '$840', color: 'text-emerald-400' },
+            { label: '系统在线时长', value: '99.9%', color: 'text-white' },
+          ].map((stat, i) => (
+            <div key={i} className="glass-surface p-8 rounded-[40px] group relative overflow-hidden transition-all hover:bg-white/[0.04]">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 blur-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+              <p className="text-label mb-4 opacity-50 uppercase">{stat.label}</p>
+              <p className={`text-3xl font-bold tracking-tighter italic ${stat.color}`}>{stat.value}</p>
+            </div>
+          ))}
         </div>
 
-        {mockRequests.map((req, i) => (
-          <div key={req.requestId} className="glass-card p-6 group animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              <div className="flex items-center space-x-5">
-                <div className="w-12 h-12 rounded-xl bg-dark-900 border border-white/5 flex items-center justify-center text-2xl">
-                  {req.underlyingCode === 'XAU' ? '🏦' : '🇺🇸'}
-                </div>
-                <div>
-                  <div className="flex items-center space-x-3">
-                    <h3 className="text-xl font-black text-white tracking-tight">{req.underlyingName}</h3>
-                    <span className="text-[10px] font-black text-dark-500 uppercase bg-white/5 px-2 py-0.5 rounded border border-white/5">{req.feedType}</span>
-                  </div>
-                  <p className="text-[9px] font-black text-primary-500/60 uppercase tracking-widest mt-1">Request #00{req.requestId}</p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-6">
-                <div className="flex flex-col min-w-[80px]">
-                  <span className="text-[9px] font-black text-dark-500 uppercase tracking-widest mb-1">Incentive</span>
-                  <span className="text-sm font-bold text-green-400 font-mono">{req.reward}</span>
-                </div>
-                <div className="flex flex-col min-w-[80px]">
-                  <span className="text-[9px] font-black text-dark-500 uppercase tracking-widest mb-1">Time Remaining</span>
-                  <span className="text-sm font-bold text-white font-mono">{req.timeLeft}</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <button className="px-6 py-2.5 rounded-xl border border-white/5 text-dark-400 hover:text-white hover:bg-white/5 text-[10px] font-black uppercase tracking-widest transition-all">Reject</button>
-                  <button className="px-6 py-2.5 rounded-xl btn-primary text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary-500/20">Submit Data</button>
-                </div>
-              </div>
-            </div>
+        {/* Technical Data Stream */}
+        <div className="space-y-12">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-[11px] font-black text-slate-600 uppercase tracking-[0.4em] italic mb-2">待处理数据请求流 ({mockRequests.length})</h2>
+            <button className="text-[11px] font-bold text-blue-500 uppercase tracking-widest hover:text-white transition-all underline underline-offset-8 decoration-blue-500/20">强制同步节点数据</button>
           </div>
-        ))}
+
+          <div className="grid grid-cols-1 gap-6">
+            {mockRequests.map((req) => (
+              <div key={req.requestId} className="group glass-surface p-10 rounded-[56px] relative overflow-hidden border-white/[0.03]">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-12">
+                  <div className="flex items-center space-x-8">
+                    <div className="w-20 h-20 rounded-[32px] bg-slate-950 border border-white/5 flex items-center justify-center text-5xl shadow-inner group-hover:scale-110 transition-transform duration-1000">📡</div>
+                    <div>
+                      <div className="flex items-center space-x-5 mb-3">
+                        <h3 className="text-2xl font-bold text-white italic tracking-tighter">{req.underlyingName}</h3>
+                        <p className="text-[10px] font-black text-blue-400 bg-blue-400/5 px-3 py-1 rounded-full tracking-widest border border-blue-400/10 uppercase">{req.feedType === 'Settlement' ? '结算喂价' : '实时参考'}</p>
+                      </div>
+                      <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">请求标识 ID-0x{req.requestId}01 · 安全等级: 机构级</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-16 flex-1 border-l border-white/5 pl-16">
+                    <div className="text-right">
+                      <p className="text-label mb-2">节点激励奖励</p>
+                      <p className="text-2xl font-bold text-emerald-400 italic tracking-tighter">{req.reward}</p>
+                    </div>
+                    <div className="text-right border-l border-white/5 pl-16">
+                      <p className="text-label mb-2">数据存活时间</p>
+                      <p className="text-2xl font-bold text-white italic tracking-tighter">{req.timeLeft}</p>
+                    </div>
+                    <div className="flex items-center justify-end space-x-8 pl-16">
+                      <button className="text-slate-600 hover:text-white text-[12px] font-black uppercase transition-all tracking-[0.3em]">忽略</button>
+                      <button className="bg-blue-600 hover:bg-blue-500 text-slate-950 px-10 h-16 rounded-[24px] font-black text-[12px] shadow-2xl shadow-blue-600/20 tracking-widest">提交价格信号</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="h-20" />
+      <div className="h-32" />
     </div>
   );
 }
