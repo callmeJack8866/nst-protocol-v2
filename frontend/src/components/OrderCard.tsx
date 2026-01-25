@@ -13,6 +13,7 @@ interface OrderCardProps {
         status: string;
         sellerType: string;
         refPrice?: string;
+        createdAt?: number; // RFQ 创建时间，用于计算有效期倒计时
     };
     onAction?: (orderId: number) => void;
     actionLabel?: string;
@@ -63,6 +64,32 @@ export function OrderCard({ order, onAction, actionLabel }: OrderCardProps) {
             case 'LIVE': return 'text-white bg-emerald-500 border-emerald-500/20';
             default: return 'text-slate-500 bg-white/5 border-white/5';
         }
+    };
+
+    /**
+     * 计算 RFQ 剩余有效期 (默认 2 小时)
+     */
+    const getRfqRemaining = (): { text: string; isUrgent: boolean; isExpired: boolean } | null => {
+        if (!order.createdAt) return null;
+        if (order.status !== 'RFQ_CREATED' && order.status !== 'QUOTING') return null;
+
+        const rfqValiditySeconds = 2 * 60 * 60; // 2 小时
+        const now = Math.floor(Date.now() / 1000);
+        const deadline = order.createdAt + rfqValiditySeconds;
+        const remaining = deadline - now;
+
+        if (remaining <= 0) {
+            return { text: '已过期', isUrgent: false, isExpired: true };
+        }
+
+        const hours = Math.floor(remaining / 3600);
+        const mins = Math.floor((remaining % 3600) / 60);
+        const isUrgent = remaining < 1800; // 30 分钟内为紧急
+
+        if (hours > 0) {
+            return { text: `${hours}h ${mins}m`, isUrgent, isExpired: false };
+        }
+        return { text: `${mins}分钟`, isUrgent: true, isExpired: false };
     };
 
     return (
@@ -150,6 +177,23 @@ export function OrderCard({ order, onAction, actionLabel }: OrderCardProps) {
                         <span className="flex items-center gap-2"><span className="opacity-40">校验协议:</span> <span className="text-slate-400">NST-P2P v2.0</span></span>
                     </div>
                     <div className="flex items-center space-x-2 text-emerald-500/40">
+                        {/* RFQ 有效期倒计时 */}
+                        {(() => {
+                            const rfqRemaining = getRfqRemaining();
+                            if (rfqRemaining) {
+                                return (
+                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mr-3 ${rfqRemaining.isExpired
+                                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/20'
+                                            : rfqRemaining.isUrgent
+                                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 animate-pulse'
+                                                : 'bg-slate-700/50 text-slate-400 border border-white/10'
+                                        }`}>
+                                        ⏱️ 有效期: {rfqRemaining.text}
+                                    </span>
+                                );
+                            }
+                            return null;
+                        })()}
                         <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
                         <span>链上实时验证</span>
                     </div>

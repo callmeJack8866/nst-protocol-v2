@@ -459,6 +459,43 @@ export function useOptions() {
         }
     }, [optionsCore]);
 
+    /**
+     * 发起仲裁
+     * @param orderId 订单 ID
+     * @description 仅在 PENDING_SETTLEMENT 状态可发起，收取 30 USDT 仲裁费
+     */
+    const initiateArbitration = useCallback(async (orderId: number) => {
+        if (!optionsCore || !usdt) {
+            throw new Error('Contract not initialized. Please connect your wallet first.');
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            // 仲裁费 30 USDT (6位小数)
+            const arbitrationFee = parseUnits('30', 6);
+            const optionsCoreAddr = getOptionsCoreAddress();
+
+            // Check and approve USDT for arbitration fee
+            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            if (currentAllowance < arbitrationFee) {
+                const approveTx = await usdt.approve(optionsCoreAddr, arbitrationFee);
+                await approveTx.wait();
+            }
+
+            // Call initiateArbitration
+            const tx = await optionsCore.initiateArbitration(orderId);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Arbitration initiation failed';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [optionsCore, usdt, account, getOptionsCoreAddress]);
+
     return {
         loading,
         error,
@@ -471,6 +508,7 @@ export function useOptions() {
         withdrawExcessMargin,
         earlyExercise,
         settleOrder,
+        initiateArbitration,
         getOrder,
         getBuyerOrders,
         getSellerOrders,

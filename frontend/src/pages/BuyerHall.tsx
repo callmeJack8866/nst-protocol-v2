@@ -244,31 +244,59 @@ export function BuyerHall() {
                 <div className="py-24 text-center border-2 border-white/[0.04] rounded-[40px] bg-white/[0.01] border-dashed">
                   <p className="text-[13px] font-bold text-slate-600 uppercase tracking-widest italic leading-loose">当前暂无做市商节点发起有效报价</p>
                 </div>
-              ) : quotes.map(quote => (
-                <div key={quote.quoteId} className="group bg-white/[0.03] border border-white/10 rounded-[32px] p-8 hover:bg-white/[0.06] hover:border-emerald-500/30 transition-all flex items-center justify-between gap-12">
-                  <div className="flex items-center space-x-6">
-                    <div className="w-14 h-14 bg-slate-950 border border-white/10 rounded-[20px] flex items-center justify-center text-3xl shadow-inner">🛡️</div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">报价方标识符 (Node ID)</p>
-                      <p className="text-[13px] font-mono font-bold text-white uppercase tracking-tight">{quote.seller.slice(0, 16)}...{quote.seller.slice(-10)}</p>
-                    </div>
-                  </div>
+              ) : quotes.map(quote => {
+                // 计算报价有效期剩余时间
+                const now = Math.floor(Date.now() / 1000);
+                const remaining = quote.expiresAt - now;
+                const isExpired = remaining <= 0;
+                const isUrgent = remaining > 0 && remaining < 600; // 10分钟内为紧急
+                const formatRemaining = () => {
+                  if (isExpired) return '已过期';
+                  const mins = Math.floor(remaining / 60);
+                  const secs = remaining % 60;
+                  if (mins > 0) return `${mins}m ${secs}s`;
+                  return `${secs}s`;
+                };
 
-                  <div className="flex items-center gap-12">
-                    <div className="text-right">
-                      <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">提供的权利金费率</p>
-                      <p className="text-3xl font-bold text-emerald-400 italic tracking-tighter">{(quote.premiumRate / 100).toFixed(2)}%</p>
+                return (
+                  <div key={quote.quoteId} className="group bg-white/[0.03] border border-white/10 rounded-[32px] p-8 hover:bg-white/[0.06] hover:border-emerald-500/30 transition-all flex items-center justify-between gap-12">
+                    <div className="flex items-center space-x-6">
+                      <div className="w-14 h-14 bg-slate-950 border border-white/10 rounded-[20px] flex items-center justify-center text-3xl shadow-inner">🛡️</div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">报价方标识符 (Node ID)</p>
+                        <p className="text-[13px] font-mono font-bold text-white uppercase tracking-tight">{quote.seller.slice(0, 16)}...{quote.seller.slice(-10)}</p>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleAccept(quote)}
-                      disabled={isAccepting || acceptSuccess}
-                      className={`h-14 px-10 rounded-2xl text-[12px] font-bold transition-all ${isAccepting || acceptSuccess ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-900 cursor-pointer'}`}
-                    >
-                      {isAccepting ? '处理中...' : acceptSuccess ? '撮合成功' : '接受并交易'}
-                    </button>
+
+                    <div className="flex items-center gap-8">
+                      {/* 有效期倒计时 */}
+                      <div className="text-center">
+                        <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">有效期</p>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isExpired
+                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/20'
+                            : isUrgent
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 animate-pulse'
+                              : 'bg-slate-700/50 text-slate-400 border border-white/10'
+                          }`}>
+                          ⏱️ {formatRemaining()}
+                        </span>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">提供的权利金费率</p>
+                        <p className="text-3xl font-bold text-emerald-400 italic tracking-tighter">{(quote.premiumRate / 100).toFixed(2)}%</p>
+                      </div>
+                      <button
+                        onClick={() => handleAccept(quote)}
+                        disabled={isAccepting || acceptSuccess || isExpired}
+                        className={`h-14 px-10 rounded-2xl text-[12px] font-bold transition-all ${isAccepting || acceptSuccess || isExpired ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-900 cursor-pointer'}`}
+                      >
+                        {isExpired ? '已过期' : isAccepting ? '处理中...' : acceptSuccess ? '撮合成功' : '接受并交易'}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {acceptError && (

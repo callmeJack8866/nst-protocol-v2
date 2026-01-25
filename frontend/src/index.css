@@ -249,3 +249,337 @@ h4,
     gap: 3rem;
   }
 }
+
+/* ========================================
+   移动端响应式适配
+   ======================================== */
+
+/* 小屏幕 (手机) */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+
+  h1 {
+    font-size: 2rem !important;
+  }
+
+  h2 {
+    font-size: 1.5rem !important;
+  }
+
+  .glass-surface {
+    padding: 1rem;
+    border-radius: 1.5rem;
+  }
+
+  .btn-elite-primary,
+  .btn-elite-secondary,
+  .btn-elite-warning {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.75rem;
+    border-radius: 0.75rem;
+  }
+
+  .elite-input {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 0.75rem;
+  }
+
+  /* 导航菜单移动端适配 */
+  .nav-link {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  /* 统计卡片移动端适配 */
+  .text-value-lg {
+    font-size: 1.25rem;
+  }
+
+  .text-label {
+    font-size: 0.65rem;
+  }
+}
+
+/* 中等屏幕 (平板) */
+@media (min-width: 641px) and (max-width: 1024px) {
+  h1 {
+    font-size: 3rem !important;
+  }
+
+  .glass-surface {
+    padding: 1.5rem;
+    border-radius: 2rem;
+  }
+}
+
+/* ========================================
+   加载状态动画组件
+   ======================================== */
+
+/* 旋转加载圈 */
+.elite-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid rgba(16, 185, 129, 0.1);
+  border-top-color: #10b981;
+  border-radius: 50%;
+  animation: elite-spin 0.8s linear infinite;
+}
+
+.elite-spinner-sm {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-width: 2px;
+}
+
+.elite-spinner-lg {
+  width: 4rem;
+  height: 4rem;
+  border-width: 4px;
+}
+
+@keyframes elite-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 脉冲加载效果 */
+.elite-pulse {
+  animation: elite-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes elite-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* 骨架屏加载效果 */
+.elite-skeleton {
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.03) 25%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.03) 75%);
+  background-size: 200% 100%;
+  animation: elite-skeleton 1.5s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+@keyframes elite-skeleton {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 进度条动画 */
+.elite-progress {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.elite-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #34d399);
+  border-radius: 2px;
+  animation: elite-progress-indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes elite-progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+    width: 30%;
+  }
+
+  50% {
+    width: 50%;
+  }
+
+  100% {
+    transform: translateX(400%);
+    width: 30%;
+  }
+}
+
+/* ========================================
+   错误和提示组件
+   ======================================== */
+
+/* 成功提示 */
+.elite-toast-success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  animation: elite-toast-in 0.3s ease-out;
+}
+
+/* 错误提示 */
+.elite-toast-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  animation: elite-toast-in 0.3s ease-out;
+}
+
+/* 警告提示 */
+.elite-toast-warning {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  animation: elite-toast-in 0.3s ease-out;
+}
+
+/* 信息提示 */
+.elite-toast-info {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  animation: elite-toast-in 0.3s ease-out;
+}
+
+@keyframes elite-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-1rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Toast 容器 (固定位置) */
+.elite-toast-container {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 400px;
+}
+
+@media (max-width: 640px) {
+  .elite-toast-container {
+    top: 1rem;
+    right: 1rem;
+    left: 1rem;
+    max-width: none;
+  }
+}
+
+/* 内联错误提示 */
+.elite-error-inline {
+  color: #f87171;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* 空状态提示 */
+.elite-empty-state {
+  padding: 4rem 2rem;
+  text-align: center;
+  border: 2px dashed rgba(255, 255, 255, 0.05);
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.elite-empty-state-icon {
+  font-size: 4rem;
+  opacity: 0.1;
+  margin-bottom: 1.5rem;
+}
+
+.elite-empty-state-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.75rem;
+}
+
+.elite-empty-state-desc {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.875rem;
+  max-width: 24rem;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* 抖动动画 (错误反馈) */
+.elite-shake {
+  animation: elite-shake 0.5s ease-in-out;
+}
+
+@keyframes elite-shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-4px);
+  }
+
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(4px);
+  }
+}

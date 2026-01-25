@@ -6,6 +6,7 @@ export function Header() {
   const location = useLocation();
   const { account, chainId, isConnected, isConnecting, connect, disconnect } = useWalletContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navLinks = [
     { name: '买方大厅', path: '/buyer' },
@@ -43,7 +44,22 @@ export function Header() {
           </nav>
         </div>
 
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-4 md:space-x-6">
+          {/* 移动端汉堡菜单按钮 */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="lg:hidden p-2 rounded-xl bg-slate-900/50 border border-white/10 text-slate-400 hover:text-white transition-all"
+          >
+            {isMobileMenuOpen ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M3 12h18M3 6h18M3 18h18" />
+              </svg>
+            )}
+          </button>
           {isConnected && (
             <div className="hidden md:flex items-center px-4 py-1.5 bg-slate-900 border border-white/[0.08] rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest">
               <span className={`w-1.5 h-1.5 rounded-full mr-2.5 ${chainId === 97 ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-amber-500'}`} />
@@ -91,6 +107,34 @@ export function Header() {
           )}
         </div>
       </div>
+
+      {/* 移动端导航抽屉 */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden absolute top-16 left-0 right-0 glass-surface border-t border-white/[0.05] animate-elite-entry">
+          <nav className="p-4 space-y-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`block px-4 py-3 rounded-xl text-sm font-bold transition-all ${isActive(link.path)
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  }`}
+              >
+                {link.name}
+              </Link>
+            ))}
+            <Link
+              to="/points"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="block px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 hover:text-white transition-all"
+            >
+              积分中心
+            </Link>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

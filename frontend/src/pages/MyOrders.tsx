@@ -25,25 +25,34 @@ interface Order {
     // 新增：盈亏计算相关字段
     refPrice: string;         // 开仓参考价格
     lastFeedPrice: bigint;    // 最后一次喂价价格 (18位小数)
+    // 新增：倒计时相关字段
+    minMarginRate: number;    // 最低保证金率 (基点)
+    marginCallDeadline: number; // 追保截止时间 (时间戳)
+    arbitrationWindow: number;  // 仲裁窗口 (秒)
+    settledAt: number;        // 结算时间 (时间戳)
 }
 
 const STATUS_MAP: { [key: number]: string } = {
     0: 'RFQ_CREATED',
     1: 'QUOTING',
     2: 'MATCHED',
-    3: 'LIVE',
-    4: 'PENDING_SETTLEMENT',
-    5: 'SETTLED',
-    6: 'CANCELLED',
-    7: 'LIQUIDATED',
-    8: 'ARBITRATION',
+    3: 'WAITING_INITIAL_FEED',
+    4: 'LIVE',
+    5: 'WAITING_FINAL_FEED',
+    6: 'PENDING_SETTLEMENT',
+    7: 'ARBITRATION',
+    8: 'SETTLED',
+    9: 'LIQUIDATED',
+    10: 'CANCELLED',
 };
 
 const STATUS_ZH: { [key: string]: string } = {
     'RFQ_CREATED': '询价中',
     'QUOTING': '报价中',
-    'MATCHED': '待喂价',
+    'MATCHED': '待匹配',
+    'WAITING_INITIAL_FEED': '待期初喂价',
     'LIVE': '已激活',
+    'WAITING_FINAL_FEED': '待期末喂价',
     'PENDING_SETTLEMENT': '待结算',
     'SETTLED': '已结算',
     'CANCELLED': '已取消',
@@ -60,7 +69,7 @@ const FEED_TIERS = [
 
 export function MyOrders() {
     const { account } = useWalletContext();
-    const { getBuyerOrders, getSellerOrders, getOrder, isConnected, addMargin, withdrawExcessMargin, earlyExercise, settleOrder, loading: optionsLoading } = useOptions();
+    const { getBuyerOrders, getSellerOrders, getOrder, isConnected, addMargin, withdrawExcessMargin, earlyExercise, settleOrder, initiateArbitration, loading: optionsLoading } = useOptions();
     const { requestFeed, isLoading: feedLoading, error: feedError } = useFeedProtocol();
 
     const [viewMode, setViewMode] = useState<'buyer' | 'seller'>('buyer');
@@ -81,10 +90,19 @@ export function MyOrders() {
     const [marginAction, setMarginAction] = useState<'add' | 'withdraw'>('add');
     const [marginAmount, setMarginAmount] = useState('');
 
+    // Search state
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
+
     const statusFilters = [
         { id: 'ALL', label: '全部订单' },
-        { id: 'MATCHED', label: '待喂价' },
+        { id: 'WAITING_INITIAL_FEED', label: '待期初喂价' },
         { id: 'LIVE', label: '运行中' },
+        { id: 'WAITING_FINAL_FEED', label: '待期末喂价' },
+        { id: 'PENDING_SETTLEMENT', label: '待结算' },
         { id: 'SETTLED', label: '已结算' }
     ];
 
@@ -118,6 +136,10 @@ export function MyOrders() {
                             matchedAt: Number(o.matchedAt),
                             refPrice: o.refPrice || '0',
                             lastFeedPrice: o.lastFeedPrice || 0n,
+                            minMarginRate: Number(o.minMarginRate || 0),
+                            marginCallDeadline: Number(o.marginCallDeadline || 0),
+                            arbitrationWindow: Number(o.arbitrationWindow || 0),
+                            settledAt: Number(o.settledAt || 0),
                         });
                     } catch { /* Skip */ }
                 }
@@ -148,6 +170,10 @@ export function MyOrders() {
                             matchedAt: Number(o.matchedAt),
                             refPrice: o.refPrice || '0',
                             lastFeedPrice: o.lastFeedPrice || 0n,
+                            minMarginRate: Number(o.minMarginRate || 0),
+                            marginCallDeadline: Number(o.marginCallDeadline || 0),
+                            arbitrationWindow: Number(o.arbitrationWindow || 0),
+                            settledAt: Number(o.settledAt || 0),
                         });
                     } catch { /* Skip */ }
                 }
@@ -173,6 +199,64 @@ export function MyOrders() {
         if (!priceStr || priceStr === '0') return 0;
         const cleaned = priceStr.replace(/[^0-9.]/g, '');
         return parseFloat(cleaned) || 0;
+    };
+
+    /**
+     * 格式化倒计时显示
+     * @param seconds 剩余秒数
+     * @returns 格式化字符串如 "2h 30m" 或 "已过期"
+     */
+    const formatCountdown = (seconds: number): { text: string; isUrgent: boolean; isExpired: boolean } => {
+        if (seconds <= 0) {
+            return { text: '已过期', isUrgent: false, isExpired: true };
+        }
+        const hours = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const isUrgent = seconds < 7200; // 2小时内为紧急
+
+        if (hours >= 24) {
+            const days = Math.floor(hours / 24);
+            return { text: `${days}天 ${hours % 24}h`, isUrgent: false, isExpired: false };
+        }
+        if (hours > 0) {
+            return { text: `${hours}h ${mins}m`, isUrgent, isExpired: false };
+        }
+        return { text: `${mins}分钟`, isUrgent: true, isExpired: false };
+    };
+
+    /**
+     * 计算追保截止时间剩余秒数
+     */
+    const getMarginCallRemaining = (order: Order): number => {
+        if (!order.marginCallDeadline || order.marginCallDeadline === 0) return -1; // 无追保
+        const now = Math.floor(Date.now() / 1000);
+        return order.marginCallDeadline - now;
+    };
+
+    /**
+     * 计算仲裁窗口剩余秒数
+     */
+    const getArbitrationRemaining = (order: Order): number => {
+        if (!order.settledAt || order.settledAt === 0) return -1;
+        if (!order.arbitrationWindow) return -1;
+        const now = Math.floor(Date.now() / 1000);
+        const deadline = order.settledAt + order.arbitrationWindow;
+        return deadline - now;
+    };
+
+    /**
+     * 检查保证金状态
+     * @returns 'safe' | 'warning' | 'danger'
+     */
+    const getMarginStatus = (order: Order): 'safe' | 'warning' | 'danger' => {
+        if (!order.minMarginRate || order.minMarginRate === 0) return 'safe';
+        const notional = Number(formatUnits(order.notionalUSDT, 6));
+        const current = Number(formatUnits(order.currentMargin, 6));
+        const minRequired = (notional * order.minMarginRate) / 10000;
+
+        if (current < minRequired) return 'danger';
+        if (current < minRequired * 1.2) return 'warning'; // 低于120%时警告
+        return 'safe';
     };
 
     /**
@@ -205,8 +289,12 @@ export function MyOrders() {
             }
         }
 
-        // 卖方盈亏与买方相反
-        const pnl = isBuyer ? buyerProfit : -buyerProfit;
+        // 买方盈利受卖方保证金限制
+        const currentMargin = Number(formatUnits(order.currentMargin, 6));
+        const cappedBuyerProfit = Math.min(buyerProfit, currentMargin);
+
+        // 卖方盈亏与买方相反 (受保证金限制)
+        const pnl = isBuyer ? cappedBuyerProfit : -cappedBuyerProfit;
         const pnlPercent = notional > 0 ? (Math.abs(pnl) / notional) * 100 : 0;
 
         return {
@@ -298,8 +386,45 @@ export function MyOrders() {
         }
     };
 
+    // Handle arbitration initiation
+    const handleArbitration = async (order: Order) => {
+        if (!confirm(`确认对订单 #${order.orderId} 发起仲裁？\n\n仲裁费用：30 USDT\n仲裁为一次定论，不可再次发起。`)) {
+            return;
+        }
+        try {
+            await initiateArbitration(order.orderId);
+            setRefreshKey(k => k + 1);
+            alert('仲裁已发起，等待仲裁员处理。');
+        } catch (e) {
+            console.error('Failed to initiate arbitration:', e);
+            alert('仲裁发起失败: ' + (e instanceof Error ? e.message : '未知错误'));
+        }
+    };
+
     const rawOrders = viewMode === 'buyer' ? buyerOrders : sellerOrders;
-    const orders = statusFilter === 'ALL' ? rawOrders : rawOrders.filter(o => o.status === statusFilter);
+    // 应用状态筛选和搜索过滤
+    const filteredOrders = rawOrders.filter(o => {
+        // 状态筛选
+        if (statusFilter !== 'ALL' && o.status !== statusFilter) return false;
+        // 搜索过滤 (标的名称、代码、订单ID)
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            const matchName = o.underlyingName.toLowerCase().includes(query);
+            const matchCode = o.underlyingCode.toLowerCase().includes(query);
+            const matchId = o.orderId.toString().includes(query);
+            if (!matchName && !matchCode && !matchId) return false;
+        }
+        return true;
+    });
+
+    // 分页计算
+    const totalPages = Math.ceil(filteredOrders.length / pageSize);
+    const orders = filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+    // 重置页码当筛选条件变化时
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [statusFilter, searchQuery, viewMode]);
 
     return (
         <div className="max-w-[1400px] mx-auto pt-16 pb-20 animate-elite-entry">
@@ -351,6 +476,19 @@ export function MyOrders() {
                                     {f.label}
                                 </button>
                             ))}
+                        </div>
+                        {/* 搜索框 */}
+                        <div className="relative flex-1 max-w-xs">
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="搜索标的或订单ID..."
+                                className="w-full bg-slate-900 border border-white/[0.08] rounded-xl px-4 py-2.5 pl-10 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-emerald-500/50"
+                            />
+                            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
                         </div>
                         <Link to="/create-rfq" className="btn-elite-primary px-8 h-12 text-[11px] rounded-xl tracking-widest">
                             建立新仓位 OPEN POSITION
@@ -485,24 +623,161 @@ export function MyOrders() {
                                                     )}
                                                 </div>
                                             )}
-                                            {/* PENDING_SETTLEMENT 状态显示结算按钮 */}
+                                            {/* PENDING_SETTLEMENT 状态显示结算和仲裁按钮 */}
                                             {order.status === 'PENDING_SETTLEMENT' && (
-                                                <button
-                                                    onClick={() => handleSettle(order)}
-                                                    disabled={optionsLoading}
-                                                    className="bg-purple-500 hover:bg-purple-400 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-purple-500/20 disabled:opacity-50"
-                                                >
-                                                    确认结算
-                                                </button>
+                                                <div className="flex gap-3">
+                                                    <button
+                                                        onClick={() => handleSettle(order)}
+                                                        disabled={optionsLoading}
+                                                        className="bg-purple-500 hover:bg-purple-400 text-white px-5 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider shadow-lg shadow-purple-500/20 disabled:opacity-50"
+                                                    >
+                                                        确认结算
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleArbitration(order)}
+                                                        disabled={optionsLoading}
+                                                        className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 px-5 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider border border-rose-500/20 disabled:opacity-50"
+                                                    >
+                                                        发起仲裁 (30U)
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* 警告标签区域 - 显示保证金状态、倒计时等 */}
+                                    {(order.status === 'LIVE' || order.status === 'PENDING_SETTLEMENT') && (
+                                        <div className="mt-6 pt-4 border-t border-white/[0.03] flex flex-wrap gap-3">
+                                            {/* 卖方保证金状态警告 */}
+                                            {viewMode === 'seller' && order.status === 'LIVE' && (() => {
+                                                const marginStatus = getMarginStatus(order);
+                                                if (marginStatus === 'danger') {
+                                                    return (
+                                                        <span className="px-3 py-1.5 rounded-lg bg-rose-500/20 border border-rose-500/30 text-rose-400 text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                                                            ⚠️ 保证金不足
+                                                        </span>
+                                                    );
+                                                }
+                                                if (marginStatus === 'warning') {
+                                                    return (
+                                                        <span className="px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-wider">
+                                                            ⚡ 保证金偏低
+                                                        </span>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+
+                                            {/* 追保倒计时 - 卖方 LIVE 订单 */}
+                                            {viewMode === 'seller' && order.status === 'LIVE' && (() => {
+                                                const remaining = getMarginCallRemaining(order);
+                                                if (remaining < 0) return null; // 无追保
+                                                const { text, isUrgent, isExpired } = formatCountdown(remaining);
+                                                if (isExpired) {
+                                                    return (
+                                                        <span className="px-3 py-1.5 rounded-lg bg-rose-500/20 border border-rose-500/30 text-rose-400 text-[10px] font-bold uppercase tracking-wider">
+                                                            🕐 追保已超时
+                                                        </span>
+                                                    );
+                                                }
+                                                return (
+                                                    <span className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${isUrgent
+                                                        ? 'bg-amber-500/20 border border-amber-500/30 text-amber-400'
+                                                        : 'bg-slate-700/50 border border-white/10 text-slate-400'
+                                                        }`}>
+                                                        🕐 追保截止: {text}
+                                                    </span>
+                                                );
+                                            })()}
+
+                                            {/* 仲裁窗口倒计时 - PENDING_SETTLEMENT 订单 */}
+                                            {order.status === 'PENDING_SETTLEMENT' && (() => {
+                                                const remaining = getArbitrationRemaining(order);
+                                                if (remaining < 0) return null;
+                                                const { text, isUrgent, isExpired } = formatCountdown(remaining);
+                                                if (isExpired) {
+                                                    return (
+                                                        <span className="px-3 py-1.5 rounded-lg bg-slate-700/50 border border-white/10 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                                                            仲裁窗口已关闭
+                                                        </span>
+                                                    );
+                                                }
+                                                return (
+                                                    <span className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${isUrgent
+                                                        ? 'bg-rose-500/20 border border-rose-500/30 text-rose-400'
+                                                        : 'bg-slate-700/50 border border-white/10 text-slate-400'
+                                                        }`}>
+                                                        ⏱️ 仲裁窗口: {text}
+                                                    </span>
+                                                );
+                                            })()}
+
+                                            {/* 到期时间显示 */}
+                                            {order.status === 'LIVE' && (() => {
+                                                const now = Math.floor(Date.now() / 1000);
+                                                const remaining = order.expiryTimestamp - now;
+                                                if (remaining <= 0) return null;
+                                                const { text, isUrgent } = formatCountdown(remaining);
+                                                return (
+                                                    <span className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${isUrgent
+                                                        ? 'bg-amber-500/20 border border-amber-500/30 text-amber-400'
+                                                        : 'bg-slate-700/50 border border-white/10 text-slate-400'
+                                                        }`}>
+                                                        📅 到期: {text}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
                         {orders.length === 0 && !loading && (
                             <div className="py-40 text-center opacity-30 italic text-slate-500 font-bold uppercase tracking-widest text-[13px] border-2 border-dashed border-white/5 rounded-[40px]">
                                 历史记录中未发现符合条件的持仓
+                            </div>
+                        )}
+
+                        {/* 分页组件 */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-center gap-4 mt-10 pt-10 border-t border-white/[0.05]">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider bg-slate-800 border border-white/[0.08] text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                >
+                                    ← 上一页
+                                </button>
+                                <div className="flex items-center gap-2">
+                                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                                        const page = totalPages <= 5 ? i + 1 :
+                                            currentPage <= 3 ? i + 1 :
+                                                currentPage >= totalPages - 2 ? totalPages - 4 + i :
+                                                    currentPage - 2 + i;
+                                        return (
+                                            <button
+                                                key={page}
+                                                onClick={() => setCurrentPage(page)}
+                                                className={`w-10 h-10 rounded-xl text-[12px] font-bold transition-all ${currentPage === page
+                                                    ? 'bg-emerald-500 text-slate-950'
+                                                    : 'bg-slate-800 border border-white/[0.08] text-slate-400 hover:text-white'
+                                                    }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider bg-slate-800 border border-white/[0.08] text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                >
+                                    下一页 →
+                                </button>
+                                <span className="ml-4 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                                    {filteredOrders.length} 条订单
+                                </span>
                             </div>
                         )}
                     </div>

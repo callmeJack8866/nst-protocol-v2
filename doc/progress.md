@@ -17,11 +17,102 @@
     - 添加 `settleOrder()` 到 useOptions hook
     - PENDING_SETTLEMENT 状态显示"确认结算"按钮 (紫色)
     - 结算确认对话框
-- **构建验证**: `npm run build` 成功 ✅ (640KB JS)
+- **P1.5 仲裁功能**:
+    - 添加 `initiateArbitration()` 到 useOptions hook
+    - PENDING_SETTLEMENT 状态显示"发起仲裁 (30U)"按钮 (玫瑰红色)
+    - 收取 30 USDT 仲裁费 (自动授权)
+- **P1.6 倒计时与警告功能**:
+    - 扩展 Order 接口添加 `minMarginRate`/`marginCallDeadline`/`arbitrationWindow`/`settledAt`
+    - 添加 `formatCountdown`/`getMarginCallRemaining`/`getArbitrationRemaining`/`getMarginStatus` 工具函数
+    - 订单卡片底部警告标签区域：保证金不足/偏低警告、追保倒计时、仲裁窗口倒计时、到期时间
+- **构建验证**: `npm run build` 成功 ✅
 
 **[Next Step]**: 
-- P1.5 仲裁功能 (可选)
-- P2 体验优化 (倒计时、积分系统)
+- ✅ P1 重要功能全部完成！
+- 开始 P2 体验优化 或 进行端到端测试
+
+---
+
+## 2026-01-25 (P2 体验优化)
+**[Status]**: Done  
+**[Changes]**:
+- **P2.1 RFQ 倒计时**:
+    - 为 OrderCard 组件添加 `createdAt` 属性和 `getRfqRemaining` 倒计时函数
+    - RFQ/QUOTING 状态显示 2 小时有效期倒计时徽章 (30分钟内脉冲警告)
+    - 更新 SellerHall 传递 `createdAt` 到 OrderCard
+- **P2.2 积分系统** (已有实现确认完成):
+    - 积分余额显示 (可用/累计/已领取)
+    - 空投领取功能 (claimAirdrop)
+    - 积分规则展示
+- **P2.3 订单筛选与搜索**:
+    - 添加搜索状态 `searchQuery`
+    - 搜索过滤逻辑 (按标的名称、代码、订单ID)
+    - 搜索输入框 UI (带搜索图标)
+- **构建验证**: `npm run build` 成功 ✅ (646KB JS)
+
+**[Next Step]**: 
+- 剩余 P2 项：报价 30 分钟倒计时、移动端自适应、历史订单分页
+
+---
+
+## 2026-01-25 (P2 完成收尾)
+**[Status]**: Done  
+**[Changes]**:
+- **P2.4 报价 30 分钟倒计时**:
+    - BuyerHall 报价列表添加有效期倒计时显示
+    - 过期报价自动禁用接受按钮
+    - 10 分钟内黄色脉冲警告
+- **P2.5 历史订单分页**:
+    - 添加分页状态 `currentPage`/`pageSize=10`
+    - 智能页码显示 (最多 5 个页码按钮)
+    - 筛选条件变化自动重置页码
+    - 订单总数显示
+- **构建验证**: `npm run build` 成功 ✅ (648KB JS)
+
+**[Next Step]**: 
+- ✅ P0/P1/P2 全部完成！
+- MVP 功能完整，可进行端到端测试或演示
+
+---
+
+## 2026-01-25 (关键问题修复)
+**[Status]**: Done  
+**[Changes]**:
+- **P0 状态映射修复**:
+    - 添加缺失的 `WAITING_INITIAL_FEED` (待期初喂价) 和 `WAITING_FINAL_FEED` (待期末喂价) 状态
+    - 修正 STATUS_MAP 枚举值与合约 OrderStatus 一致
+    - 更新 statusFilters 筛选器添加新状态
+- **P1 盈亏计算修复**:
+    - 添加保证金限制：`cappedBuyerProfit = Math.min(buyerProfit, currentMargin)`
+    - 卖方亏损不再超过实际保证金
+- **构建验证**: `npm run build` 成功 ✅
+
+---
+
+## 2026-01-25 (UI 细节优化)
+**[Status]**: Done  
+**[Changes]**:
+- **移动端响应式适配**:
+    - `index.css` 添加 300+ 行响应式 CSS (手机/平板断点)
+    - 按钮、输入框、文字大小等移动端优化
+    - 导航菜单、统计卡片移动端适配
+- **加载状态动画组件**:
+    - `elite-spinner` 旋转加载圈 (sm/md/lg 尺寸)
+    - `elite-skeleton` 骨架屏加载效果
+    - `elite-progress` 进度条动画
+    - `elite-pulse` 脉冲加载效果
+- **错误提示友好化**:
+    - Toast 消息组件 (`elite-toast-success/error/warning/info`)
+    - 空状态组件 (`elite-empty-state`)
+    - 内联错误提示 (`elite-error-inline`)
+    - 抖动反馈动画 (`elite-shake`)
+- **新建组件 `Toast.tsx`**:
+    - ToastProvider/useToast 上下文
+    - Spinner/Skeleton/ProgressBar/EmptyState 组件
+- **Header.tsx 汉堡菜单**:
+    - 移动端汉堡菜单按钮 (`lg:hidden`)
+    - 展开的导航抽屉 (带动画)
+- **构建验证**: `npm run build` 成功 ✅ (650KB JS, 69KB CSS)
 
 ---
 

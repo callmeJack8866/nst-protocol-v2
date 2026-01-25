@@ -157,7 +157,8 @@ export function SellerHall() {
                     expiryTimestamp: rfq.expiryTimestamp,
                     status: rfq.status,
                     sellerType: 'Market LP',
-                    refPrice: rfq.refPrice
+                    refPrice: rfq.refPrice,
+                    createdAt: rfq.createdAt
                   }}
                   onAction={() => handleOpenQuoteModal(rfq)}
                   actionLabel="立即报价 (SUBMIT)"
