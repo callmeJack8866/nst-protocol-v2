@@ -346,6 +346,119 @@ export function useOptions() {
         }
     }, [optionsCore, usdt, account, getOptionsCoreAddress]);
 
+    /**
+     * 卖方追加保证金
+     * @param orderId 订单 ID
+     * @param amountUSDT 追加金额 (USDT, 6位小数)
+     */
+    const addMargin = useCallback(async (orderId: number, amountUSDT: string) => {
+        if (!optionsCore || !usdt) {
+            throw new Error('Contracts not initialized. Please connect your wallet first.');
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            const amount = parseUnits(amountUSDT, 6); // USDT 6位小数
+            const optionsCoreAddr = getOptionsCoreAddress();
+
+            // Check and approve USDT
+            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            if (currentAllowance < amount) {
+                const approveTx = await usdt.approve(optionsCoreAddr, amount);
+                await approveTx.wait();
+            }
+
+            // Call addMargin
+            const tx = await optionsCore.addMargin(orderId, amount);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Add margin failed';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [optionsCore, usdt, account, getOptionsCoreAddress]);
+
+    /**
+     * 卖方提取超额保证金
+     * @param orderId 订单 ID
+     * @param amountUSDT 提取金额 (USDT, 6位小数)
+     */
+    const withdrawExcessMargin = useCallback(async (orderId: number, amountUSDT: string) => {
+        if (!optionsCore) {
+            throw new Error('Contract not initialized. Please connect your wallet first.');
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            const amount = parseUnits(amountUSDT, 6); // USDT 6位小数
+
+            // Call withdrawExcessMargin
+            const tx = await optionsCore.withdrawExcessMargin(orderId, amount);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Withdraw margin failed';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [optionsCore]);
+
+    /**
+     * 买方提前行权
+     * @param orderId 订单 ID
+     */
+    const earlyExercise = useCallback(async (orderId: number) => {
+        if (!optionsCore) {
+            throw new Error('Contract not initialized. Please connect your wallet first.');
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            const tx = await optionsCore.earlyExercise(orderId);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Early exercise failed';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [optionsCore]);
+
+    /**
+     * 结算订单
+     * @param orderId 订单 ID
+     * @param finalPrice 最终价格 (由喂价提供)
+     */
+    const settleOrder = useCallback(async (orderId: number) => {
+        if (!optionsCore) {
+            throw new Error('Contract not initialized. Please connect your wallet first.');
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            const tx = await optionsCore.settle(orderId);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Settlement failed';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [optionsCore]);
+
     return {
         loading,
         error,
@@ -354,6 +467,10 @@ export function useOptions() {
         createSellerOrder,
         submitQuote,
         acceptQuote,
+        addMargin,
+        withdrawExcessMargin,
+        earlyExercise,
+        settleOrder,
         getOrder,
         getBuyerOrders,
         getSellerOrders,

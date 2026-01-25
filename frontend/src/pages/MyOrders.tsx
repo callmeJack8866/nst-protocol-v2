@@ -60,7 +60,7 @@ const FEED_TIERS = [
 
 export function MyOrders() {
     const { account } = useWalletContext();
-    const { getBuyerOrders, getSellerOrders, getOrder, isConnected } = useOptions();
+    const { getBuyerOrders, getSellerOrders, getOrder, isConnected, addMargin, withdrawExcessMargin, earlyExercise, settleOrder, loading: optionsLoading } = useOptions();
     const { requestFeed, isLoading: feedLoading, error: feedError } = useFeedProtocol();
 
     const [viewMode, setViewMode] = useState<'buyer' | 'seller'>('buyer');
@@ -75,6 +75,11 @@ export function MyOrders() {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [selectedTier, setSelectedTier] = useState(0);
     const [selectedFeedType, setSelectedFeedType] = useState(0); // 0: Initial, 1: Dynamic, 2: Settlement
+
+    // Margin modal state
+    const [showMarginModal, setShowMarginModal] = useState(false);
+    const [marginAction, setMarginAction] = useState<'add' | 'withdraw'>('add');
+    const [marginAmount, setMarginAmount] = useState('');
 
     const statusFilters = [
         { id: 'ALL', label: '全部订单' },
@@ -111,6 +116,8 @@ export function MyOrders() {
                             currentMargin: o.currentMargin,
                             createdAt: Number(o.createdAt),
                             matchedAt: Number(o.matchedAt),
+                            refPrice: o.refPrice || '0',
+                            lastFeedPrice: o.lastFeedPrice || 0n,
                         });
                     } catch { /* Skip */ }
                 }
@@ -139,6 +146,8 @@ export function MyOrders() {
                             currentMargin: o.currentMargin,
                             createdAt: Number(o.createdAt),
                             matchedAt: Number(o.matchedAt),
+                            refPrice: o.refPrice || '0',
+                            lastFeedPrice: o.lastFeedPrice || 0n,
                         });
                     } catch { /* Skip */ }
                 }
@@ -154,6 +163,57 @@ export function MyOrders() {
         if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
         if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+    };
+
+    /**
+     * 解析价格字符串为数字
+     * @param priceStr 如 "842.15" 或 "100000"
+     */
+    const parsePriceString = (priceStr: string): number => {
+        if (!priceStr || priceStr === '0') return 0;
+        const cleaned = priceStr.replace(/[^0-9.]/g, '');
+        return parseFloat(cleaned) || 0;
+    };
+
+    /**
+     * 计算买方盈亏
+     * 看涨期权: buyerProfit = max(0, 最终价 - 开仓价) * 名义本金 / 开仓价
+     * 看跌期权: buyerProfit = max(0, 开仓价 - 最终价) * 名义本金 / 开仓价
+     */
+    const calculatePnL = (order: Order, isBuyer: boolean): { pnl: number; pnlPercent: number; isProfit: boolean } => {
+        const strikePrice = parsePriceString(order.refPrice);
+        // lastFeedPrice 是 18 位小数格式
+        const currentPrice = order.lastFeedPrice > 0n
+            ? Number(formatUnits(order.lastFeedPrice, 18))
+            : 0;
+        const notional = Number(formatUnits(order.notionalUSDT, 6));
+
+        if (strikePrice === 0 || currentPrice === 0) {
+            return { pnl: 0, pnlPercent: 0, isProfit: true };
+        }
+
+        let buyerProfit = 0;
+        if (order.direction === 'Call') {
+            // 看涨期权：买方盈利 = max(0, 最终价 - 开仓价) * 名义本金 / 开仓价
+            if (currentPrice > strikePrice) {
+                buyerProfit = (currentPrice - strikePrice) * notional / strikePrice;
+            }
+        } else {
+            // 看跌期权：买方盈利 = max(0, 开仓价 - 最终价) * 名义本金 / 开仓价
+            if (strikePrice > currentPrice) {
+                buyerProfit = (strikePrice - currentPrice) * notional / strikePrice;
+            }
+        }
+
+        // 卖方盈亏与买方相反
+        const pnl = isBuyer ? buyerProfit : -buyerProfit;
+        const pnlPercent = notional > 0 ? (Math.abs(pnl) / notional) * 100 : 0;
+
+        return {
+            pnl,
+            pnlPercent,
+            isProfit: pnl >= 0
+        };
     };
 
     // Handle request feed
@@ -174,6 +234,68 @@ export function MyOrders() {
         setSelectedOrder(order);
         setSelectedFeedType(feedType);
         setShowFeedModal(true);
+    };
+
+    // Open margin modal
+    const openMarginModal = (order: Order, action: 'add' | 'withdraw') => {
+        setSelectedOrder(order);
+        setMarginAction(action);
+        setMarginAmount('');
+        setShowMarginModal(true);
+    };
+
+    // Handle margin action
+    const handleMarginAction = async () => {
+        if (!selectedOrder || !marginAmount) return;
+        try {
+            if (marginAction === 'add') {
+                await addMargin(selectedOrder.orderId, marginAmount);
+            } else {
+                await withdrawExcessMargin(selectedOrder.orderId, marginAmount);
+            }
+            setShowMarginModal(false);
+            setSelectedOrder(null);
+            setMarginAmount('');
+            setRefreshKey(k => k + 1);
+        } catch (e) {
+            console.error(`Failed to ${marginAction} margin:`, e);
+        }
+    };
+
+    // Calculate excess margin (currentMargin - initialMargin)
+    const getExcessMargin = (order: Order): bigint => {
+        if (order.currentMargin > order.initialMargin) {
+            return order.currentMargin - order.initialMargin;
+        }
+        return 0n;
+    };
+
+    // Handle early exercise (buyer action)
+    const handleEarlyExercise = async (order: Order) => {
+        if (!confirm(`确认对订单 #${order.orderId} 发起提前行权？\n\n这将触发期末喂价流程，喂价完成后进行结算。`)) {
+            return;
+        }
+        try {
+            await earlyExercise(order.orderId);
+            setRefreshKey(k => k + 1);
+        } catch (e) {
+            console.error('Failed to early exercise:', e);
+            alert('提前行权失败: ' + (e instanceof Error ? e.message : '未知错误'));
+        }
+    };
+
+    // Handle settlement
+    const handleSettle = async (order: Order) => {
+        if (!confirm(`确认结算订单 #${order.orderId}？\n\n结算将根据最终喂价价格计算盈亏并分配资金。`)) {
+            return;
+        }
+        try {
+            await settleOrder(order.orderId);
+            setRefreshKey(k => k + 1);
+        } catch (e) {
+            console.error('Failed to settle:', e);
+            alert('结算失败: ' + (e instanceof Error ? e.message : '未知错误'));
+        }
     };
 
     const rawOrders = viewMode === 'buyer' ? buyerOrders : sellerOrders;
@@ -261,7 +383,7 @@ export function MyOrders() {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-12 flex-1 border-x border-white/[0.03] px-12">
+                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-8 flex-1 border-x border-white/[0.03] px-12">
                                         <div>
                                             <p className="text-label mb-2">名义本金</p>
                                             <p className="text-xl font-bold text-white italic tracking-tighter truncate max-w-[150px]">{formatAmount(order.notionalUSDT)}</p>
@@ -270,6 +392,33 @@ export function MyOrders() {
                                             <p className="text-label mb-2">费率</p>
                                             <p className="text-xl font-bold text-emerald-500 italic tracking-tighter">{(order.premiumRate / 100).toFixed(2)}%</p>
                                         </div>
+                                        {/* 盈亏显示 - 仅 LIVE 状态 */}
+                                        {order.status === 'LIVE' ? (() => {
+                                            const { pnl, pnlPercent, isProfit } = calculatePnL(order, viewMode === 'buyer');
+                                            const hasPrice = order.lastFeedPrice > 0n;
+                                            return (
+                                                <div>
+                                                    <p className="text-label mb-2">浮动盈亏</p>
+                                                    {hasPrice ? (
+                                                        <div className="flex items-baseline gap-2">
+                                                            <p className={`text-xl font-bold italic tracking-tighter ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                {isProfit ? '+' : '-'}${Math.abs(pnl).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                                                            </p>
+                                                            <span className={`text-[10px] font-bold ${isProfit ? 'text-emerald-500/60' : 'text-rose-500/60'}`}>
+                                                                ({pnlPercent.toFixed(2)}%)
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-slate-500 text-sm italic">待喂价更新</p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })() : (
+                                            <div>
+                                                <p className="text-label mb-2">保证金</p>
+                                                <p className="text-xl font-bold text-white italic tracking-tighter">{formatAmount(order.currentMargin)}</p>
+                                            </div>
+                                        )}
                                         <div>
                                             <p className="text-label mb-2">状态</p>
                                             <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${order.status === 'MATCHED'
@@ -292,7 +441,7 @@ export function MyOrders() {
                                                 </button>
                                             )}
                                             {order.status === 'LIVE' && (
-                                                <div className="flex gap-3">
+                                                <div className="flex gap-3 flex-wrap">
                                                     <button
                                                         onClick={() => openFeedModal(order, 1)}
                                                         className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider border border-blue-500/20"
@@ -305,7 +454,46 @@ export function MyOrders() {
                                                     >
                                                         平仓喂价
                                                     </button>
+                                                    {/* 卖方视图显示保证金管理按钮 */}
+                                                    {viewMode === 'seller' && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => openMarginModal(order, 'add')}
+                                                                className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider border border-amber-500/20"
+                                                            >
+                                                                追加保证金
+                                                            </button>
+                                                            {getExcessMargin(order) > 0n && (
+                                                                <button
+                                                                    onClick={() => openMarginModal(order, 'withdraw')}
+                                                                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider border border-white/10"
+                                                                >
+                                                                    提取超额
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                    {/* 买方视图显示提前行权按钮 */}
+                                                    {viewMode === 'buyer' && (
+                                                        <button
+                                                            onClick={() => handleEarlyExercise(order)}
+                                                            disabled={optionsLoading}
+                                                            className="bg-rose-500 hover:bg-rose-400 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider disabled:opacity-50 shadow-lg shadow-rose-500/20"
+                                                        >
+                                                            提前行权
+                                                        </button>
+                                                    )}
                                                 </div>
+                                            )}
+                                            {/* PENDING_SETTLEMENT 状态显示结算按钮 */}
+                                            {order.status === 'PENDING_SETTLEMENT' && (
+                                                <button
+                                                    onClick={() => handleSettle(order)}
+                                                    disabled={optionsLoading}
+                                                    className="bg-purple-500 hover:bg-purple-400 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-purple-500/20 disabled:opacity-50"
+                                                >
+                                                    确认结算
+                                                </button>
                                             )}
                                         </div>
                                     </div>
@@ -401,6 +589,78 @@ export function MyOrders() {
             {feedError && (
                 <div className="fixed bottom-8 right-8 bg-red-500/20 border border-red-500/30 rounded-xl px-6 py-4 text-red-400">
                     {feedError}
+                </div>
+            )}
+
+            {/* Margin Management Modal */}
+            {showMarginModal && selectedOrder && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+                    <div className="glass-surface p-12 rounded-[40px] w-full max-w-lg animate-elite-entry">
+                        <h2 className="text-2xl font-bold text-white mb-2">
+                            {marginAction === 'add' ? '追加保证金' : '提取超额保证金'}
+                        </h2>
+                        <p className="text-slate-500 mb-8">
+                            {selectedOrder.underlyingName} ({selectedOrder.underlyingCode}) · 订单 #{selectedOrder.orderId}
+                        </p>
+
+                        <div className="space-y-6">
+                            {/* Current Margin Info */}
+                            <div className="bg-slate-800/50 rounded-xl p-4 space-y-3">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-slate-400">初始保证金</span>
+                                    <span className="text-white font-bold">{formatAmount(selectedOrder.initialMargin)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-slate-400">当前保证金</span>
+                                    <span className="text-emerald-400 font-bold">{formatAmount(selectedOrder.currentMargin)}</span>
+                                </div>
+                                {marginAction === 'withdraw' && (
+                                    <div className="flex justify-between text-sm border-t border-white/10 pt-3">
+                                        <span className="text-slate-400">可提取超额</span>
+                                        <span className="text-amber-400 font-bold">{formatAmount(getExcessMargin(selectedOrder))}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Amount Input */}
+                            <div>
+                                <label className="text-label mb-2 block">
+                                    {marginAction === 'add' ? '追加金额 (USDT)' : '提取金额 (USDT)'}
+                                </label>
+                                <input
+                                    type="number"
+                                    value={marginAmount}
+                                    onChange={(e) => setMarginAmount(e.target.value)}
+                                    placeholder="输入金额"
+                                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white"
+                                />
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex space-x-4 pt-4">
+                                <button
+                                    onClick={() => {
+                                        setShowMarginModal(false);
+                                        setSelectedOrder(null);
+                                        setMarginAmount('');
+                                    }}
+                                    className="flex-1 h-14 rounded-xl border border-white/10 text-white font-bold hover:bg-white/5 transition-all"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    onClick={handleMarginAction}
+                                    disabled={optionsLoading || !marginAmount}
+                                    className={`flex-1 h-14 rounded-xl font-bold disabled:opacity-50 transition-all ${marginAction === 'add'
+                                        ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
+                                        : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+                                        }`}
+                                >
+                                    {optionsLoading ? '处理中...' : marginAction === 'add' ? '确认追加' : '确认提取'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

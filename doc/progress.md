@@ -1,3 +1,30 @@
+## 2026-01-25 (P1 功能迭代)
+**[Status]**: Done  
+**[Changes]**:
+- **P1.1 持仓盈亏显示**:
+    - 扩展 `Order` 接口添加 `refPrice` 和 `lastFeedPrice` 字段
+    - 添加 `calculatePnL` 盈亏计算函数 (支持看涨/看跌期权公式)
+    - 更新 MyOrders 订单卡片显示浮动盈亏金额和百分比
+- **P1.2 保证金管理**:
+    - 添加 `addMargin()` 和 `withdrawExcessMargin()` 到 useOptions hook
+    - 卖方 LIVE 订单显示"追加保证金"和"提取超额"按钮
+    - 添加保证金管理模态框 (显示初始/当前/可提取超额保证金)
+- **P1.3 提前行权**:
+    - 添加 `earlyExercise()` 到 useOptions hook
+    - 买方 LIVE 订单显示"提前行权"按钮 (玫瑰红色)
+    - 行权确认对话框
+- **P1.4 订单结算**:
+    - 添加 `settleOrder()` 到 useOptions hook
+    - PENDING_SETTLEMENT 状态显示"确认结算"按钮 (紫色)
+    - 结算确认对话框
+- **构建验证**: `npm run build` 成功 ✅ (640KB JS)
+
+**[Next Step]**: 
+- P1.5 仲裁功能 (可选)
+- P2 体验优化 (倒计时、积分系统)
+
+---
+
 ## 2026-01-25
 **[Status]**: Done  
 **[Changes]**:
