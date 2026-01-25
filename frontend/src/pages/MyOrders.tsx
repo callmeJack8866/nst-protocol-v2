@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useOptions } from '../hooks';
+import { useOptions, useFeedProtocol } from '../hooks';
 import { useWalletContext } from '../context/WalletContext';
 import { formatUnits } from 'ethers';
 
@@ -22,6 +22,9 @@ interface Order {
     currentMargin: bigint;
     createdAt: number;
     matchedAt: number;
+    // 新增：盈亏计算相关字段
+    refPrice: string;         // 开仓参考价格
+    lastFeedPrice: bigint;    // 最后一次喂价价格 (18位小数)
 }
 
 const STATUS_MAP: { [key: number]: string } = {
@@ -39,27 +42,44 @@ const STATUS_MAP: { [key: number]: string } = {
 const STATUS_ZH: { [key: string]: string } = {
     'RFQ_CREATED': '询价中',
     'QUOTING': '报价中',
-    'MATCHED': '已撮合',
+    'MATCHED': '待喂价',
     'LIVE': '已激活',
+    'PENDING_SETTLEMENT': '待结算',
     'SETTLED': '已结算',
     'CANCELLED': '已取消',
     'LIQUIDATED': '已强平',
     'ARBITRATION': '仲裁中',
 };
 
+// Feed tier options
+const FEED_TIERS = [
+    { id: 0, name: '5-3档', desc: '5个喂价员，取中间3个', fee: '3 USDT' },
+    { id: 1, name: '7-5档', desc: '7个喂价员，取中间5个', fee: '5 USDT' },
+    { id: 2, name: '10-7档', desc: '10个喂价员，取中间7个', fee: '8 USDT' },
+];
+
 export function MyOrders() {
     const { account } = useWalletContext();
     const { getBuyerOrders, getSellerOrders, getOrder, isConnected } = useOptions();
+    const { requestFeed, isLoading: feedLoading, error: feedError } = useFeedProtocol();
+
     const [viewMode, setViewMode] = useState<'buyer' | 'seller'>('buyer');
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [buyerOrders, setBuyerOrders] = useState<Order[]>([]);
     const [sellerOrders, setSellerOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    // Feed modal state
+    const [showFeedModal, setShowFeedModal] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [selectedTier, setSelectedTier] = useState(0);
+    const [selectedFeedType, setSelectedFeedType] = useState(0); // 0: Initial, 1: Dynamic, 2: Settlement
 
     const statusFilters = [
         { id: 'ALL', label: '全部订单' },
+        { id: 'MATCHED', label: '待喂价' },
         { id: 'LIVE', label: '运行中' },
-        { id: 'MATCHED', label: '已撮合' },
         { id: 'SETTLED', label: '已结算' }
     ];
 
@@ -126,7 +146,7 @@ export function MyOrders() {
             } finally { setLoading(false); }
         };
         fetchOrders();
-    }, [isConnected, account, getBuyerOrders, getSellerOrders, getOrder]);
+    }, [isConnected, account, getBuyerOrders, getSellerOrders, getOrder, refreshKey]);
 
     const formatAmount = (val: bigint) => {
         const num = Number(formatUnits(val, 6));
@@ -134,6 +154,26 @@ export function MyOrders() {
         if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
         if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+    };
+
+    // Handle request feed
+    const handleRequestFeed = async () => {
+        if (!selectedOrder) return;
+        try {
+            await requestFeed(selectedOrder.orderId, selectedFeedType, selectedTier);
+            setShowFeedModal(false);
+            setSelectedOrder(null);
+            setRefreshKey(k => k + 1);
+        } catch (e) {
+            console.error('Failed to request feed:', e);
+        }
+    };
+
+    // Open feed modal
+    const openFeedModal = (order: Order, feedType: number) => {
+        setSelectedOrder(order);
+        setSelectedFeedType(feedType);
+        setShowFeedModal(true);
     };
 
     const rawOrders = viewMode === 'buyer' ? buyerOrders : sellerOrders;
@@ -169,13 +209,13 @@ export function MyOrders() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                     {[
                         { label: '活跃仓位数量', value: orders.filter(o => ['LIVE', 'MATCHED'].includes(o.status)).length },
+                        { label: '待喂价订单', value: orders.filter(o => o.status === 'MATCHED').length, highlight: true },
                         { label: '当前总敞口', value: formatAmount(orders.reduce((s, o) => s + o.notionalUSDT, 0n)) },
-                        { label: '系统利用率', value: '84.2%' },
-                        { label: '预期收益影响', value: '$12,400' },
+                        { label: '累计结算', value: orders.filter(o => o.status === 'SETTLED').length },
                     ].map((stat, i) => (
-                        <div key={i} className="glass-surface p-8 rounded-[40px] border-white/5 shadow-sm">
+                        <div key={i} className={`glass-surface p-8 rounded-[40px] border-white/5 shadow-sm ${stat.highlight ? 'border-amber-500/30 bg-amber-500/5' : ''}`}>
                             <p className="text-label mb-4 opacity-50">{stat.label}</p>
-                            <p className="text-3xl font-bold text-white tracking-tight italic">{stat.value}</p>
+                            <p className={`text-3xl font-bold tracking-tight italic ${stat.highlight ? 'text-amber-400' : 'text-white'}`}>{stat.value}</p>
                         </div>
                     ))}
                 </div>
@@ -221,20 +261,52 @@ export function MyOrders() {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-16 flex-1 border-x border-white/[0.03] px-16">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-12 flex-1 border-x border-white/[0.03] px-12">
                                         <div>
-                                            <p className="text-label mb-2">名义本金 Exposure</p>
+                                            <p className="text-label mb-2">名义本金</p>
                                             <p className="text-xl font-bold text-white italic tracking-tighter truncate max-w-[150px]">{formatAmount(order.notionalUSDT)}</p>
                                         </div>
                                         <div>
-                                            <p className="text-label mb-2">合约费率 Premium</p>
+                                            <p className="text-label mb-2">费率</p>
                                             <p className="text-xl font-bold text-emerald-500 italic tracking-tighter">{(order.premiumRate / 100).toFixed(2)}%</p>
                                         </div>
-                                        <div className="flex flex-col items-end">
-                                            <p className="text-label mb-2">实时状态</p>
-                                            <span className="px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest bg-white/5 text-slate-400 border border-white/[0.05]">
+                                        <div>
+                                            <p className="text-label mb-2">状态</p>
+                                            <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${order.status === 'MATCHED'
+                                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                : order.status === 'LIVE'
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                    : 'bg-white/5 text-slate-400 border-white/[0.05]'
+                                                }`}>
                                                 {STATUS_ZH[order.status] || order.status}
                                             </span>
+                                        </div>
+                                        <div className="flex items-center justify-end">
+                                            {/* Action buttons based on status */}
+                                            {order.status === 'MATCHED' && (
+                                                <button
+                                                    onClick={() => openFeedModal(order, 0)}
+                                                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-amber-500/20 transition-all"
+                                                >
+                                                    发起期初喂价
+                                                </button>
+                                            )}
+                                            {order.status === 'LIVE' && (
+                                                <div className="flex gap-3">
+                                                    <button
+                                                        onClick={() => openFeedModal(order, 1)}
+                                                        className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider border border-blue-500/20"
+                                                    >
+                                                        动态喂价
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openFeedModal(order, 2)}
+                                                        className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider"
+                                                    >
+                                                        平仓喂价
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -248,6 +320,90 @@ export function MyOrders() {
                     </div>
                 </div>
             </div>
+
+            {/* Feed Request Modal */}
+            {showFeedModal && selectedOrder && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+                    <div className="glass-surface p-12 rounded-[40px] w-full max-w-lg animate-elite-entry">
+                        <h2 className="text-2xl font-bold text-white mb-2">
+                            {selectedFeedType === 0 ? '发起期初喂价' : selectedFeedType === 1 ? '发起动态喂价' : '发起平仓喂价'}
+                        </h2>
+                        <p className="text-slate-500 mb-8">
+                            {selectedOrder.underlyingName} ({selectedOrder.underlyingCode}) · 订单 #{selectedOrder.orderId}
+                        </p>
+
+                        <div className="space-y-6">
+                            {/* Tier Selection */}
+                            <div>
+                                <label className="text-label mb-4 block">选择喂价档位</label>
+                                <div className="space-y-3">
+                                    {FEED_TIERS.map(tier => (
+                                        <button
+                                            key={tier.id}
+                                            onClick={() => setSelectedTier(tier.id)}
+                                            className={`w-full p-4 rounded-xl border text-left transition-all ${selectedTier === tier.id
+                                                ? 'bg-amber-500/10 border-amber-500/30'
+                                                : 'bg-slate-800/50 border-white/10 hover:border-white/20'
+                                                }`}
+                                        >
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <p className={`font-bold ${selectedTier === tier.id ? 'text-amber-400' : 'text-white'}`}>
+                                                        {tier.name}
+                                                    </p>
+                                                    <p className="text-slate-500 text-sm">{tier.desc}</p>
+                                                </div>
+                                                <span className={`font-bold ${selectedTier === tier.id ? 'text-amber-400' : 'text-slate-400'}`}>
+                                                    {tier.fee}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Fee Info */}
+                            <div className="bg-slate-800/50 rounded-xl p-4">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-slate-400">喂价费用</span>
+                                    <span className="text-white font-bold">{FEED_TIERS[selectedTier].fee}</span>
+                                </div>
+                                <p className="text-slate-500 text-xs mt-2">
+                                    喂价费用将从您的 USDT 余额中扣除，用于支付喂价员报酬
+                                </p>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex space-x-4 pt-4">
+                                <button
+                                    onClick={() => {
+                                        setShowFeedModal(false);
+                                        setSelectedOrder(null);
+                                    }}
+                                    className="flex-1 h-14 rounded-xl border border-white/10 text-white font-bold hover:bg-white/5 transition-all"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    onClick={handleRequestFeed}
+                                    disabled={feedLoading}
+                                    className="flex-1 h-14 rounded-xl bg-amber-500 text-slate-950 font-bold disabled:opacity-50 hover:bg-amber-400 transition-all"
+                                >
+                                    {feedLoading ? '处理中...' : '确认发起喂价'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Error display */}
+            {feedError && (
+                <div className="fixed bottom-8 right-8 bg-red-500/20 border border-red-500/30 rounded-xl px-6 py-4 text-red-400">
+                    {feedError}
+                </div>
+            )}
+
             <div className="h-32" />
         </div>
     );

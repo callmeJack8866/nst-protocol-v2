@@ -1,4 +1,22 @@
-## 2026-01-21
+## 2026-01-25
+**[Status]**: Done  
+**[Changes]**:
+- **喂价功能完整实现 (Feed Protocol Integration)**:
+    - **合约修改**: 为 `FeedProtocol.sol` 添加 `requestFeedPublic()` 公开函数（MVP演示用）
+    - **新增查询函数**: `getPendingRequests()`、`getAllFeedRequests()`、`getTotalRequestCount()`
+    - **前端 Hook 增强**: `useFeedAndPoints.ts` 添加 `requestFeed`、`getPendingRequests`、`getAllFeedRequests` 等函数
+    - **FeederPanel 完整重写**: 从链上获取真实待喂价请求、喂价进度显示、价格提交表单、喂价员注册模态框
+    - **MyOrders 喂价入口**: MATCHED 状态显示"发起期初喂价"按钮、LIVE 状态显示"动态喂价"/"平仓喂价"按钮、喂价档位选择模态框
+- **构建验证**: `npm run build` 成功 ✅
+- **合约编译**: `npx hardhat compile` 成功 ✅
+
+**[Next Step]**: 
+- 浏览器端到端测试喂价流程
+- 可选：部署更新后的合约到 BSC Testnet
+
+---
+
+
 **[Status]**: Done  
 **[Changes]**:
 - 完成 SellerHall 数据对接（从链上获取 RFQ 订单）
@@ -12,12 +30,37 @@
 - 完成 PointsManager 积分系统集成
 - **Solidity 单元测试全通过**：24 tests passing ✅
 
+## 2026-01-24 (Cont.)
+**[Status]**: Done  
+**[Changes]**:
+- **RFQ 5 步向导完整改造 (5-Step Wizard Overhaul)**:
+    - **Step 1 资产设计**: 保留原有 6 字段布局（标的名称/代码/国家/交易所/实时价格/币种）
+    - **Step 2 核心参数**: 名义本金、币种下拉、费率、方向切换(CALL/PUT)、结算币种(USDT/USDC)、汇率结算、合约期限（含快捷按钮）、应付期权费自动计算
+    - **Step 3 风险结构**: 最快行权(T+1~T+5/到期)、合约结构(香草/欧式/美式)、强平规则、分红调整
+    - **Step 4 成交配置**: 成交方式(正常/跟量)、价格类型(市价/均价)、卖方类型(自由/席位/混合/指定)
+    - **Step 5 价格确认**: 策略汇总面板、费用明细表（协议费/期权费/报价费）、合计费用、发布按钮
+- **卖方订单向导 (Seller Wizard) 5 步专业化改造**:
+    - 全面对齐买方流程，扩展至 5 步流畅体验。
+    - **核心更新**: 引入保证金设置（初始/维持）、补仓时限（2h/12h）、以及指定买方功能。
+    - **视觉增强**: 采用 Amber (琥珀金) 机构端主题色，逻辑与 `handleSubmit` 深度集成。
+- **构建验证**: `npm run build` 成功，597KB JS + 58KB CSS
+
+**[Next Step]**: 
+- 在浏览器中进行端到端流程验证
+- 可选：移动端自适应优化
+
+---
+
 ## 2026-01-24
 **[Status]**: Done  
 **[Changes]**:
 - **演示细节优化与全站中文化 (Demo Polish & Full Localization)**:
     - **全站中文化**: 翻译了所有业务标签与提示语。
-    - **布局彻底修复**: 弃用了 `fixed` 定位，改用 `sticky` 布局方案。Header 和 Sidebar 现在物理占据页面空间，内容区域自动对齐，彻底解决了遮挡和重叠问题。
+    - **布局彻底修复**: 弃用了 `fixed` 定位，改用 `sticky` 布局方案，彻底解决了遮挡和重叠问题。
+    - **询价流程体验升级 (RFQ UX Upgrade)**: 
+        - **专业字段扩展**: 将“资产设计”阶段扩展为 2x3 专业网格，包含国家、交易中心、实时价格、币种等 6 大核心字段。
+        - **居中对齐优化**: 纠正了向导界面的左倾问题，确保全站向导在任何分辨率下都严格水平居中。
+        - **机构级视觉**: 为所有字段增加了搜索、实时闪电、货币等专业指引标识。
     - **大额数字处理**: 引入了单位缩放格式化，解决了数字重叠。
     - **全页适配**: 优化了所有页面的 Padding 和 Margin，确保在不同屏幕下都有极致的平衡感。
 

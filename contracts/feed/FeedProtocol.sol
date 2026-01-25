@@ -114,31 +114,52 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
     }
 
     function _initTierConfigs() internal {
+        // 使用 6 位小数精度匹配 USDT (1e6 = 1 USDT)
         // 5-3档：3U
         tierConfigs[FeedTier.Tier_5_3] = FeedTierConfig({
             totalFeeders: 5,
             effectiveFeeds: 3,
-            platformFee: 0.3 ether,     // 10% = 0.3U
-            feederReward: 2.7 ether,    // 90% = 2.7U
-            totalFee: 3 ether
+            platformFee: 0.3e6,     // 10% = 0.3U
+            feederReward: 2.7e6,    // 90% = 2.7U
+            totalFee: 3e6
         });
 
         // 7-5档：5U
         tierConfigs[FeedTier.Tier_7_5] = FeedTierConfig({
             totalFeeders: 7,
             effectiveFeeds: 5,
-            platformFee: 0.5 ether,
-            feederReward: 4.5 ether,
-            totalFee: 5 ether
+            platformFee: 0.5e6,
+            feederReward: 4.5e6,
+            totalFee: 5e6
         });
 
         // 10-7档：8U
         tierConfigs[FeedTier.Tier_10_7] = FeedTierConfig({
             totalFeeders: 10,
             effectiveFeeds: 7,
-            platformFee: 0.8 ether,
-            feederReward: 7.2 ether,
-            totalFee: 8 ether
+            platformFee: 0.8e6,
+            feederReward: 7.2e6,
+            totalFee: 8e6
+        });
+    }
+
+    /**
+     * @notice 更新喂价档位配置 (管理员)
+     */
+    function setTierConfig(
+        FeedTier tier,
+        uint8 totalFeeders,
+        uint8 effectiveFeeds,
+        uint256 platformFee,
+        uint256 feederReward,
+        uint256 totalFee
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        tierConfigs[tier] = FeedTierConfig({
+            totalFeeders: totalFeeders,
+            effectiveFeeds: effectiveFeeds,
+            platformFee: platformFee,
+            feederReward: feederReward,
+            totalFee: totalFee
         });
     }
 
@@ -270,6 +291,57 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
             LiquidationRule.NoLiquidation,
             0,   // consecutiveDays
             0,   // exerciseDelay
+            block.timestamp
+        );
+
+        return requestId;
+    }
+
+    /**
+     * @notice 创建喂价请求（公开版本，MVP演示用）
+     * @dev 允许任何地址发起喂价请求，需支付 USDT 喂价费用
+     * @param orderId 订单ID
+     * @param feedType 喂价类型 (期初/动态/期末/仲裁)
+     * @param tier 喂价档位 (5-3/7-5/10-7)
+     */
+    function requestFeedPublic(
+        uint256 orderId,
+        FeedType feedType,
+        FeedTier tier
+    ) external nonReentrant whenNotPaused returns (uint256 requestId) {
+        FeedTierConfig memory tierConfig = tierConfigs[tier];
+        
+        // 收取喂价费用
+        usdt.safeTransferFrom(msg.sender, address(this), tierConfig.totalFee);
+
+        requestId = nextRequestId++;
+
+        feedRequests[requestId] = FeedRequest({
+            requestId: requestId,
+            orderId: orderId,
+            feedType: feedType,
+            tier: tier,
+            deadline: block.timestamp + 30 minutes,
+            createdAt: block.timestamp,
+            totalFeeders: tierConfig.totalFeeders,
+            submittedCount: 0,
+            finalPrice: 0,
+            finalized: false
+        });
+
+        orderFeedRequests[orderId].push(requestId);
+
+        emit FeedRequested(
+            requestId,
+            orderId,
+            "",
+            "",
+            "",
+            "",
+            feedType,
+            LiquidationRule.NoLiquidation,
+            0,
+            0,
             block.timestamp
         );
 
@@ -426,6 +498,68 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
 
     function getSubmissions(uint256 requestId) external view returns (FeedSubmission[] memory) {
         return requestSubmissions[requestId];
+    }
+
+    /**
+     * @notice 获取所有待处理（未完成）的喂价请求
+     * @return pendingRequests 待处理喂价请求数组
+     */
+    function getPendingRequests() external view returns (FeedRequest[] memory) {
+        // 先统计未完成请求数量
+        uint256 pendingCount = 0;
+        for (uint256 i = 1; i < nextRequestId; i++) {
+            if (!feedRequests[i].finalized && block.timestamp <= feedRequests[i].deadline) {
+                pendingCount++;
+            }
+        }
+
+        // 创建结果数组
+        FeedRequest[] memory pendingRequests = new FeedRequest[](pendingCount);
+        uint256 index = 0;
+
+        for (uint256 i = 1; i < nextRequestId; i++) {
+            if (!feedRequests[i].finalized && block.timestamp <= feedRequests[i].deadline) {
+                pendingRequests[index] = feedRequests[i];
+                index++;
+            }
+        }
+
+        return pendingRequests;
+    }
+
+    /**
+     * @notice 分页获取所有喂价请求
+     * @param offset 起始位置
+     * @param limit 获取数量
+     * @return requests 喂价请求数组
+     */
+    function getAllFeedRequests(uint256 offset, uint256 limit) external view returns (FeedRequest[] memory) {
+        uint256 totalRequests = nextRequestId - 1;
+        
+        if (offset >= totalRequests) {
+            return new FeedRequest[](0);
+        }
+
+        uint256 endIndex = offset + limit;
+        if (endIndex > totalRequests) {
+            endIndex = totalRequests;
+        }
+
+        uint256 resultCount = endIndex - offset;
+        FeedRequest[] memory requests = new FeedRequest[](resultCount);
+
+        for (uint256 i = 0; i < resultCount; i++) {
+            requests[i] = feedRequests[offset + i + 1]; // requestId 从 1 开始
+        }
+
+        return requests;
+    }
+
+    /**
+     * @notice 获取喂价请求总数
+     */
+    function getTotalRequestCount() external view returns (uint256) {
+        return nextRequestId - 1;
     }
 
     // ==================== VRF 集成功能 ====================

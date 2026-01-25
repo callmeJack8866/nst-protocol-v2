@@ -46,6 +46,12 @@ export const FeedProtocolABI = [
     'function getActiveFeeders() view returns (address[])',
     'function getFeedFee(uint8 tier) view returns (uint256)',
     'function getFeederCount() view returns (uint256)',
+    'function getOrderFeedRequests(uint256 orderId) view returns (uint256[])',
+    'function getSubmissions(uint256 requestId) view returns (tuple(address feeder, uint256 price, uint256 timestamp, bool isValid)[])',
+    'function getPendingRequests() view returns (tuple(uint256 requestId, uint256 orderId, uint8 feedType, uint8 tier, uint256 deadline, uint256 createdAt, uint256 totalFeeders, uint256 submittedCount, uint256 finalPrice, bool finalized)[])',
+    'function getAllFeedRequests(uint256 offset, uint256 limit) view returns (tuple(uint256 requestId, uint256 orderId, uint8 feedType, uint8 tier, uint256 deadline, uint256 createdAt, uint256 totalFeeders, uint256 submittedCount, uint256 finalPrice, bool finalized)[])',
+    'function getTotalRequestCount() view returns (uint256)',
+    'function nextRequestId() view returns (uint256)',
 
     // Write functions
     'function registerFeeder(uint256 stakeAmount)',
@@ -54,6 +60,7 @@ export const FeedProtocolABI = [
     'function submitFeed(uint256 requestId, uint256 price)',
     'function rejectFeed(uint256 requestId, string reason)',
     'function finalizeFeed(uint256 requestId) returns (uint256 finalPrice)',
+    'function requestFeedPublic(uint256 orderId, uint8 feedType, uint8 tier) returns (uint256 requestId)',
 
     // Events
     'event FeedRequested(uint256 indexed requestId, uint256 indexed orderId, string underlyingName, string underlyingCode, string market, string country, uint8 feedType, uint8 liquidationRule, uint8 consecutiveDays, uint8 exerciseDelay, uint256 timestamp)',

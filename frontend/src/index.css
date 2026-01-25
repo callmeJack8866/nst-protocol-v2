@@ -163,6 +163,14 @@ h4,
   box-shadow: 0 12px 24px -6px rgba(16, 185, 129, 0.4);
 }
 
+.btn-elite-primary:disabled {
+  background: #475569;
+  color: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn-elite-secondary {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);

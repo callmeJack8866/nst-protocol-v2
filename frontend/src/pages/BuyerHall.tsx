@@ -191,7 +191,7 @@ export function BuyerHall() {
                     sellerType: 'Open Market',
                     refPrice: rfq.refPrice
                   }}
-                  onAction={rfq.buyer.toLowerCase() === account?.toLowerCase() && rfq.status === 'QUOTING' ? async (id) => {
+                  onAction={rfq.buyer.toLowerCase() === account?.toLowerCase() && (rfq.status === 'QUOTING' || rfq.status === 'RFQ_CREATED') ? async (id) => {
                     setSelectedRFQ(rfq);
                     setShowQuotesModal(true);
                     setLoadingQuotes(true);
@@ -219,8 +219,8 @@ export function BuyerHall() {
       {showQuotesModal && selectedRFQ && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-8">
           <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-3xl transition-all animate-fade-in" onClick={() => setShowQuotesModal(false)} />
-          <div className="w-full max-w-[840px] glass-surface rounded-[56px] p-16 relative z-10 shadow-2xl overflow-hidden animate-elite-entry border-white/10">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 blur-[140px] -mr-48 -mt-48" />
+          <div className="w-full max-w-[840px] glass-surface rounded-[56px] p-16 relative z-10 shadow-2xl overflow-hidden animate-elite-entry border-white/10" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 blur-[140px] -mr-48 -mt-48 pointer-events-none" />
 
             <div className="text-center mb-16">
               <p className="text-[11px] font-black text-emerald-500 uppercase tracking-[0.5em] mb-4">实时报价分析终端</p>
@@ -262,7 +262,7 @@ export function BuyerHall() {
                     <button
                       onClick={() => handleAccept(quote)}
                       disabled={isAccepting || acceptSuccess}
-                      className="btn-elite-primary h-14 px-10 rounded-2xl text-[12px] shadow-none"
+                      className={`h-14 px-10 rounded-2xl text-[12px] font-bold transition-all ${isAccepting || acceptSuccess ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-900 cursor-pointer'}`}
                     >
                       {isAccepting ? '处理中...' : acceptSuccess ? '撮合成功' : '接受并交易'}
                     </button>

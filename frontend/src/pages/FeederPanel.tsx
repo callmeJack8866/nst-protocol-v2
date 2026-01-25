@@ -1,28 +1,118 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useWallet, useFeedProtocol } from '../hooks';
+import { formatUnits } from 'ethers';
+import type { FeedRequest, Feeder } from '../hooks/useFeedAndPoints';
+
+// Feed type labels
+const FEED_TYPE_LABELS: Record<number, string> = {
+  0: '期初喂价',
+  1: '动态喂价',
+  2: '期末喂价',
+  3: '仲裁喂价',
+};
+
+// Feed tier labels
+const FEED_TIER_LABELS: Record<number, { name: string; desc: string }> = {
+  0: { name: '5-3档', desc: '5个喂价员，取中间3个' },
+  1: { name: '7-5档', desc: '7个喂价员，取中间5个' },
+  2: { name: '10-7档', desc: '10个喂价员，取中间7个' },
+};
 
 export function FeederPanel() {
   const { isConnected, account, connect } = useWallet();
-  const { getFeederInfo } = useFeedProtocol();
-  const [feederInfo, setFeederInfo] = useState<any>(null);
+  const {
+    isLoading,
+    error,
+    getFeederInfo,
+    getPendingRequests,
+    submitFeed,
+    rejectFeed,
+    registerFeeder,
+  } = useFeedProtocol();
+
+  const [feederInfo, setFeederInfo] = useState<Feeder | null>(null);
+  const [pendingRequests, setPendingRequests] = useState<FeedRequest[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<FeedRequest | null>(null);
+  const [priceInput, setPriceInput] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const [stakeAmount, setStakeAmount] = useState('100');
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showFeedModal, setShowFeedModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Load feeder info and pending requests
+  const loadData = useCallback(async () => {
+    if (!isConnected || !account) return;
+
+    try {
+      const [info, requests] = await Promise.all([
+        getFeederInfo(),
+        getPendingRequests(),
+      ]);
+      setFeederInfo(info);
+      setPendingRequests(requests);
+    } catch (e) {
+      console.error('Failed to load feeder data:', e);
+    }
+  }, [isConnected, account, getFeederInfo, getPendingRequests]);
 
   useEffect(() => {
-    if (isConnected && account) {
-      const loadInfo = async () => {
-        try {
-          const info = await getFeederInfo();
-          setFeederInfo(info);
-        } catch (e) { console.error(e); }
-      };
-      loadInfo();
+    loadData();
+  }, [loadData, refreshKey]);
+
+  // Handle feed submission
+  const handleSubmitFeed = async () => {
+    if (!selectedRequest || !priceInput) return;
+
+    try {
+      await submitFeed(Number(selectedRequest.requestId), priceInput);
+      setShowFeedModal(false);
+      setPriceInput('');
+      setSelectedRequest(null);
+      setRefreshKey(k => k + 1);
+    } catch (e) {
+      console.error('Failed to submit feed:', e);
     }
-  }, [isConnected, account, getFeederInfo]);
+  };
 
-  const mockRequests = [
-    { requestId: 1, underlyingName: 'XAU/USD Spot', underlyingCode: 'XAU', feedType: 'Settlement', status: 'Pending', timeLeft: '42:15', reward: '5.20 USDT' },
-    { requestId: 2, underlyingName: 'AAPL/USD Equity', underlyingCode: 'AAPL', feedType: 'Reference', status: 'Pending', timeLeft: '11:05', reward: '3.10 USDT' },
-  ];
+  // Handle feed rejection
+  const handleRejectFeed = async () => {
+    if (!selectedRequest || !rejectReason) return;
 
+    try {
+      await rejectFeed(Number(selectedRequest.requestId), rejectReason);
+      setShowFeedModal(false);
+      setRejectReason('');
+      setSelectedRequest(null);
+      setRefreshKey(k => k + 1);
+    } catch (e) {
+      console.error('Failed to reject feed:', e);
+    }
+  };
+
+  // Handle feeder registration
+  const handleRegister = async () => {
+    try {
+      await registerFeeder(stakeAmount);
+      setShowRegisterModal(false);
+      setRefreshKey(k => k + 1);
+    } catch (e) {
+      console.error('Failed to register as feeder:', e);
+    }
+  };
+
+  // Calculate time remaining
+  const getTimeRemaining = (deadline: bigint) => {
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    const remaining = deadline - now;
+    if (remaining <= 0n) return '已超时';
+
+    const minutes = Number(remaining / 60n);
+    const seconds = Number(remaining % 60n);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Not connected state
   if (!isConnected) {
     return (
       <div className="max-w-[1240px] mx-auto px-10 py-40 text-center animate-elite-entry">
@@ -51,75 +141,230 @@ export function FeederPanel() {
           </p>
         </div>
 
-        {feederInfo?.isRegistered ? (
+        {feederInfo?.isActive ? (
           <div className="bg-blue-500/5 border border-blue-500/15 px-8 py-4 rounded-[28px] flex items-center space-x-5 shadow-sm">
             <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_15px_#3b82f6]" />
             <span className="text-[12px] font-black text-blue-400 uppercase tracking-[0.2em]">预言机节点状态: 运行中</span>
           </div>
         ) : (
-          <button className="btn-elite-primary bg-blue-600 hover:bg-blue-500 shadow-blue-600/20 h-20 px-12 rounded-[32px] text-xs tracking-widest"> 申请成为喂价节点 </button>
+          <button
+            onClick={() => setShowRegisterModal(true)}
+            className="btn-elite-primary bg-blue-600 hover:bg-blue-500 shadow-blue-600/20 h-20 px-12 rounded-[32px] text-xs tracking-widest"
+          >
+            申请成为喂价节点
+          </button>
         )}
       </div>
 
       <div className="space-y-24">
         {/* Statistics Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-          {[
-            { label: '累计数据上报', value: '1,429', color: 'text-white' },
-            { label: '全网同步延迟', value: '0.8s', color: 'text-blue-500' },
-            { label: '节点激励上限', value: '$840', color: 'text-emerald-400' },
-            { label: '系统在线时长', value: '99.9%', color: 'text-white' },
-          ].map((stat, i) => (
-            <div key={i} className="glass-surface p-8 rounded-[40px] group relative overflow-hidden transition-all hover:bg-white/[0.04]">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 blur-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-              <p className="text-label mb-4 opacity-50 uppercase">{stat.label}</p>
-              <p className={`text-3xl font-bold tracking-tighter italic ${stat.color}`}>{stat.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Technical Data Stream */}
-        <div className="space-y-12">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-[11px] font-black text-slate-600 uppercase tracking-[0.4em] italic mb-2">待处理数据请求流 ({mockRequests.length})</h2>
-            <button className="text-[11px] font-bold text-blue-500 uppercase tracking-widest hover:text-white transition-all underline underline-offset-8 decoration-blue-500/20">强制同步节点数据</button>
-          </div>
-
-          <div className="grid grid-cols-1 gap-6">
-            {mockRequests.map((req) => (
-              <div key={req.requestId} className="group glass-surface p-10 rounded-[56px] relative overflow-hidden border-white/[0.03]">
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-12">
-                  <div className="flex items-center space-x-8">
-                    <div className="w-20 h-20 rounded-[32px] bg-slate-950 border border-white/5 flex items-center justify-center text-5xl shadow-inner group-hover:scale-110 transition-transform duration-1000">📡</div>
-                    <div>
-                      <div className="flex items-center space-x-5 mb-3">
-                        <h3 className="text-2xl font-bold text-white italic tracking-tighter">{req.underlyingName}</h3>
-                        <p className="text-[10px] font-black text-blue-400 bg-blue-400/5 px-3 py-1 rounded-full tracking-widest border border-blue-400/10 uppercase">{req.feedType === 'Settlement' ? '结算喂价' : '实时参考'}</p>
-                      </div>
-                      <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">请求标识 ID-0x{req.requestId}01 · 安全等级: 机构级</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-16 flex-1 border-l border-white/5 pl-16">
-                    <div className="text-right">
-                      <p className="text-label mb-2">节点激励奖励</p>
-                      <p className="text-2xl font-bold text-emerald-400 italic tracking-tighter">{req.reward}</p>
-                    </div>
-                    <div className="text-right border-l border-white/5 pl-16">
-                      <p className="text-label mb-2">数据存活时间</p>
-                      <p className="text-2xl font-bold text-white italic tracking-tighter">{req.timeLeft}</p>
-                    </div>
-                    <div className="flex items-center justify-end space-x-8 pl-16">
-                      <button className="text-slate-600 hover:text-white text-[12px] font-black uppercase transition-all tracking-[0.3em]">忽略</button>
-                      <button className="bg-blue-600 hover:bg-blue-500 text-slate-950 px-10 h-16 rounded-[24px] font-black text-[12px] shadow-2xl shadow-blue-600/20 tracking-widest">提交价格信号</button>
-                    </div>
-                  </div>
-                </div>
+        {feederInfo?.isActive && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              { label: '累计完成喂价', value: feederInfo.completedFeeds?.toString() || '0', color: 'text-white' },
+              { label: '质押金额', value: `${formatUnits(feederInfo.stakedAmount || 0n, 6)} U`, color: 'text-blue-500' },
+              { label: '待处理请求', value: pendingRequests.length.toString(), color: 'text-emerald-400' },
+              { label: '拒绝次数', value: feederInfo.rejectedFeeds?.toString() || '0', color: 'text-white' },
+            ].map((stat, i) => (
+              <div key={i} className="glass-surface p-8 rounded-[40px] group relative overflow-hidden transition-all hover:bg-white/[0.04]">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 blur-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                <p className="text-label mb-4 opacity-50 uppercase">{stat.label}</p>
+                <p className={`text-3xl font-bold tracking-tighter italic ${stat.color}`}>{stat.value}</p>
               </div>
             ))}
           </div>
+        )}
+
+        {/* Pending Requests */}
+        <div className="space-y-12">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-[11px] font-black text-slate-600 uppercase tracking-[0.4em] italic mb-2">
+              待处理数据请求流 ({pendingRequests.length})
+            </h2>
+            <button
+              onClick={() => setRefreshKey(k => k + 1)}
+              className="text-[11px] font-bold text-blue-500 uppercase tracking-widest hover:text-white transition-all underline underline-offset-8 decoration-blue-500/20"
+            >
+              强制同步节点数据
+            </button>
+          </div>
+
+          {pendingRequests.length === 0 ? (
+            <div className="glass-surface p-16 rounded-[56px] text-center">
+              <p className="text-slate-500 text-lg">暂无待处理的喂价请求</p>
+              <p className="text-slate-600 text-sm mt-2">当有新的喂价请求时，将在此处显示</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {pendingRequests.map((req) => (
+                <div key={Number(req.requestId)} className="group glass-surface p-10 rounded-[56px] relative overflow-hidden border-white/[0.03]">
+                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-12">
+                    <div className="flex items-center space-x-8">
+                      <div className="w-20 h-20 rounded-[32px] bg-slate-950 border border-white/5 flex items-center justify-center text-5xl shadow-inner group-hover:scale-110 transition-transform duration-1000">📡</div>
+                      <div>
+                        <div className="flex items-center space-x-5 mb-3">
+                          <h3 className="text-2xl font-bold text-white italic tracking-tighter">订单 #{Number(req.orderId)}</h3>
+                          <p className="text-[10px] font-black text-blue-400 bg-blue-400/5 px-3 py-1 rounded-full tracking-widest border border-blue-400/10 uppercase">
+                            {FEED_TYPE_LABELS[req.feedType] || '未知类型'}
+                          </p>
+                          <p className="text-[10px] font-black text-amber-400 bg-amber-400/5 px-3 py-1 rounded-full tracking-widest border border-amber-400/10 uppercase">
+                            {FEED_TIER_LABELS[req.tier]?.name || '未知档位'}
+                          </p>
+                        </div>
+                        <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">
+                          请求 ID-{Number(req.requestId)} · 进度: {Number(req.submittedCount)}/{Number(req.totalFeeders)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-16 flex-1 border-l border-white/5 pl-16">
+                      <div className="text-right">
+                        <p className="text-label mb-2">喂价进度</p>
+                        <p className="text-2xl font-bold text-emerald-400 italic tracking-tighter">
+                          {Number(req.submittedCount)}/{Number(req.totalFeeders)}
+                        </p>
+                      </div>
+                      <div className="text-right border-l border-white/5 pl-16">
+                        <p className="text-label mb-2">剩余时间</p>
+                        <p className="text-2xl font-bold text-white italic tracking-tighter">
+                          {getTimeRemaining(req.deadline)}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-end space-x-8 pl-16">
+                        {feederInfo?.isActive && (
+                          <button
+                            onClick={() => {
+                              setSelectedRequest(req);
+                              setShowFeedModal(true);
+                            }}
+                            className="bg-blue-600 hover:bg-blue-500 text-slate-950 px-10 h-16 rounded-[24px] font-black text-[12px] shadow-2xl shadow-blue-600/20 tracking-widest"
+                          >
+                            提交价格信号
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Register Modal */}
+      {showRegisterModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="glass-surface p-12 rounded-[40px] w-full max-w-lg">
+            <h2 className="text-2xl font-bold text-white mb-8">注册成为喂价员</h2>
+
+            <div className="space-y-6">
+              <div>
+                <label className="text-label mb-2 block">质押金额 (USDT)</label>
+                <input
+                  type="number"
+                  value={stakeAmount}
+                  onChange={(e) => setStakeAmount(e.target.value)}
+                  placeholder="最低 100 USDT"
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white"
+                />
+                <p className="text-slate-500 text-sm mt-2">最低质押要求: 100 USDT</p>
+              </div>
+
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => setShowRegisterModal(false)}
+                  className="flex-1 h-14 rounded-xl border border-white/10 text-white font-bold"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleRegister}
+                  disabled={isLoading || Number(stakeAmount) < 100}
+                  className="flex-1 h-14 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50"
+                >
+                  {isLoading ? '处理中...' : '确认注册'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feed Modal */}
+      {showFeedModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="glass-surface p-12 rounded-[40px] w-full max-w-lg">
+            <h2 className="text-2xl font-bold text-white mb-2">提交喂价</h2>
+            <p className="text-slate-500 mb-8">订单 #{Number(selectedRequest.orderId)} · {FEED_TYPE_LABELS[selectedRequest.feedType]}</p>
+
+            <div className="space-y-6">
+              <div>
+                <label className="text-label mb-2 block">价格</label>
+                <input
+                  type="number"
+                  value={priceInput}
+                  onChange={(e) => setPriceInput(e.target.value)}
+                  placeholder="输入当前市场价格"
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white"
+                />
+              </div>
+
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <p className="text-slate-400 text-sm">
+                  当前进度: {Number(selectedRequest.submittedCount)}/{Number(selectedRequest.totalFeeders)} 个喂价员已提交
+                </p>
+              </div>
+
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => {
+                    setShowFeedModal(false);
+                    setSelectedRequest(null);
+                    setPriceInput('');
+                  }}
+                  className="flex-1 h-14 rounded-xl border border-white/10 text-white font-bold"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSubmitFeed}
+                  disabled={isLoading || !priceInput}
+                  className="flex-1 h-14 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50"
+                >
+                  {isLoading ? '提交中...' : '确认提交'}
+                </button>
+              </div>
+
+              {/* Reject option */}
+              <div className="border-t border-white/10 pt-6">
+                <p className="text-slate-500 text-sm mb-4">如果无法获取价格，可以拒绝喂价：</p>
+                <input
+                  type="text"
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="拒绝原因 (如: 市场休市)"
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white mb-4"
+                />
+                <button
+                  onClick={handleRejectFeed}
+                  disabled={isLoading || !rejectReason}
+                  className="w-full h-12 rounded-xl border border-red-500/30 text-red-400 font-bold disabled:opacity-50"
+                >
+                  拒绝喂价
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error display */}
+      {error && (
+        <div className="fixed bottom-8 right-8 bg-red-500/20 border border-red-500/30 rounded-xl px-6 py-4 text-red-400">
+          {error}
+        </div>
+      )}
 
       <div className="h-32" />
     </div>

@@ -60,9 +60,18 @@ export function useFeedProtocol() {
         return new Contract(addresses.FeedProtocol, FeedProtocolABI, signer);
     }, [provider, chainId]);
 
+    const getReadContract = useCallback(async () => {
+        if (!provider || !chainId) return null;
+
+        const addresses = getContractAddresses(chainId);
+        if (!addresses.FeedProtocol) return null;
+
+        return new Contract(addresses.FeedProtocol, FeedProtocolABI, provider);
+    }, [provider, chainId]);
+
     // Get feed request
     const getFeedRequest = useCallback(async (requestId: number): Promise<FeedRequest | null> => {
-        const contract = await getContract();
+        const contract = await getReadContract();
         if (!contract) return null;
 
         try {
@@ -72,11 +81,53 @@ export function useFeedProtocol() {
             console.error('Failed to fetch feed request:', err);
             return null;
         }
-    }, [getContract]);
+    }, [getReadContract]);
+
+    // Get pending (unfilled) feed requests
+    const getPendingRequests = useCallback(async (): Promise<FeedRequest[]> => {
+        const contract = await getReadContract();
+        if (!contract) return [];
+
+        try {
+            const requests = await contract.getPendingRequests();
+            return requests as FeedRequest[];
+        } catch (err) {
+            console.error('Failed to fetch pending requests:', err);
+            return [];
+        }
+    }, [getReadContract]);
+
+    // Get all feed requests with pagination
+    const getAllFeedRequests = useCallback(async (offset: number = 0, limit: number = 50): Promise<FeedRequest[]> => {
+        const contract = await getReadContract();
+        if (!contract) return [];
+
+        try {
+            const requests = await contract.getAllFeedRequests(offset, limit);
+            return requests as FeedRequest[];
+        } catch (err) {
+            console.error('Failed to fetch all feed requests:', err);
+            return [];
+        }
+    }, [getReadContract]);
+
+    // Get total request count
+    const getTotalRequestCount = useCallback(async (): Promise<number> => {
+        const contract = await getReadContract();
+        if (!contract) return 0;
+
+        try {
+            const count = await contract.getTotalRequestCount();
+            return Number(count);
+        } catch (err) {
+            console.error('Failed to get total request count:', err);
+            return 0;
+        }
+    }, [getReadContract]);
 
     // Get feeder info
     const getFeederInfo = useCallback(async (address?: string): Promise<Feeder | null> => {
-        const contract = await getContract();
+        const contract = await getReadContract();
         if (!contract) return null;
 
         try {
@@ -86,27 +137,111 @@ export function useFeedProtocol() {
             console.error('Failed to fetch feeder info:', err);
             return null;
         }
-    }, [getContract, account]);
+    }, [getReadContract, account]);
 
-    // Register as feeder
-    const registerFeeder = useCallback(async (stakeAmount: string) => {
-        const contract = await getContract();
-        if (!contract) throw new Error('Contract not initialized');
+    // Request feed (public function for MVP) - with USDT approval
+    const requestFeed = useCallback(async (orderId: number, feedType: number, tier: number) => {
+        if (!provider || !chainId) throw new Error('Provider not initialized');
+
+        const addresses = getContractAddresses(chainId);
+        const feedProtocolAddress = addresses.FeedProtocol;
+        const usdtAddress = addresses.USDT;
+
+        if (!feedProtocolAddress || !usdtAddress) throw new Error('Contract addresses not found');
 
         setIsLoading(true);
         setError(null);
 
         try {
-            const tx = await contract.registerFeeder(parseUnits(stakeAmount, 18));
+            const signer = await provider.getSigner();
+
+            // Get feed fee for the tier using getFeedFee
+            const feedProtocol = new Contract(feedProtocolAddress, FeedProtocolABI, signer);
+            const feedFee = await feedProtocol.getFeedFee(tier);
+
+            // Step 1: Check and approve USDT
+            const usdtContract = new Contract(
+                usdtAddress,
+                [
+                    'function allowance(address owner, address spender) view returns (uint256)',
+                    'function approve(address spender, uint256 amount) returns (bool)'
+                ],
+                signer
+            );
+
+            const currentAllowance = await usdtContract.allowance(await signer.getAddress(), feedProtocolAddress);
+
+            if (currentAllowance < feedFee) {
+                console.log('Approving USDT for feed fee...', feedFee.toString());
+                const approveTx = await usdtContract.approve(feedProtocolAddress, feedFee);
+                await approveTx.wait();
+                console.log('USDT approved');
+            }
+
+            // Step 2: Request feed
+            const tx = await feedProtocol.requestFeedPublic(orderId, feedType, tier);
             const receipt = await tx.wait();
             return receipt;
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Transaction failed');
+            const errorMsg = err instanceof Error ? err.message : 'Transaction failed';
+            setError(errorMsg);
             throw err;
         } finally {
             setIsLoading(false);
         }
-    }, [getContract]);
+    }, [provider, chainId]);
+
+    // Register as feeder (with USDT approval)
+    const registerFeeder = useCallback(async (stakeAmount: string) => {
+        if (!provider || !chainId) throw new Error('Provider not initialized');
+
+        const addresses = getContractAddresses(chainId);
+        const feedProtocolAddress = addresses.FeedProtocol;
+        const usdtAddress = addresses.USDT;
+
+        if (!feedProtocolAddress || !usdtAddress) throw new Error('Contract addresses not found');
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const signer = await provider.getSigner();
+
+            // USDT uses 6 decimals
+            const stakeAmountWei = parseUnits(stakeAmount, 6);
+
+            // Step 1: Check and approve USDT
+            const usdtContract = new Contract(
+                usdtAddress,
+                [
+                    'function allowance(address owner, address spender) view returns (uint256)',
+                    'function approve(address spender, uint256 amount) returns (bool)'
+                ],
+                signer
+            );
+
+            const currentAllowance = await usdtContract.allowance(await signer.getAddress(), feedProtocolAddress);
+
+            if (currentAllowance < stakeAmountWei) {
+                console.log('Approving USDT...');
+                const approveTx = await usdtContract.approve(feedProtocolAddress, stakeAmountWei);
+                await approveTx.wait();
+                console.log('USDT approved');
+            }
+
+            // Step 2: Register as feeder
+            const feedProtocol = new Contract(feedProtocolAddress, FeedProtocolABI, signer);
+            const tx = await feedProtocol.registerFeeder(stakeAmountWei);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : 'Transaction failed';
+            setError(errorMsg);
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [provider, chainId]);
 
     // Submit feed
     const submitFeed = useCallback(async (requestId: number, price: string) => {
@@ -117,6 +252,7 @@ export function useFeedProtocol() {
         setError(null);
 
         try {
+            // Price uses 18 decimals for precision
             const tx = await contract.submitFeed(requestId, parseUnits(price, 18));
             const receipt = await tx.wait();
             return receipt;
@@ -150,23 +286,27 @@ export function useFeedProtocol() {
 
     // Get feed fee
     const getFeedFee = useCallback(async (tier: number): Promise<string> => {
-        const contract = await getContract();
+        const contract = await getReadContract();
         if (!contract) return '0';
 
         try {
             const fee = await contract.getFeedFee(tier);
-            return formatUnits(fee, 18);
+            return formatUnits(fee, 6); // USDT 6 decimals
         } catch (err) {
             console.error('Failed to get feed fee:', err);
             return '0';
         }
-    }, [getContract]);
+    }, [getReadContract]);
 
     return {
         isLoading,
         error,
         getFeedRequest,
+        getPendingRequests,
+        getAllFeedRequests,
+        getTotalRequestCount,
         getFeederInfo,
+        requestFeed,
         registerFeeder,
         submitFeed,
         rejectFeed,
