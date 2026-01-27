@@ -93,6 +93,14 @@ export function MyOrders() {
     // Search state
     const [searchQuery, setSearchQuery] = useState('');
 
+    // 确认模态框状态
+    const [confirmModal, setConfirmModal] = useState<{
+        show: boolean;
+        type: 'exercise' | 'settle' | 'arbitration' | 'success' | 'error';
+        order?: Order;
+        message?: string;
+    }>({ show: false, type: 'exercise' });
+
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
@@ -178,6 +186,63 @@ export function MyOrders() {
                     } catch { /* Skip */ }
                 }
                 setSellerOrders(sData);
+
+                // ========== 演示用 Mock 订单 (临时，演示后删除) ==========
+                const DEMO_ORDERS: Order[] = [
+                    {
+                        orderId: 99901,
+                        buyer: account || '0x0000000000000000000000000000000000000000',
+                        seller: '0xDemoSeller1111111111111111111111111111',
+                        underlyingName: '比特币',
+                        underlyingCode: 'BTC/USDT',
+                        market: 'CRYPTO',
+                        country: 'GLOBAL',
+                        direction: 'Call',
+                        notionalUSDT: 100000000000n,  // 100,000 USDT
+                        premiumRate: 650,
+                        premiumAmount: 6500000000n,
+                        expiryTimestamp: Math.floor(Date.now() / 1000) + 7 * 24 * 3600,
+                        status: 'LIVE',  // 运行中 - 可提前行权
+                        initialMargin: 15000000000n,
+                        currentMargin: 15000000000n,
+                        createdAt: Math.floor(Date.now() / 1000) - 3600,
+                        matchedAt: Math.floor(Date.now() / 1000) - 3000,
+                        refPrice: '42000',
+                        lastFeedPrice: 45000000000000000000000n,  // 45000 (18位小数)
+                        minMarginRate: 1000,
+                        marginCallDeadline: 0,
+                        arbitrationWindow: 12 * 3600,
+                        settledAt: 0,
+                    },
+                    {
+                        orderId: 99902,
+                        buyer: account || '0x0000000000000000000000000000000000000000',
+                        seller: '0xDemoSeller2222222222222222222222222222',
+                        underlyingName: '以太坊',
+                        underlyingCode: 'ETH/USDT',
+                        market: 'CRYPTO',
+                        country: 'GLOBAL',
+                        direction: 'Put',
+                        notionalUSDT: 50000000000n,  // 50,000 USDT
+                        premiumRate: 550,
+                        premiumAmount: 2750000000n,
+                        expiryTimestamp: Math.floor(Date.now() / 1000) - 100,  // 已到期
+                        status: 'PENDING_SETTLEMENT',  // 待结算 - 可结算/仲裁
+                        initialMargin: 7500000000n,
+                        currentMargin: 7500000000n,
+                        createdAt: Math.floor(Date.now() / 1000) - 7 * 24 * 3600,
+                        matchedAt: Math.floor(Date.now() / 1000) - 7 * 24 * 3600 + 600,
+                        refPrice: '2500',
+                        lastFeedPrice: 2350000000000000000000n,  // 2350 (18位小数)
+                        minMarginRate: 1000,
+                        marginCallDeadline: 0,
+                        arbitrationWindow: Math.floor(Date.now() / 1000) + 6 * 3600,  // 6小时仲裁窗口
+                        settledAt: 0,
+                    },
+                ];
+                // 合并到买方订单列表
+                setBuyerOrders(prev => [...prev, ...DEMO_ORDERS]);
+                // ========== 演示 Mock 订单结束 ==========
             } finally { setLoading(false); }
         };
         fetchOrders();
@@ -360,44 +425,82 @@ export function MyOrders() {
 
     // Handle early exercise (buyer action)
     const handleEarlyExercise = async (order: Order) => {
-        if (!confirm(`确认对订单 #${order.orderId} 发起提前行权？\n\n这将触发期末喂价流程，喂价完成后进行结算。`)) {
+        // 打开确认模态框
+        setConfirmModal({ show: true, type: 'exercise', order });
+    };
+
+    const confirmEarlyExercise = async () => {
+        const order = confirmModal.order;
+        if (!order) return;
+        setConfirmModal({ show: false, type: 'exercise' });
+
+        // Mock 订单模拟成功
+        if (order.orderId >= 99900) {
+            setConfirmModal({ show: true, type: 'success', message: `订单 #${order.orderId} 提前行权成功！\n\n已触发期末喂价流程。\n预计盈利：+$7,143 USDT` });
             return;
         }
+
         try {
             await earlyExercise(order.orderId);
             setRefreshKey(k => k + 1);
+            setConfirmModal({ show: true, type: 'success', message: '提前行权成功！已触发期末喂价流程。' });
         } catch (e) {
             console.error('Failed to early exercise:', e);
-            alert('提前行权失败: ' + (e instanceof Error ? e.message : '未知错误'));
+            setConfirmModal({ show: true, type: 'error', message: '提前行权失败，请稍后重试。' });
         }
     };
 
     // Handle settlement
     const handleSettle = async (order: Order) => {
-        if (!confirm(`确认结算订单 #${order.orderId}？\n\n结算将根据最终喂价价格计算盈亏并分配资金。`)) {
+        // 打开确认模态框
+        setConfirmModal({ show: true, type: 'settle', order });
+    };
+
+    const confirmSettle = async () => {
+        const order = confirmModal.order;
+        if (!order) return;
+        setConfirmModal({ show: false, type: 'settle' });
+
+        // Mock 订单模拟成功
+        if (order.orderId >= 99900) {
+            setConfirmModal({ show: true, type: 'success', message: `订单 #${order.orderId} 结算成功！\n\n买方盈利：+$3,000 USDT\n已自动转入您的钱包。` });
             return;
         }
+
         try {
             await settleOrder(order.orderId);
             setRefreshKey(k => k + 1);
+            setConfirmModal({ show: true, type: 'success', message: '结算成功！资金已分配。' });
         } catch (e) {
             console.error('Failed to settle:', e);
-            alert('结算失败: ' + (e instanceof Error ? e.message : '未知错误'));
+            setConfirmModal({ show: true, type: 'error', message: '结算失败，请稍后重试。' });
         }
     };
 
     // Handle arbitration initiation
     const handleArbitration = async (order: Order) => {
-        if (!confirm(`确认对订单 #${order.orderId} 发起仲裁？\n\n仲裁费用：30 USDT\n仲裁为一次定论，不可再次发起。`)) {
+        // 打开确认模态框
+        setConfirmModal({ show: true, type: 'arbitration', order });
+    };
+
+    const confirmArbitration = async () => {
+        const order = confirmModal.order;
+        if (!order) return;
+        setConfirmModal({ show: false, type: 'arbitration' });
+
+        // Mock 订单模拟成功
+        if (order.orderId >= 99900) {
+            setConfirmModal({ show: true, type: 'success', message: `订单 #${order.orderId} 仲裁已发起！\n\n仲裁费 30 USDT 已扣除。\n请等待仲裁员处理，预计 24 小时内完成。` });
             return;
         }
+
         try {
             await initiateArbitration(order.orderId);
             setRefreshKey(k => k + 1);
-            alert('仲裁已发起，等待仲裁员处理。');
+            setConfirmModal({ show: true, type: 'success', message: '仲裁已发起，等待仲裁员处理。' });
         } catch (e) {
             console.error('Failed to initiate arbitration:', e);
-            alert('仲裁发起失败: ' + (e instanceof Error ? e.message : '未知错误'));
+            setConfirmModal({ show: true, type: 'error', message: '仲裁发起失败，请稍后重试。' });
         }
     };
 
@@ -935,6 +1038,193 @@ export function MyOrders() {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 确认模态框 */}
+            {confirmModal.show && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 animate-elite-entry">
+                    <div className="glass-surface p-10 rounded-[32px] w-full max-w-md border border-white/10">
+                        {/* 确认提前行权 */}
+                        {confirmModal.type === 'exercise' && confirmModal.order && (
+                            <>
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-14 h-14 rounded-2xl bg-rose-500/20 flex items-center justify-center">
+                                        <span className="text-3xl">⚡</span>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white">提前行权确认</h3>
+                                        <p className="text-slate-500 text-sm">订单 #{confirmModal.order.orderId}</p>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-900/50 rounded-2xl p-5 mb-6 space-y-3">
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">标的</span>
+                                        <span className="text-white font-bold">{confirmModal.order.underlyingName}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">方向</span>
+                                        <span className={confirmModal.order.direction === 'Call' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                                            {confirmModal.order.direction === 'Call' ? '看涨 Call' : '看跌 Put'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">名义本金</span>
+                                        <span className="text-white font-bold">{formatAmount(confirmModal.order.notionalUSDT)}</span>
+                                    </div>
+                                </div>
+                                <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                                    确认后将触发期末喂价流程，喂价完成后自动进行结算。此操作不可撤销。
+                                </p>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setConfirmModal({ show: false, type: 'exercise' })}
+                                        className="flex-1 py-3 rounded-xl font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 transition-all"
+                                    >
+                                        取消
+                                    </button>
+                                    <button
+                                        onClick={confirmEarlyExercise}
+                                        className="flex-1 py-3 rounded-xl font-bold text-white bg-rose-500 hover:bg-rose-400 shadow-lg shadow-rose-500/30 transition-all"
+                                    >
+                                        确认行权
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {/* 确认结算 */}
+                        {confirmModal.type === 'settle' && confirmModal.order && (
+                            <>
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center">
+                                        <span className="text-3xl">💰</span>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white">确认结算</h3>
+                                        <p className="text-slate-500 text-sm">订单 #{confirmModal.order.orderId}</p>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-900/50 rounded-2xl p-5 mb-6 space-y-3">
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">标的</span>
+                                        <span className="text-white font-bold">{confirmModal.order.underlyingName}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">开仓价</span>
+                                        <span className="text-white font-bold">${confirmModal.order.refPrice}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">结算价</span>
+                                        <span className="text-emerald-400 font-bold">
+                                            ${Number(confirmModal.order.lastFeedPrice / BigInt(10 ** 18)).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
+                                <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                                    确认后将根据结算价格计算盈亏，资金将自动分配到双方钱包。
+                                </p>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setConfirmModal({ show: false, type: 'settle' })}
+                                        className="flex-1 py-3 rounded-xl font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 transition-all"
+                                    >
+                                        取消
+                                    </button>
+                                    <button
+                                        onClick={confirmSettle}
+                                        className="flex-1 py-3 rounded-xl font-bold text-white bg-purple-500 hover:bg-purple-400 shadow-lg shadow-purple-500/30 transition-all"
+                                    >
+                                        确认结算
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {/* 确认仲裁 */}
+                        {confirmModal.type === 'arbitration' && confirmModal.order && (
+                            <>
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center">
+                                        <span className="text-3xl">⚖️</span>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white">发起仲裁</h3>
+                                        <p className="text-slate-500 text-sm">订单 #{confirmModal.order.orderId}</p>
+                                    </div>
+                                </div>
+                                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 mb-6">
+                                    <div className="flex items-center gap-3 text-amber-400 font-bold mb-2">
+                                        <span>⚠️</span>
+                                        <span>仲裁费用：30 USDT</span>
+                                    </div>
+                                    <p className="text-amber-400/70 text-sm">
+                                        仲裁为一次定论，结果不可更改。请确保您有充分的证据支持您的主张。
+                                    </p>
+                                </div>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setConfirmModal({ show: false, type: 'arbitration' })}
+                                        className="flex-1 py-3 rounded-xl font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 transition-all"
+                                    >
+                                        取消
+                                    </button>
+                                    <button
+                                        onClick={confirmArbitration}
+                                        className="flex-1 py-3 rounded-xl font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 shadow-lg shadow-amber-500/30 transition-all"
+                                    >
+                                        确认发起仲裁
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {/* 成功提示 */}
+                        {confirmModal.type === 'success' && (
+                            <>
+                                <div className="text-center mb-6">
+                                    <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                                        <span className="text-5xl">✓</span>
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-emerald-400 mb-2">操作成功</h3>
+                                </div>
+                                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 mb-6">
+                                    <p className="text-emerald-300 text-center whitespace-pre-line">
+                                        {confirmModal.message}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setConfirmModal({ show: false, type: 'success' })}
+                                    className="w-full py-3 rounded-xl font-bold text-slate-950 bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/30 transition-all"
+                                >
+                                    完成
+                                </button>
+                            </>
+                        )}
+
+                        {/* 错误提示 */}
+                        {confirmModal.type === 'error' && (
+                            <>
+                                <div className="text-center mb-6">
+                                    <div className="w-20 h-20 rounded-full bg-rose-500/20 flex items-center justify-center mx-auto mb-4">
+                                        <span className="text-5xl">✕</span>
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-rose-400 mb-2">操作失败</h3>
+                                </div>
+                                <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-5 mb-6">
+                                    <p className="text-rose-300 text-center">
+                                        {confirmModal.message}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setConfirmModal({ show: false, type: 'error' })}
+                                    className="w-full py-3 rounded-xl font-bold text-white bg-rose-500 hover:bg-rose-400 shadow-lg shadow-rose-500/30 transition-all"
+                                >
+                                    关闭
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
