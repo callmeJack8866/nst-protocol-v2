@@ -505,6 +505,16 @@ const _abi = [
         name: "dividendAdjustment",
         type: "bool",
       },
+      {
+        internalType: "uint8",
+        name: "exerciseDelay",
+        type: "uint8",
+      },
+      {
+        internalType: "enum FeedRule",
+        name: "feedRule",
+        type: "uint8",
+      },
     ],
     name: "createSellerOrder",
     outputs: [

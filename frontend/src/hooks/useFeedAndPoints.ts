@@ -16,6 +16,10 @@ export interface FeedRequest {
     submittedCount: bigint;
     finalPrice: bigint;
     finalized: boolean;
+    // P2 新增字段
+    exerciseDelay?: number;      // T+X 行权延迟条件
+    feedRule?: number;           // 喂价规则: 0=正常, 1=跟量成交
+    suggestedPrice?: string;     // 跟量成交建议价格
 }
 
 export interface Feeder {

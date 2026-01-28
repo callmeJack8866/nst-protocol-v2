@@ -9,13 +9,13 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { name: '买方大厅', path: '/buyer' },
-    { name: '卖方大厅', path: '/seller' },
+    { name: '交易大厅', path: '/market' },
     { name: '我的订单', path: '/orders' },
     { name: '数据终端', path: '/feeder' },
+    { name: '积分中心', path: '/points' },
   ];
 
-  const isActive = (path: string) => location.pathname === path || (path === '/buyer' && location.pathname === '/');
+  const isActive = (path: string) => location.pathname === path || (path === '/market' && location.pathname === '/');
 
   return (
     <header className="sticky top-0 z-[60] w-full h-16 border-b border-white/[0.04] bg-slate-950/70 backdrop-blur-2xl">
@@ -118,20 +118,13 @@ export function Header() {
                 to={link.path}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={`block px-4 py-3 rounded-xl text-sm font-bold transition-all ${isActive(link.path)
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
                   }`}
               >
                 {link.name}
               </Link>
             ))}
-            <Link
-              to="/points"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:bg-white/5 hover:text-white transition-all"
-            >
-              积分中心
-            </Link>
           </nav>
         </div>
       )}

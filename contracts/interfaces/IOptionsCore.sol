@@ -123,6 +123,8 @@ interface IOptionsCore {
 
     /**
      * @notice 卖方创建卖单
+     * @param exerciseDelay T+X 行权延迟天数 (1-5)
+     * @param feedRule 喂价规则 (正常喂价/跟量成交)
      */
     function createSellerOrder(
         string calldata underlyingName,
@@ -139,7 +141,9 @@ interface IOptionsCore {
         uint8 consecutiveDays,
         uint8 dailyLimitPercent,
         uint256 arbitrationWindow,
-        bool dividendAdjustment
+        bool dividendAdjustment,
+        uint8 exerciseDelay,
+        FeedRule feedRule
     ) external returns (uint256 orderId);
 
     /**

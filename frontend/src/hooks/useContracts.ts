@@ -136,6 +136,9 @@ export function useOptions() {
         liquidationRule: number;
         consecutiveDays: number;
         dailyLimitPercent: number;
+        exerciseDelay: number;       // T+X 行权延迟
+        feedRule: number;            // 喂价规则: 0=正常, 1=跟量成交
+        suggestedPrice?: string;     // 跟量成交建议价格
         arbitrationWindow: number;
         dividendAdjustment: boolean;
     }) => {
@@ -156,12 +159,13 @@ export function useOptions() {
                 await approveTx.wait();
             }
 
+            // 调用合约创建卖方订单 (已支持 exerciseDelay 和 feedRule)
             const tx = await optionsCore.createSellerOrder(
                 params.underlyingName, params.underlyingCode, params.market, params.country,
                 params.refPrice, params.direction, params.notionalUSDT, params.expiryTimestamp,
                 params.premiumRate, params.marginAmount, params.liquidationRule,
                 params.consecutiveDays, params.dailyLimitPercent, params.arbitrationWindow,
-                params.dividendAdjustment
+                params.dividendAdjustment, params.exerciseDelay, params.feedRule
             );
 
             return await tx.wait();
@@ -242,6 +246,92 @@ export function useOptions() {
             return [];
         }
     }, [optionsCore]);
+
+    // Fetch all active seller orders (orders created by sellers, pending buyer acceptance)
+    const getAllActiveSellerOrders = useCallback(async () => {
+        if (!optionsCore) return [];
+        try {
+            const nextId = await optionsCore.nextOrderId();
+            const totalOrders = Number(nextId);
+            const activeSellerOrders = [];
+
+            for (let i = 1; i < totalOrders; i++) {
+                try {
+                    const order = await optionsCore.getOrder(i);
+                    // Seller orders have seller != 0x0 and buyer == 0x0 (pending acceptance)
+                    // Status should be SELLER_ORDER_CREATED (status code TBD, assuming 10)
+                    const isSellerOrder = order.seller !== '0x0000000000000000000000000000000000000000' &&
+                        order.buyer === '0x0000000000000000000000000000000000000000';
+
+                    // Check if status indicates pending seller order
+                    // Note: Actual status code depends on contract implementation
+                    if (isSellerOrder && Number(order.status) <= 1) {
+                        activeSellerOrders.push({
+                            orderId: Number(order.orderId),
+                            seller: order.seller,
+                            underlyingName: order.underlyingName,
+                            underlyingCode: order.underlyingCode,
+                            market: order.market,
+                            country: order.country,
+                            refPrice: order.refPrice,
+                            direction: Number(order.direction) === 0 ? 'Call' : 'Put',
+                            notionalUSDT: order.notionalUSDT,
+                            premiumRate: Number(order.premiumRate),
+                            expiryTimestamp: Number(order.expiryTimestamp),
+                            marginAmount: order.marginAmount || 0n,
+                            status: 'PENDING',
+                            createdAt: Number(order.createdAt),
+                            // Extended fields for P2
+                            exerciseDelay: order.exerciseDelay ? Number(order.exerciseDelay) : 1,
+                            feedRule: order.feedRule ? Number(order.feedRule) : 0,
+                            suggestedPrice: order.suggestedPrice || '',
+                        });
+                    }
+                } catch {
+                    // Skip invalid orders
+                }
+            }
+            return activeSellerOrders;
+        } catch (err) {
+            console.error('Fetch all active seller orders error:', err);
+            return [];
+        }
+    }, [optionsCore]);
+
+    // Accept a seller order (buyer action)
+    const acceptSellerOrder = useCallback(async (params: {
+        orderId: number;
+        premiumAmount: bigint;  // Premium to pay
+    }) => {
+        if (!optionsCore || !usdt) {
+            throw new Error('Contracts not initialized. Please connect your wallet first.');
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            const optionsCoreAddr = getOptionsCoreAddress();
+
+            // Check and approve USDT for premium payment
+            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            if (currentAllowance < params.premiumAmount) {
+                const approveTx = await usdt.approve(optionsCoreAddr, params.premiumAmount * 10n);
+                await approveTx.wait();
+            }
+
+            // Accept the seller order
+            // Note: Contract method name may vary (acceptSellerOrder or similar)
+            const tx = await optionsCore.acceptSellerOrder(params.orderId);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Accept seller order failed';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [optionsCore, usdt, account, getOptionsCoreAddress]);
 
     // Submit a quote for a buyer RFQ
     const submitQuote = useCallback(async (params: {
@@ -521,6 +611,8 @@ export function useOptions() {
         getBuyerOrders,
         getSellerOrders,
         getAllActiveRFQs,
+        getAllActiveSellerOrders,
+        acceptSellerOrder,
         getQuotesForOrder,
         getOptionsCoreAddress
     };

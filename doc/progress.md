@@ -1,4 +1,88 @@
-## 2026-01-28 (卖方发布订单页面 UI 重构)
+## 2026-01-28 17:16 (合约部署 & 前端配置更新)
+**[Status]**: Done ✅  
+**[Changes]**:
+- **BSC Testnet 部署**: 所有合约成功部署
+  - Config: `0x751C17032D38b0b877171cB96039678710b3c76F`
+  - VaultManager: `0x9FD199A71a1f19Cc095090D5509B9FF6eB49294C`
+  - OptionsCore: `0x308C08f6Df4959aA7F6396F829b38a07Ea0459FB`
+  - FeedProtocol: `0xf3964b631dC65f1Ef76F240a2574A61DbBDdB3cB`
+  - SeatManager: `0x0d6D9Cfd4AAD62d841c9A95e916db951AeDA05bB`
+  - PointsManager: `0xC01F9b8Ef0E3632F5813fa3695453c817fe647Ea`
+- **角色授权**: OptionsCore 已获得 VAULT_OPERATOR_ROLE 和 PROTOCOL_ROLE
+- **前端配置**: `config.ts` 已更新为新合约地址
+- **构建验证**: ✅ 前端构建成功
+
+**[Next Step]**: 功能测试 - 创建卖方订单验证 exerciseDelay/feedRule 参数
+
+---
+
+## 2026-01-28 17:02 (OptionsCore 合约升级)
+**[Status]**: Done ✅  
+**[Changes]**:
+- **[IOptionsCore.sol]**: `createSellerOrder` 接口添加参数
+  - `uint8 exerciseDelay` - T+X 行权延迟 (1-5)
+  - `FeedRule feedRule` - 喂价规则 (正常/跟量成交)
+- **[OptionsCore.sol]**: 实现函数更新
+  - 函数签名添加新参数
+  - 函数体赋值 `order.exerciseDelay` 和 `order.feedRule`
+- **[Frontend]**: ABI 和 hooks 同步
+  - 复制新 ABI 到 `frontend/src/contracts/OptionsCore.json`
+  - `useContracts.ts` 调用传递新参数
+
+**[Build]**: ✅ Hardhat 编译成功 | ✅ 前端构建成功
+
+**[Next Step]**: 重新部署合约或等待测试网验证
+
+---
+
+## 2026-01-28 16:38 (前端架构重构 - Phase 4)
+**[Status]**: Done ✅  
+**[Changes]**:
+- **[Phase 4] useContracts.ts**: 添加卖方订单相关方法
+  - `getAllActiveSellerOrders()`: 获取所有待承接的卖方挂单
+  - `acceptSellerOrder({ orderId, premiumAmount })`: 买方承接卖方订单
+  - 支持 P2 扩展字段 (exerciseDelay, feedRule, suggestedPrice)
+- **[Phase 4] OrderMarket.tsx**: 完整集成
+  - 使用真实 API 替换 mock 数据
+  - `refreshOrders()` 统一刷新逻辑
+  - `handleAcceptSellerOrder()` 承接处理绑定到按钮
+  - disabled 状态和加载反馈
+
+**[Next Step]**: 前端架构重构基本完成，可进行浏览器验证或继续其他功能
+
+---
+
+## 2026-01-28 16:30 (前端架构重构 - Phase 1+2+3)
+**[Status]**: Done ✅  
+**[Changes]**:
+- **[Phase 1] OrderMarket.tsx**: 新建统一交易大厅页面
+  - 展示买方RFQ和卖方挂单的统一列表
+  - 订单来源筛选 (全部/买方询价/卖方挂单)
+  - 市场/方向筛选和搜索功能
+  - 报价列表模态框复用 BuyerHall 逻辑
+- **[Phase 1] App.tsx**: 路由重构
+  - 默认路由从 `/buyer` 改为 `/market`
+  - 保留原有 `/buyer` `/seller` 路由兼容
+- **[Phase 1] Header.tsx**: 导航更新
+  - 合并「买方大厅」「卖方大厅」为「交易大厅」
+  - 导航栏链接指向 `/market`
+- **[Phase 2] CreateSellerOrder.tsx**: 补齐缺失参数
+  - 添加 `exerciseDelay` (T+X 行权延迟，数值 1-5)
+  - 添加 `feedRule` (喂价规则: 0=正常, 1=跟量成交)
+  - 添加 `suggestedPrice` (跟量成交建议价格)
+  - 完善 `liquidationRule` 配置 (0=无强平, 1=连板, 2=涨幅)
+  - 每种规则的详细参数 (consecutiveDays, dailyLimitPercent, liquidationTrigger)
+- **[Phase 3] useContracts.ts**: 参数类型扩展
+  - `createSellerOrder` 参数添加新字段
+  - TODO 注释标注合约接口待升级
+- **[Phase 3] useFeedAndPoints.ts**: FeedRequest 类型扩展
+  - 添加 exerciseDelay, feedRule, suggestedPrice 可选字段
+
+**[Next Step]**: Phase 4 完成
+
+---
+
+
 **[Status]**: Done ✅  
 **[Changes]**:
 - **CreateSellerOrder.tsx**: 采用与买方大厅相同的分步向导式设计

@@ -299,7 +299,9 @@ export interface OptionsCoreInterface extends Interface {
       BigNumberish,
       BigNumberish,
       BigNumberish,
-      boolean
+      boolean,
+      BigNumberish,
+      BigNumberish
     ]
   ): string;
   encodeFunctionData(
@@ -940,7 +942,9 @@ export interface OptionsCore extends BaseContract {
       consecutiveDays: BigNumberish,
       dailyLimitPercent: BigNumberish,
       arbitrationWindow: BigNumberish,
-      dividendAdjustment: boolean
+      dividendAdjustment: boolean,
+      exerciseDelay: BigNumberish,
+      feedRule: BigNumberish
     ],
     [bigint],
     "nonpayable"
@@ -1304,7 +1308,9 @@ export interface OptionsCore extends BaseContract {
       consecutiveDays: BigNumberish,
       dailyLimitPercent: BigNumberish,
       arbitrationWindow: BigNumberish,
-      dividendAdjustment: boolean
+      dividendAdjustment: boolean,
+      exerciseDelay: BigNumberish,
+      feedRule: BigNumberish
     ],
     [bigint],
     "nonpayable"

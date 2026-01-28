@@ -289,7 +289,9 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         uint8 consecutiveDays,
         uint8 dailyLimitPercent,
         uint256 arbitrationWindow,
-        bool dividendAdjustment
+        bool dividendAdjustment,
+        uint8 exerciseDelay,
+        FeedRule feedRule
     ) external override nonReentrant whenNotPaused returns (uint256 orderId) {
         require(notionalUSDT > 0, "OptionsCore: notional must be positive");
         require(expiryTimestamp > block.timestamp, "OptionsCore: expiry must be in future");
@@ -324,6 +326,8 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         order.dailyLimitPercent = dailyLimitPercent;
         order.arbitrationWindow = arbitrationWindow;
         order.dividendAdjustment = dividendAdjustment;
+        order.exerciseDelay = exerciseDelay;
+        order.feedRule = feedRule;
         order.status = OrderStatus.RFQ_CREATED;
         order.createdAt = block.timestamp;
 
