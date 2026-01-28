@@ -73,6 +73,7 @@ export function BuyerHall() {
     setAcceptError('');
     setIsAccepting(true);
     try {
+      console.log(`[BuyerHall] Attempting to accept quote ${quote.quoteId} for order ${selectedRFQ.orderId}`);
       await acceptQuote(quote.quoteId, quote.premiumAmount, selectedRFQ.notionalUSDT);
       setAcceptSuccess(true);
       setTimeout(() => {
@@ -80,7 +81,10 @@ export function BuyerHall() {
         setAcceptSuccess(false);
         getAllActiveRFQs().then(data => setRfqs(data));
       }, 2000);
-    } catch (err: any) { setAcceptError(err.message || '接受报价失败'); }
+    } catch (err: any) {
+      console.error(`[BuyerHall] Accept failed:`, err);
+      setAcceptError(err.message || '接受报价失败');
+    }
     finally { setIsAccepting(false); }
   };
 
@@ -245,11 +249,21 @@ export function BuyerHall() {
                   <p className="text-[13px] font-bold text-slate-600 uppercase tracking-widest italic leading-loose">当前暂无做市商节点发起有效报价</p>
                 </div>
               ) : quotes.map(quote => {
-                // 计算报价有效期剩余时间
                 const now = Math.floor(Date.now() / 1000);
                 const remaining = quote.expiresAt - now;
                 const isExpired = remaining <= 0;
-                const isUrgent = remaining > 0 && remaining < 600; // 10分钟内为紧急
+                const isUrgent = remaining > 0 && remaining < 600;
+
+                // Debug log for button state
+                console.log(`[BuyerHall] Quote ${quote.quoteId} state:`, {
+                  now,
+                  expiresAt: quote.expiresAt,
+                  remaining,
+                  isExpired,
+                  isAccepting,
+                  acceptSuccess
+                });
+
                 const formatRemaining = () => {
                   if (isExpired) return '已过期';
                   const mins = Math.floor(remaining / 60);
@@ -269,14 +283,13 @@ export function BuyerHall() {
                     </div>
 
                     <div className="flex items-center gap-8">
-                      {/* 有效期倒计时 */}
                       <div className="text-center">
                         <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">有效期</p>
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isExpired
-                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/20'
-                            : isUrgent
-                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 animate-pulse'
-                              : 'bg-slate-700/50 text-slate-400 border border-white/10'
+                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/20'
+                          : isUrgent
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 animate-pulse'
+                            : 'bg-slate-700/50 text-slate-400 border border-white/10'
                           }`}>
                           ⏱️ {formatRemaining()}
                         </span>
@@ -289,7 +302,7 @@ export function BuyerHall() {
                       <button
                         onClick={() => handleAccept(quote)}
                         disabled={isAccepting || acceptSuccess || isExpired}
-                        className={`h-14 px-10 rounded-2xl text-[12px] font-bold transition-all ${isAccepting || acceptSuccess || isExpired ? 'bg-slate-600 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-900 cursor-pointer'}`}
+                        className={`h-14 px-10 rounded-2xl text-[12px] font-bold transition-all ${isAccepting || acceptSuccess || isExpired ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-50' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-900 cursor-pointer'}`}
                       >
                         {isExpired ? '已过期' : isAccepting ? '处理中...' : acceptSuccess ? '撮合成功' : '接受并交易'}
                       </button>

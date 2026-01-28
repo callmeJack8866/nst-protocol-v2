@@ -23,7 +23,7 @@ function App() {
               {/* Sidebar removed as per user request */}
 
               <main className="flex-1 w-full flex flex-col items-center">
-                <div className="w-full max-w-[1500px] px-6 md:px-10">
+                <div className="w-full max-w-[1600px] px-6 md:px-10 flex-1 flex flex-col">
                   <Routes>
                     <Route path="/" element={<Navigate to="/buyer" replace />} />
                     <Route path="/buyer" element={<BuyerHall />} />
@@ -36,7 +36,7 @@ function App() {
                   </Routes>
                 </div>
 
-                <footer className="w-full py-12 border-t border-white/[0.03] mt-20">
+                <footer className="w-full py-12 border-t border-white/[0.03]">
                   <div className="text-center">
                     <p className="text-slate-600 text-[10px] font-bold uppercase tracking-[0.3em]">
                       2024 NST OPTIONS. 场外期权撮合系统 | BSC CHAIN
