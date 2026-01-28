@@ -79,6 +79,11 @@ export function useOptions() {
         arbitrationWindow: number;
         marginCallDeadline: number;
         dividendAdjustment: boolean;
+        // 新增：平仓规则和喂价规则
+        liquidationRule: number;
+        consecutiveDays: number;
+        dailyLimitPercent: number;
+        feedRule: number;
     }) => {
         if (!optionsCore || !usdt) {
             throw new Error('Contracts not initialized. Please connect your wallet first.');
@@ -101,7 +106,10 @@ export function useOptions() {
                 params.refPrice, params.direction, params.notionalUSDT, params.expiryTimestamp,
                 params.maxPremiumRate, params.minMarginRate, params.sellerType,
                 params.designatedSeller, params.arbitrationWindow, params.marginCallDeadline,
-                params.dividendAdjustment
+                params.dividendAdjustment,
+                // 新增参数
+                params.liquidationRule, params.consecutiveDays, params.dailyLimitPercent,
+                params.feedRule
             );
 
             return await tx.wait();

@@ -1,3 +1,65 @@
+## 2026-01-28 (合约部署 + 前端配置更新)
+**[Status]**: Done ✅  
+**[Changes]**:
+- **合约部署**: BSC Testnet 部署成功
+  - Config: `0x514D9Fe758e125632ef5Ba240A06707C432A6e0d`
+  - VaultManager: `0x0D425FCB13BA153C4BEc6925A1f5087d6feAd556`
+  - FeedProtocol: `0xebbc49E8867E1a736d3abDc9Cb89Aa7F5ee3F505`
+  - SeatManager: `0x7A160A03913980b9fb53C0d5eF1f97b3EF6DFaEa`
+  - PointsManager: `0x5452623E9e0EDa48f8a7857C830FC359f3cE050A`
+  - **OptionsCore**: `0x58D4d685C0A398bA3a533bB96b8A52B7aDCA2570`
+- **前端配置**: `frontend/src/contracts/config.ts` 已更新
+- **ABI 更新**: `createBuyerRFQ` 添加 4 个新参数
+- **Keeper 更新**: `limitUpKeeper.ts` 读取订单的 liquidationRule 参数
+
+**[Note]**: 合约验证失败 (Etherscan API v1 已弃用)，不影响功能
+
+---
+
+
+## 2026-01-28 (合约接口升级 - createBuyerRFQ)
+**[Status]**: Done  
+**[Changes]**:
+- **IOptionsCore.sol / OptionsCore.sol**:
+    - 扩展 `createBuyerRFQ` 函数签名
+    - 新增参数：`liquidationRule`, `consecutiveDays`, `dailyLimitPercent`, `feedRule`
+    - 订单结构体已写入这 4 个字段
+- **useContracts.ts**:
+    - `createBuyerRFQ` 参数类型扩展
+    - 合约调用时传递新参数
+- **CreateBuyerRFQ.tsx**:
+    - Step 3 新增：**平仓规则三选一** (无强平/连板强平/涨幅强平)
+    - 连板/涨幅规则下展示连续天数和涨幅阈值输入
+    - Step 4 新增：**喂价规则二选一** (正常喂价/跟量成交)
+    - Step 2 新增：**最低保证金率滑块** (10%-50%)
+    - `getSmartTimeouts()` 智能设置追保/仲裁时间
+
+**[Note]**: 
+- 合约编译成功 ✅
+- 第7章所有规范项已 100% 实现
+- 需重新部署合约后 UI 才能正常工作
+
+---
+
+- **IOptionsCore.sol / OptionsCore.sol**:
+    - 扩展 `createBuyerRFQ` 函数签名
+    - 新增参数：`liquidationRule`, `consecutiveDays`, `dailyLimitPercent`, `feedRule`
+    - 订单结构体已写入这 4 个字段
+- **useContracts.ts**:
+    - `createBuyerRFQ` 参数类型扩展
+    - 合约调用时传递新参数
+- **CreateBuyerRFQ.tsx**:
+    - Step 3 新增：**平仓规则三选一** (无强平/连板强平/涨幅强平)
+    - 连板/涨幅规则下展示连续天数和涨幅阈值输入
+    - Step 4 新增：**喂价规则二选一** (正常喂价/跟量成交)
+
+**[Note]**: 
+- 合约编译成功 ✅
+- 需重新部署合约后 UI 才能正常工作
+- 前端 ABI 需同步更新
+
+---
+
 ## 2026-01-28 (P2 边界场景优化)
 **[Status]**: Done  
 **[Changes]**:

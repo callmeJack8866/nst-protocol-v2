@@ -80,6 +80,10 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice 买方创建询价订单
+     * @param liquidationRule 平仓规则（无强平/连板强平/涨幅强平）
+     * @param consecutiveDays 连续天数（用于连板/涨幅强平规则）
+     * @param dailyLimitPercent 单日涨幅阈值百分比（用于涨幅强平规则）
+     * @param feedRule 喂价规则（正常喂价/跟量成交喂价）
      */
     function createBuyerRFQ(
         string calldata underlyingName,
@@ -96,7 +100,11 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         address designatedSeller,
         uint256 arbitrationWindow,
         uint256 marginCallDeadline,
-        bool dividendAdjustment
+        bool dividendAdjustment,
+        LiquidationRule liquidationRule,
+        uint8 consecutiveDays,
+        uint8 dailyLimitPercent,
+        FeedRule feedRule
     ) external override nonReentrant whenNotPaused returns (uint256 orderId) {
         require(notionalUSDT > 0, "OptionsCore: notional must be positive");
         require(expiryTimestamp > block.timestamp, "OptionsCore: expiry must be in future");
@@ -125,6 +133,11 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         order.arbitrationWindow = arbitrationWindow;
         order.marginCallDeadline = marginCallDeadline;
         order.dividendAdjustment = dividendAdjustment;
+        // 新增：平仓规则和喂价规则
+        order.liquidationRule = liquidationRule;
+        order.consecutiveDays = consecutiveDays;
+        order.dailyLimitPercent = dailyLimitPercent;
+        order.feedRule = feedRule;
         order.status = OrderStatus.RFQ_CREATED;
         order.createdAt = block.timestamp;
 

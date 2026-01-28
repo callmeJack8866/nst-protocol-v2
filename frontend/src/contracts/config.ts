@@ -1,17 +1,17 @@
 ﻿/**
  * Contract Addresses Configuration
- * Updated: 2026-01-25 BSC Testnet Deployment (with requestFeedPublic)
+ * Updated: 2026-01-28 BSC Testnet Deployment (with liquidationRule & feedRule support)
  */
 
 // BSC Testnet (ChainID: 97)
 export const BSC_TESTNET_ADDRESSES = {
     USDT: '0x9f2140319726F9b851073a303415f13EC0cdA269',
-    Config: '0x5d660E670c943498176A50ebE8Ce11864962cA4c',
-    VaultManager: '0x8bCA279AB4fbaabEf27E80623b5F4E922d259D9B',
-    OptionsCore: '0x3eF66aFCe1DD7598460A0fE6AEeF18cbF3c92964',
-    FeedProtocol: '0x73c55A0EE01B227FeB172d53CEDD90cF27A46D2A',
-    SeatManager: '0x40713eAC4c3EFf23958e41EFfC65c5AC04ae677B',
-    PointsManager: '0x2d8EbE09234dbBb89215cC6b9964D58cf1c16d14',
+    Config: '0x514D9Fe758e125632ef5Ba240A06707C432A6e0d',
+    VaultManager: '0x0D425FCB13BA153C4BEc6925A1f5087d6feAd556',
+    OptionsCore: '0x58D4d685C0A398bA3a533bB96b8A52B7aDCA2570',
+    FeedProtocol: '0xebbc49E8867E1a736d3abDc9Cb89Aa7F5ee3F505',
+    SeatManager: '0x7A160A03913980b9fb53C0d5eF1f97b3EF6DFaEa',
+    PointsManager: '0x5452623E9e0EDa48f8a7857C830FC359f3cE050A',
     VolumeBasedFeed: '',
     FeederSelector: '',
 };

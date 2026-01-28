@@ -396,6 +396,26 @@ const _abi = [
         name: "dividendAdjustment",
         type: "bool",
       },
+      {
+        internalType: "enum LiquidationRule",
+        name: "liquidationRule",
+        type: "uint8",
+      },
+      {
+        internalType: "uint8",
+        name: "consecutiveDays",
+        type: "uint8",
+      },
+      {
+        internalType: "uint8",
+        name: "dailyLimitPercent",
+        type: "uint8",
+      },
+      {
+        internalType: "enum FeedRule",
+        name: "feedRule",
+        type: "uint8",
+      },
     ],
     name: "createBuyerRFQ",
     outputs: [

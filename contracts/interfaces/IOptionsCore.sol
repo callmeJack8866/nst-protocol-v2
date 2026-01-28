@@ -72,6 +72,10 @@ interface IOptionsCore {
 
     /**
      * @notice 买方创建询价订单
+     * @param liquidationRule 平仓规则（无强平/连板强平/涨幅强平）
+     * @param consecutiveDays 连续天数（用于连板/涨幅强平规则）
+     * @param dailyLimitPercent 单日涨幅阈值百分比（用于涨幅强平规则）
+     * @param feedRule 喂价规则（正常喂价/跟量成交喂价）
      */
     function createBuyerRFQ(
         string calldata underlyingName,
@@ -88,7 +92,11 @@ interface IOptionsCore {
         address designatedSeller,
         uint256 arbitrationWindow,
         uint256 marginCallDeadline,
-        bool dividendAdjustment
+        bool dividendAdjustment,
+        LiquidationRule liquidationRule,
+        uint8 consecutiveDays,
+        uint8 dailyLimitPercent,
+        FeedRule feedRule
     ) external returns (uint256 orderId);
 
     /**

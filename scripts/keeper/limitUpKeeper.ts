@@ -49,6 +49,19 @@ export async function runLimitUpKeeper(): Promise<void> {
                     continue;
                 }
 
+                // 从订单中读取强平规则（新增：读取合约存储的参数）
+                // liquidationRule: 0 = 无强平, 1 = 连续涨停板, 2 = 连续涨幅
+                const liquidationRule = Number(order.liquidationRule);
+
+                // 如果规则是"无强平"，跳过此订单
+                if (liquidationRule === 0) {
+                    continue;
+                }
+
+                // 从订单中读取连续天数和涨幅阈值
+                const consecutiveDays = Number(order.consecutiveDays) || 3;
+                const dailyLimitPercent = Number(order.dailyLimitPercent) || DEFAULT_LIMIT_UP_PERCENT;
+
                 // 解析价格数据
                 const openPrice = parseFloat(order.refPrice);
                 const lastFeedPrice = order.lastFeedPrice;
@@ -61,12 +74,6 @@ export async function runLimitUpKeeper(): Promise<void> {
                 // 计算价格变化 (lastFeedPrice 是 18 位小数)
                 const lastPrice = parseFloat(formatUnits(lastFeedPrice, 18));
                 const priceChangePercent = ((lastPrice - openPrice) / openPrice) * 100;
-
-                // 获取合约约定的强平规则
-                // liquidationRule: 0 = 连续涨停, 1 = 单日涨幅
-                const liquidationRule = 0; // TODO: 从合约获取
-                const consecutiveDays = 3; // TODO: 从合约获取 (默认3天)
-                const dailyLimitPercent = DEFAULT_LIMIT_UP_PERCENT; // TODO: 从合约获取
 
                 // 检测触发条件
                 // 简化版：检测总涨幅是否超过连板天数 * 涨停板阈值
@@ -81,7 +88,7 @@ export async function runLimitUpKeeper(): Promise<void> {
                         priceChangePercent,
                         consecutiveDays,
                         dailyLimitPercent,
-                        triggerReason: 'consecutive_limit_up',
+                        triggerReason: liquidationRule === 1 ? 'consecutive_limit_up' : 'daily_surge',
                     });
                 } else if (priceChangePercent >= dailyLimitPercent) {
                     // 单日涨幅触发 (需要更精确的日内价格对比)
@@ -90,6 +97,7 @@ export async function runLimitUpKeeper(): Promise<void> {
                         underlying: order.underlyingName,
                         priceChange: `${priceChangePercent.toFixed(2)}%`,
                         threshold: `${dailyLimitPercent}%`,
+                        rule: liquidationRule === 1 ? 'limit_up' : 'daily_surge',
                     });
                 }
             } catch (err) {
