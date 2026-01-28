@@ -1,3 +1,20 @@
+## 2026-01-28 (P1 平仓喂价超时惩罚)
+**[Status]**: Done  
+**[Changes]**:
+- **新增 exerciseFeedKeeper.ts**:
+    - 扫描 `WAITING_FINAL_FEED` 状态订单
+    - 检测卖方是否在买方行权后 10 分钟内发起平仓喂价
+    - 超时订单记录告警并标记买方可发起仲裁喂价
+    - 使用内存缓存 (`processedTimeouts`) 避免重复告警
+- **集成到 index.ts**: `runExerciseFeedKeeper()` 并行执行
+- **运行验证**: `npx ts-node scripts/keeper/index.ts` 成功启动 ✅
+
+**[Note]**: 
+- 完整的"从保证金扣除喂价费"需合约层新增 `penalizeSellerFeedTimeout(orderId)` 函数
+- 当前 Keeper 负责监控并授权，实际扣费由合约升级后支持
+
+---
+
 ## 2026-01-28 (P0 Keeper 自动化服务)
 **[Status]**: Done  
 **[Changes]**:

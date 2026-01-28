@@ -5,6 +5,7 @@
  * - RFQ 超时自动取消 (2h)
  * - 追保超时强平
  * - 仲裁窗口自动结算
+ * - 平仓喂价超时惩罚 (P1)
  * 
  * 运行方式:
  *   npx ts-node scripts/keeper/index.ts
@@ -16,6 +17,7 @@
 import { runRfqKeeper } from './rfqKeeper';
 import { runMarginKeeper } from './marginKeeper';
 import { runSettleKeeper } from './settleKeeper';
+import { runExerciseFeedKeeper } from './exerciseFeedKeeper';
 import { log } from './utils';
 
 const SCAN_INTERVAL_MS = 60 * 1000; // 每 60 秒扫描一次
@@ -24,11 +26,11 @@ async function runAllKeepers(): Promise<void> {
     log('MAIN', '========== Starting Keeper Scan Cycle ==========');
 
     try {
-        // 并行执行所有 Keeper
         await Promise.all([
             runRfqKeeper(),
             runMarginKeeper(),
             runSettleKeeper(),
+            runExerciseFeedKeeper(),
         ]);
     } catch (error) {
         log('MAIN', 'Keeper cycle error', { error: (error as Error).message });
