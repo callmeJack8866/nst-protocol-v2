@@ -1,3 +1,22 @@
+## 2026-01-28 (P0 Keeper 自动化服务)
+**[Status]**: Done  
+**[Changes]**:
+- **Keeper 服务架构**:
+    - 创建 `scripts/keeper/` 目录，包含 5 个核心模块
+    - `utils.ts`: 公共工具 (Provider/Signer/Contract 初始化、日志、安全执行)
+    - `rfqKeeper.ts`: 扫描 RFQ_CREATED 状态，2h 超时自动调用 `cancelRFQ`
+    - `marginKeeper.ts`: 扫描 LIVE 状态，追保超时自动调用 `forceLiquidate`
+    - `settleKeeper.ts`: 扫描 PENDING_SETTLEMENT 状态，仲裁窗口到期调用 `settle`
+    - `index.ts`: 主入口，每 60 秒并行执行所有 Keeper
+- **运行验证**: `npx ts-node scripts/keeper/index.ts` 成功启动 ✅
+- **部署方式**: 支持 `pm2 start` 持久化运行
+
+**[Next Step]**: 
+- 配置生产环境 `.env` (KEEPER_PRIVATE_KEY)
+- 部署 Keeper 到服务器并使用 pm2 管理
+
+---
+
 ## 2026-01-28 (NST Elite 2.1 完整性增强)
 **[Status]**: Done  
 **[Changes]**:
