@@ -20,6 +20,21 @@ interface RFQOrder {
   createdAt: number;
 }
 
+// T+X 行权延迟选项
+const EXERCISE_DELAY_OPTIONS = [
+  { value: 1, label: 'T+1', desc: '次日行权' },
+  { value: 2, label: 'T+2', desc: '2日后行权' },
+  { value: 3, label: 'T+3', desc: '3日后行权' },
+  { value: 5, label: 'T+5', desc: '5日后行权' },
+];
+
+// 平仓规则选项
+const LIQUIDATION_OPTIONS = [
+  { value: 0, label: '无强平', desc: '不设自动强平' },
+  { value: 1, label: '连板强平', desc: '连续涨停触发' },
+  { value: 2, label: '涨幅强平', desc: '单日涨幅触发' },
+];
+
 export function SellerHall() {
   const { getAllActiveRFQs, submitQuote, isConnected } = useOptions();
   const [filter, setFilter] = useState('ALL');
@@ -27,10 +42,17 @@ export function SellerHall() {
   const [rfqs, setRfqs] = useState<RFQOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Quote Modal State
+  // Quote Modal State - 扩展报价表单
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [selectedRFQ, setSelectedRFQ] = useState<RFQOrder | null>(null);
-  const [quoteForm, setQuoteForm] = useState({ premiumRate: '6.5', marginAmount: '150000' });
+  const [quoteForm, setQuoteForm] = useState({
+    premiumRate: '6.5',
+    marginAmount: '150000',
+    exerciseDelay: 1,        // T+1 默认
+    liquidationRule: 0,      // 无强平默认
+    consecutiveDays: 3,      // 连板天数
+    dailyLimitPercent: 10,   // 涨幅百分比
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -58,7 +80,14 @@ export function SellerHall() {
   const handleOpenQuoteModal = (rfq: RFQOrder) => {
     setSelectedRFQ(rfq);
     const notional = Number(formatUnits(rfq.notionalUSDT, 6));
-    setQuoteForm({ premiumRate: (rfq.premiumRate / 100).toFixed(2), marginAmount: String(Math.floor(notional * 0.15)) });
+    setQuoteForm({
+      premiumRate: (rfq.premiumRate / 100).toFixed(2),
+      marginAmount: String(Math.floor(notional * 0.15)),
+      exerciseDelay: 1,
+      liquidationRule: 0,
+      consecutiveDays: 3,
+      dailyLimitPercent: 10,
+    });
     setSubmitError('');
     setSubmitSuccess(false);
     setShowQuoteModal(true);
@@ -73,10 +102,11 @@ export function SellerHall() {
         orderId: selectedRFQ.orderId,
         premiumRate: Math.floor(parseFloat(quoteForm.premiumRate) * 100),
         marginRate: 1500, // 15%
-        liquidationRule: 0,
-        consecutiveDays: 3,
-        dailyLimitPercent: 10,
+        liquidationRule: quoteForm.liquidationRule,
+        consecutiveDays: quoteForm.consecutiveDays,
+        dailyLimitPercent: quoteForm.dailyLimitPercent,
         notionalUSDT: selectedRFQ.notionalUSDT,
+        // exerciseDelay 需要在合约中支持后传递
       });
       setSubmitSuccess(true);
       setTimeout(() => {
@@ -217,6 +247,92 @@ export function SellerHall() {
               <div className="space-y-3">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">质押保证金 (USDT)</label>
                 <input type="text" className="elite-input w-full h-16 text-2xl font-bold" value={quoteForm.marginAmount} onChange={e => setQuoteForm({ ...quoteForm, marginAmount: e.target.value })} />
+              </div>
+
+              {/* P1: T+X 行权延迟选择 */}
+              <div className="space-y-3">
+                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">行权延迟 (T+X)</label>
+                <div className="grid grid-cols-4 gap-3">
+                  {EXERCISE_DELAY_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setQuoteForm({ ...quoteForm, exerciseDelay: opt.value })}
+                      className={`p-3 rounded-xl border text-center transition-all ${quoteForm.exerciseDelay === opt.value
+                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
+                        : 'bg-slate-800/50 border-white/10 text-slate-400 hover:border-white/20'
+                        }`}
+                    >
+                      <p className="text-sm font-bold">{opt.label}</p>
+                      <p className="text-[9px] text-slate-500 mt-1">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* P1: 平仓规则选择 */}
+              <div className="space-y-3">
+                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">平仓规则建议</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {LIQUIDATION_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setQuoteForm({ ...quoteForm, liquidationRule: opt.value })}
+                      className={`p-3 rounded-xl border text-center transition-all ${quoteForm.liquidationRule === opt.value
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                        : 'bg-slate-800/50 border-white/10 text-slate-400 hover:border-white/20'
+                        }`}
+                    >
+                      <p className="text-sm font-bold">{opt.label}</p>
+                      <p className="text-[9px] text-slate-500 mt-1">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+                {/* 连板/涨幅参数 */}
+                {quoteForm.liquidationRule === 1 && (
+                  <div className="flex items-center gap-4 mt-3 p-3 bg-slate-800/30 rounded-xl">
+                    <span className="text-[11px] text-slate-400">连续涨停天数:</span>
+                    <select
+                      className="elite-input px-3 py-2 text-sm"
+                      value={quoteForm.consecutiveDays}
+                      onChange={e => setQuoteForm({ ...quoteForm, consecutiveDays: Number(e.target.value) })}
+                    >
+                      {[2, 3, 4, 5].map(n => <option key={n} value={n}>{n} 天</option>)}
+                    </select>
+                  </div>
+                )}
+                {quoteForm.liquidationRule === 2 && (
+                  <div className="flex items-center gap-4 mt-3 p-3 bg-slate-800/30 rounded-xl">
+                    <span className="text-[11px] text-slate-400">单日涨幅阈值:</span>
+                    <select
+                      className="elite-input px-3 py-2 text-sm"
+                      value={quoteForm.dailyLimitPercent}
+                      onChange={e => setQuoteForm({ ...quoteForm, dailyLimitPercent: Number(e.target.value) })}
+                    >
+                      {[5, 10, 15, 20].map(n => <option key={n} value={n}>{n}%</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* P1: 费用明细 */}
+            <div className="mb-6 p-4 bg-slate-800/30 rounded-2xl border border-white/[0.05]">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">📋 费用明细</p>
+              <div className="grid grid-cols-3 gap-4 text-[12px]">
+                <div>
+                  <p className="text-slate-500">建仓手续费</p>
+                  <p className="text-amber-400 font-bold">1 USDT</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">保证金锁定</p>
+                  <p className="text-white font-bold">{Number(quoteForm.marginAmount).toLocaleString()} USDT</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">合计支出</p>
+                  <p className="text-emerald-400 font-bold">{(Number(quoteForm.marginAmount) + 1).toLocaleString()} USDT</p>
+                </div>
               </div>
             </div>
 

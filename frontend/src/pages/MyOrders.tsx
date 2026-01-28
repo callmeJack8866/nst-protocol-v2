@@ -810,6 +810,62 @@ export function MyOrders() {
                                                     </button>
                                                 </div>
                                             )}
+                                            {/* P0: WAITING_FINAL_FEED 状态 - 买方/卖方视图 */}
+                                            {order.status === 'WAITING_FINAL_FEED' && (() => {
+                                                // 计算平仓喂价是否超时 (10分钟)
+                                                const FEED_TIMEOUT = 10 * 60; // 10分钟
+                                                const now = Math.floor(Date.now() / 1000);
+                                                // 假设 matchedAt 之后进入 WAITING_FINAL_FEED，用 settledAt 或当前时间估算
+                                                const feedRequestTime = order.settledAt > 0 ? order.settledAt : order.matchedAt;
+                                                const timeoutAt = feedRequestTime + FEED_TIMEOUT;
+                                                const isSellerTimeout = now > timeoutAt;
+                                                const remainingSeconds = timeoutAt - now;
+
+                                                if (viewMode === 'buyer') {
+                                                    if (isSellerTimeout) {
+                                                        return (
+                                                            <div className="flex flex-col gap-2">
+                                                                <span className="px-3 py-1.5 rounded-lg bg-rose-500/20 border border-rose-500/30 text-rose-400 text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                                                                    ⚠️ 卖方喂价超时
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => handleArbitration(order)}
+                                                                    disabled={optionsLoading}
+                                                                    className="bg-rose-500 hover:bg-rose-400 text-white px-5 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider shadow-lg shadow-rose-500/20 disabled:opacity-50"
+                                                                >
+                                                                    🛡️ 仲裁喂价 (卖方超时)
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    } else {
+                                                        const mins = Math.floor(remainingSeconds / 60);
+                                                        const secs = remainingSeconds % 60;
+                                                        return (
+                                                            <span className="px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-wider">
+                                                                ⏳ 等待卖方喂价 ({mins}:{secs.toString().padStart(2, '0')})
+                                                            </span>
+                                                        );
+                                                    }
+                                                } else {
+                                                    // 卖方视图 - 提示需要完成喂价
+                                                    return (
+                                                        <div className="flex flex-col gap-2">
+                                                            <span className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${isSellerTimeout
+                                                                ? 'bg-rose-500/20 border border-rose-500/30 text-rose-400 animate-pulse'
+                                                                : 'bg-amber-500/20 border border-amber-500/30 text-amber-400'
+                                                                }`}>
+                                                                {isSellerTimeout ? '⚠️ 喂价已超时！买方可仲裁' : `⏰ 需在 ${Math.floor(remainingSeconds / 60)}分钟内完成喂价`}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => openFeedModal(order, 2)}
+                                                                className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider shadow-lg shadow-amber-500/20"
+                                                            >
+                                                                立即完成平仓喂价
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
+                                            })()}
                                         </div>
                                     </div>
 
@@ -1057,6 +1113,22 @@ export function MyOrders() {
                                 </p>
                             </div>
 
+                            {/* P2: 跟量成交喂价降级提示 */}
+                            {selectedFeedType === 2 && (
+                                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-amber-400 text-lg">⚠️</span>
+                                        <div>
+                                            <p className="text-amber-400 font-bold text-sm mb-1">跟量成交喂价提示</p>
+                                            <p className="text-slate-400 text-xs leading-relaxed">
+                                                如果喂价员无法在市场上完成跟量成交（如流动性不足），喂价员可能拒绝此次喂价请求。
+                                                届时您需要重新发起喂价，并选择<span className="text-white font-bold">「正常喂价」</span>规则。
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Action Buttons */}
                             <div className="flex space-x-4 pt-4">
                                 <button
@@ -1120,9 +1192,23 @@ export function MyOrders() {
 
                             {/* Amount Input */}
                             <div>
-                                <label className="text-label mb-2 block">
-                                    {marginAction === 'add' ? '追加金额 (USDT)' : '提取金额 (USDT)'}
-                                </label>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="text-label">
+                                        {marginAction === 'add' ? '追加金额 (USDT)' : '提取金额 (USDT)'}
+                                    </label>
+                                    {marginAction === 'withdraw' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const excess = getExcessMargin(selectedOrder);
+                                                setMarginAmount(String(Number(excess) / 1e6));
+                                            }}
+                                            className="text-[10px] font-bold text-amber-500 hover:text-amber-400 uppercase tracking-wider"
+                                        >
+                                            最大可提取
+                                        </button>
+                                    )}
+                                </div>
                                 <input
                                     type="number"
                                     value={marginAmount}
@@ -1130,6 +1216,22 @@ export function MyOrders() {
                                     placeholder="输入金额"
                                     className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white"
                                 />
+                                {/* P2: 提取限额警告 */}
+                                {marginAction === 'withdraw' && marginAmount && (
+                                    (() => {
+                                        const inputAmount = parseFloat(marginAmount) * 1e6;
+                                        const excess = Number(getExcessMargin(selectedOrder));
+                                        if (inputAmount > excess) {
+                                            return (
+                                                <p className="text-rose-400 text-[11px] mt-2 flex items-center gap-1">
+                                                    <span>⚠️</span>
+                                                    超出可提取上限 ({(excess / 1e6).toLocaleString()} USDT)
+                                                </p>
+                                            );
+                                        }
+                                        return null;
+                                    })()
+                                )}
                             </div>
 
                             {/* Action Buttons */}

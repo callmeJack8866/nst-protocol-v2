@@ -9,10 +9,11 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 // 合约地址配置 (BSC Testnet) - 与 frontend/src/contracts/config.ts 同步
+// Updated: 2026-01-28
 const CONTRACT_ADDRESSES = {
-    OptionsCore: '0x3eF66aFCe1DD7598460A0fE6AEeF18cbF3c92964',
-    FeedProtocol: '0x73c55A0EE01B227FeB172d53CEDD90cF27A46D2A',
-    Config: '0x5d660E670c943498176A50ebE8Ce11864962cA4c',
+    OptionsCore: '0x58D4d685C0A398bA3a533bB96b8A52B7aDCA2570',
+    FeedProtocol: '0xebbc49E8867E1a736d3abDc9Cb89Aa7F5ee3F505',
+    Config: '0x514D9Fe758e125632ef5Ba240A06707C432A6e0d',
 };
 
 // OptionsCore ABI (仅 Keeper 需要的函数)

@@ -5,6 +5,7 @@
  * - RFQ 超时自动取消 (2h)
  * - 追保超时强平
  * - 仲裁窗口自动结算
+ * - 初始喂价超时取消 (P0) - NEW
  * - 平仓喂价超时惩罚 (P1)
  * - 连板/涨幅强平监控 (P2)
  * 
@@ -18,6 +19,7 @@
 import { runRfqKeeper } from './rfqKeeper';
 import { runMarginKeeper } from './marginKeeper';
 import { runSettleKeeper } from './settleKeeper';
+import { runInitialFeedKeeper } from './initialFeedKeeper';
 import { runExerciseFeedKeeper } from './exerciseFeedKeeper';
 import { runLimitUpKeeper } from './limitUpKeeper';
 import { log } from './utils';
@@ -32,6 +34,7 @@ async function runAllKeepers(): Promise<void> {
             runRfqKeeper(),
             runMarginKeeper(),
             runSettleKeeper(),
+            runInitialFeedKeeper(),  // P0: 成交后10分钟初始喂价超时
             runExerciseFeedKeeper(),
             runLimitUpKeeper(),
         ]);
