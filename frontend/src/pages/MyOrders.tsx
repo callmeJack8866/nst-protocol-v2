@@ -69,7 +69,12 @@ const FEED_TIERS = [
 
 export function MyOrders() {
     const { account } = useWalletContext();
-    const { getBuyerOrders, getSellerOrders, getOrder, isConnected, addMargin, withdrawExcessMargin, earlyExercise, settleOrder, initiateArbitration, loading: optionsLoading } = useOptions();
+    const {
+        getBuyerOrders, getSellerOrders, getOrder, isConnected,
+        addMargin, withdrawExcessMargin, earlyExercise, settleOrder,
+        initiateArbitration, getQuotesForOrder, acceptQuote,
+        loading: optionsLoading
+    } = useOptions();
     const { requestFeed, isLoading: feedLoading, error: feedError } = useFeedProtocol();
 
     const [viewMode, setViewMode] = useState<'buyer' | 'seller'>('buyer');
@@ -101,18 +106,62 @@ export function MyOrders() {
         message?: string;
     }>({ show: false, type: 'exercise' });
 
+    // 报价模态框状态 (Elite 2.1 新增)
+    const [showQuotesModal, setShowQuotesModal] = useState(false);
+    const [selectedRFQ, setSelectedRFQ] = useState<Order | null>(null);
+    const [quotes, setQuotes] = useState<any[]>([]);
+    const [loadingQuotes, setLoadingQuotes] = useState(false);
+    const [isAccepting, setIsAccepting] = useState(false);
+    const [acceptSuccess, setAcceptSuccess] = useState(false);
+    const [acceptError, setAcceptError] = useState<string | null>(null);
+
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
 
     const statusFilters = [
         { id: 'ALL', label: '全部订单' },
+        { id: 'RFQ_CREATED', label: '询价中' },
         { id: 'WAITING_INITIAL_FEED', label: '待期初喂价' },
         { id: 'LIVE', label: '运行中' },
         { id: 'WAITING_FINAL_FEED', label: '待期末喂价' },
         { id: 'PENDING_SETTLEMENT', label: '待结算' },
         { id: 'SETTLED', label: '已结算' }
     ];
+
+    const openQuotesModal = async (order: Order) => {
+        setSelectedRFQ(order);
+        setShowQuotesModal(true);
+        setLoadingQuotes(true);
+        setAcceptError(null);
+        setAcceptSuccess(false);
+        try {
+            const q = await getQuotesForOrder(order.orderId);
+            setQuotes(q.filter((item: any) => item.status === 0));
+        } catch (e) {
+            console.error('Failed to fetch quotes:', e);
+        } finally {
+            setLoadingQuotes(false);
+        }
+    };
+
+    const handleAcceptQuote = async (quote: any) => {
+        if (!selectedRFQ) return;
+        setIsAccepting(true);
+        setAcceptError(null);
+        try {
+            await acceptQuote(quote.quoteId, quote.premiumAmount, selectedRFQ.notionalUSDT);
+            setAcceptSuccess(true);
+            setTimeout(() => {
+                setShowQuotesModal(false);
+                setRefreshKey(prev => prev + 1);
+            }, 2000);
+        } catch (err: any) {
+            setAcceptError(err.message || '接受报价失败');
+        } finally {
+            setIsAccepting(false);
+        }
+    };
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -662,17 +711,27 @@ export function MyOrders() {
                                         )}
                                         <div>
                                             <p className="text-label mb-2">状态</p>
-                                            <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${order.status === 'MATCHED'
-                                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                                : order.status === 'LIVE'
-                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                    : 'bg-white/5 text-slate-400 border-white/[0.05]'
+                                            <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${order.status === 'RFQ_CREATED' || order.status === 'QUOTING'
+                                                ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                : order.status === 'MATCHED'
+                                                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                    : order.status === 'LIVE'
+                                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                        : 'bg-white/5 text-slate-400 border-white/[0.05]'
                                                 }`}>
                                                 {STATUS_ZH[order.status] || order.status}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-end">
                                             {/* Action buttons based on status */}
+                                            {(order.status === 'RFQ_CREATED' || order.status === 'QUOTING') && viewMode === 'buyer' && (
+                                                <button
+                                                    onClick={() => openQuotesModal(order)}
+                                                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all italic"
+                                                >
+                                                    查看收到报价 VIEW QUOTES
+                                                </button>
+                                            )}
                                             {order.status === 'MATCHED' && (
                                                 <button
                                                     onClick={() => openFeedModal(order, 0)}
@@ -1038,6 +1097,114 @@ export function MyOrders() {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Quotes Modal (Elite 2.1 新增) */}
+            {showQuotesModal && selectedRFQ && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-8">
+                    <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-3xl transition-all animate-fade-in" onClick={() => setShowQuotesModal(false)} />
+                    <div className="w-full max-w-[840px] glass-surface rounded-[56px] p-16 relative z-10 shadow-2xl overflow-hidden animate-elite-entry border-white/10" onClick={(e) => e.stopPropagation()}>
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 blur-[140px] -mr-48 -mt-48 pointer-events-none" />
+
+                        <div className="text-center mb-16">
+                            <p className="text-[11px] font-black text-emerald-500 uppercase tracking-[0.5em] mb-4">实时报价分析终端 (Node Monitor)</p>
+                            <h3 className="text-4xl font-extrabold text-white tracking-tighter italic">询价单详情 <span className="opacity-20">/</span> {selectedRFQ.underlyingCode}</h3>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-10 mb-16 py-10 border-y border-white/[0.08]">
+                            <div className="text-center">
+                                <p className="text-[10px] text-slate-500 font-black uppercase mb-3">名义本金</p>
+                                <p className="text-xl font-bold text-white italic">{formatAmount(selectedRFQ.notionalUSDT)}</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-[10px] text-slate-500 font-black uppercase mb-3">期权方向</p>
+                                <p className={`text-xl font-bold italic ${selectedRFQ.direction === 'Call' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {selectedRFQ.direction === 'Call' ? '认购 CALL' : '认沽 PUT'}
+                                </p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-[10px] text-slate-500 font-black uppercase mb-3">参考价格</p>
+                                <p className="text-xl font-bold text-white italic">${selectedRFQ.refPrice}</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-[10px] text-slate-500 font-black uppercase mb-3">目标费率</p>
+                                <p className="text-xl font-bold text-emerald-400 italic">{(selectedRFQ.premiumRate / 100).toFixed(2)}%</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-6 max-h-[440px] overflow-y-auto pr-4 custom-scroll">
+                            {loadingQuotes ? (
+                                <div className="py-24 flex flex-col items-center space-y-6 opacity-40">
+                                    <div className="w-10 h-10 border-4 border-white/5 border-t-white rounded-full animate-spin" />
+                                    <p className="text-[12px] font-black uppercase tracking-[0.4em]">正在轮询去中心化节点数据...</p>
+                                </div>
+                            ) : quotes.length === 0 ? (
+                                <div className="py-24 text-center border-2 border-white/[0.04] rounded-[40px] bg-white/[0.01] border-dashed">
+                                    <p className="text-[13px] font-bold text-slate-600 uppercase tracking-widest italic leading-loose">当前暂无做市商节点发起有效报价</p>
+                                </div>
+                            ) : quotes.map(quote => {
+                                const now = Math.floor(Date.now() / 1000);
+                                const remaining = quote.expiresAt - now;
+                                const isExpired = remaining <= 0;
+                                const isUrgent = remaining > 0 && remaining < 600;
+
+                                const formatRemainingTime = () => {
+                                    if (isExpired) return '已过期';
+                                    const mins = Math.floor(remaining / 60);
+                                    const secs = remaining % 60;
+                                    if (mins > 0) return `${mins}m ${secs}s`;
+                                    return `${secs}s`;
+                                };
+
+                                return (
+                                    <div key={quote.quoteId} className="group bg-white/[0.03] border border-white/10 rounded-[32px] p-8 hover:bg-white/[0.06] hover:border-emerald-500/30 transition-all flex items-center justify-between gap-12">
+                                        <div className="flex items-center space-x-6">
+                                            <div className="w-14 h-14 bg-slate-950 border border-white/10 rounded-[20px] flex items-center justify-center text-3xl shadow-inner">🛡️</div>
+                                            <div>
+                                                <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">报价方标识符 (Node ID)</p>
+                                                <p className="text-[13px] font-mono font-bold text-white uppercase tracking-tight">{quote.seller.slice(0, 16)}...{quote.seller.slice(-10)}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-8">
+                                            <div className="text-center">
+                                                <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">有效期</p>
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isExpired
+                                                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/20'
+                                                    : isUrgent
+                                                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 animate-pulse'
+                                                        : 'bg-slate-700/50 text-slate-400 border border-white/10'
+                                                    }`}>
+                                                    ⏱️ {formatRemainingTime()}
+                                                </span>
+                                            </div>
+
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">权利金费率</p>
+                                                <p className="text-3xl font-bold text-emerald-400 italic tracking-tighter">{(quote.premiumRate / 100).toFixed(2)}%</p>
+                                            </div>
+                                            <button
+                                                onClick={() => handleAcceptQuote(quote)}
+                                                disabled={isAccepting || acceptSuccess || isExpired}
+                                                className={`h-14 px-10 rounded-2xl text-[12px] font-bold transition-all ${isAccepting || acceptSuccess || isExpired ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-50' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-900 cursor-pointer'}`}
+                                            >
+                                                {isExpired ? '已过期' : isAccepting ? '处理中...' : acceptSuccess ? '撮合成功' : '接受并交易'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {acceptError && (
+                            <div className="mt-10 bg-rose-500/10 border border-rose-500/20 p-6 rounded-2xl text-rose-500 text-[12px] font-black text-center uppercase tracking-[0.1em]">
+                                执行冲突: {acceptError}
+                            </div>
+                        )}
+
+                        <button onClick={() => setShowQuotesModal(false)} className="mt-16 w-full text-[11px] font-black text-slate-700 uppercase tracking-[0.5em] hover:text-white transition-all">关闭终端 TERMINAL</button>
                     </div>
                 </div>
             )}

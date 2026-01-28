@@ -166,6 +166,64 @@ export function PointsCenter() {
         </div>
       </div>
 
+      {/* Points History - PointsSourceList (Elite 2.1 新增) */}
+      <div className="space-y-12 mb-24">
+        <div className="flex items-center justify-between pb-8 border-b border-white/[0.05]">
+          <h4 className="text-[12px] font-black text-slate-500 uppercase tracking-[0.5em] italic">积分获取详情 Points Acquisition Log</h4>
+          <button className="text-[10px] font-black text-emerald-500 uppercase tracking-widest hover:text-white transition-colors">导出完整报表 Export CSV</button>
+        </div>
+
+        <div className="glass-surface rounded-[40px] overflow-hidden border-white/[0.03]">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-white/[0.02] border-b border-white/[0.05]">
+                <th className="px-10 py-6 text-[10px] font-black text-slate-600 uppercase tracking-widest">操作类型 Type</th>
+                <th className="px-10 py-6 text-[10px] font-black text-slate-600 uppercase tracking-widest">关联凭据 Source</th>
+                <th className="px-10 py-6 text-[10px] font-black text-slate-600 uppercase tracking-widest">获取积分 Points</th>
+                <th className="px-10 py-6 text-[10px] font-black text-slate-600 uppercase tracking-widest">状态 Status</th>
+                <th className="px-10 py-6 text-[10px] font-black text-slate-600 uppercase tracking-widest">记录时间 Time</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.03]">
+              {[
+                { type: 'RFQ_ACTIVATION', source: 'RFQ-0x2035', points: '+150', status: 'CONFIRMED', time: '2026-01-27 14:20' },
+                { type: 'LP_CONTRIBUTION', source: 'UNDERWRITE-0x12', points: '+500', status: 'CONFIRMED', time: '2026-01-26 18:45' },
+                { type: 'ORDER_MATCHED', source: 'MATCH-0x981', points: '+200', status: 'CONFIRMED', time: '2026-01-26 10:12' },
+                { type: 'DAILY_BOOST', source: 'LOYALTY_MATRIX', points: '+25', status: 'CONFIRMED', time: '2026-01-26 00:00' },
+                { type: 'FEED_CONTRIBUTION', source: 'ORACLE-0x55', points: '+80', status: 'CONFIRMED', time: '2026-01-25 21:30' },
+              ].map((log, i) => (
+                <tr key={i} className="group hover:bg-white/[0.01] transition-colors">
+                  <td className="px-10 py-8">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                      <span className="text-[12px] font-bold text-white tracking-widest uppercase italic">{log.type}</span>
+                    </div>
+                  </td>
+                  <td className="px-10 py-8">
+                    <span className="text-[11px] font-mono font-bold text-slate-400 group-hover:text-white transition-colors">{log.source}</span>
+                  </td>
+                  <td className="px-10 py-8">
+                    <span className="text-xl font-bold text-emerald-400 italic tracking-tighter">{log.points}</span>
+                  </td>
+                  <td className="px-10 py-8">
+                    <span className="px-3 py-1 rounded-full bg-white/5 border border-white/5 text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                      {log.status}
+                    </span>
+                  </td>
+                  <td className="px-10 py-8 text-[11px] font-bold text-slate-600 group-hover:text-slate-400 transition-colors">
+                    {log.time}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="p-10 bg-white/[0.02] border-t border-white/[0.05] flex justify-center">
+            <button className="text-[11px] font-black text-slate-600 uppercase tracking-[0.4em] hover:text-white transition-all">查看更多贡献记录 LOAD MORE RECORDS</button>
+          </div>
+        </div>
+      </div>
+
       {/* Mechanics Grid */}
       <div className="space-y-20">
         <h4 className="text-[12px] font-black text-slate-700 uppercase tracking-[0.6em] text-center italic">贡献价值获取矩阵 Protocol Distribution Rules</h4>

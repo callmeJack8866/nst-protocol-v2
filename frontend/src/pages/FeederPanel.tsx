@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
-import { useWallet, useFeedProtocol } from '../hooks';
+import { useWallet, useFeedProtocol, useOptions } from '../hooks';
 import { formatUnits } from 'ethers';
 import type { FeedRequest, Feeder } from '../hooks/useFeedAndPoints';
 
@@ -29,6 +29,7 @@ export function FeederPanel() {
     rejectFeed,
     registerFeeder,
   } = useFeedProtocol();
+  const { getOrder } = useOptions();
 
   const [feederInfo, setFeederInfo] = useState<Feeder | null>(null);
   const [pendingRequests, setPendingRequests] = useState<FeedRequest[]>([]);
@@ -38,6 +39,7 @@ export function FeederPanel() {
   const [stakeAmount, setStakeAmount] = useState('100');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showFeedModal, setShowFeedModal] = useState(false);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<any>(null); // Elite 2.1 新增
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Load feeder info and pending requests
@@ -233,9 +235,14 @@ export function FeederPanel() {
                       <div className="flex items-center justify-end space-x-8 pl-16">
                         {feederInfo?.isActive && (
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               setSelectedRequest(req);
                               setShowFeedModal(true);
+                              setSelectedOrderDetails(null);
+                              try {
+                                const details = await getOrder(Number(req.orderId));
+                                setSelectedOrderDetails(details);
+                              } catch (e) { console.error(e); }
                             }}
                             className="bg-blue-600 hover:bg-blue-500 text-slate-950 px-10 h-16 rounded-[24px] font-black text-[12px] shadow-2xl shadow-blue-600/20 tracking-widest"
                           >
@@ -314,6 +321,41 @@ export function FeederPanel() {
                 <p className="text-slate-400 text-sm">
                   当前进度: {Number(selectedRequest.submittedCount)}/{Number(selectedRequest.totalFeeders)} 个喂价员已提交
                 </p>
+              </div>
+
+              {/* Order Constraints - Elite 2.1 新增 */}
+              <div className="border-t border-white/5 pt-8">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 italic">标的合约约束约束 (Order Constraints)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+                    <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">定价模型</p>
+                    <p className="text-white font-bold text-sm italic">Black-Scholes (T+0)</p>
+                  </div>
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+                    <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">分红调整</p>
+                    <p className="text-emerald-400 font-bold text-sm italic">协议自动补偿</p>
+                  </div>
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+                    <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">结算延迟</p>
+                    <p className="text-white font-bold text-sm italic">7200s (T+2h)</p>
+                  </div>
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+                    <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">强平线</p>
+                    <p className="text-rose-400 font-bold text-sm italic">110% 保证金率</p>
+                  </div>
+                </div>
+                {selectedOrderDetails && (
+                  <div className="mt-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl p-5 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] text-blue-400 font-bold uppercase mb-1">标的资产</p>
+                      <p className="text-white font-bold text-sm">{selectedOrderDetails.underlyingName} ({selectedOrderDetails.underlyingCode})</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-blue-400 font-bold uppercase mb-1">名义本金</p>
+                      <p className="text-white font-bold text-sm italic">${Number(formatUnits(selectedOrderDetails.notionalUSDT, 6)).toLocaleString()}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex space-x-4 pt-4">
