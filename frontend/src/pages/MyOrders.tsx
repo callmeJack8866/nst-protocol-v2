@@ -89,6 +89,8 @@ export function MyOrders() {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [selectedTier, setSelectedTier] = useState(0);
     const [selectedFeedType, setSelectedFeedType] = useState(0); // 0: Initial, 1: Dynamic, 2: Settlement
+    const [feedRule, setFeedRule] = useState(0); // P1: 0: Normal, 1: Volume-based
+    const [suggestedPrice, setSuggestedPrice] = useState(''); // P1: Volume-based suggested price
 
     // Margin modal state
     const [showMarginModal, setShowMarginModal] = useState(false);
@@ -437,6 +439,8 @@ export function MyOrders() {
     const openFeedModal = (order: Order, feedType: number) => {
         setSelectedOrder(order);
         setSelectedFeedType(feedType);
+        setFeedRule(0); // P1: Reset to normal feed
+        setSuggestedPrice(''); // P1: Reset suggested price
         setShowFeedModal(true);
     };
 
@@ -1112,6 +1116,60 @@ export function MyOrders() {
                                     喂价费用将从您的 USDT 余额中扣除，用于支付喂价员报酬
                                 </p>
                             </div>
+
+                            {/* P1: 喂价规则选择 (期初/期末喂价时显示) */}
+                            {(selectedFeedType === 0 || selectedFeedType === 2) && (
+                                <div>
+                                    <label className="text-label mb-4 block">选择喂价规则</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFeedRule(0)}
+                                            className={`p-4 rounded-xl border text-left transition-all ${feedRule === 0
+                                                ? 'bg-emerald-500/10 border-emerald-500/30'
+                                                : 'bg-slate-800/50 border-white/10 hover:border-white/20'
+                                                }`}
+                                        >
+                                            <p className={`font-bold text-sm ${feedRule === 0 ? 'text-emerald-400' : 'text-white'}`}>
+                                                📊 正常喂价
+                                            </p>
+                                            <p className="text-slate-500 text-xs mt-1">按市场价格喂价</p>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFeedRule(1)}
+                                            className={`p-4 rounded-xl border text-left transition-all ${feedRule === 1
+                                                ? 'bg-blue-500/10 border-blue-500/30'
+                                                : 'bg-slate-800/50 border-white/10 hover:border-white/20'
+                                                }`}
+                                        >
+                                            <p className={`font-bold text-sm ${feedRule === 1 ? 'text-blue-400' : 'text-white'}`}>
+                                                📈 跟量成交
+                                            </p>
+                                            <p className="text-slate-500 text-xs mt-1">需提交建议价格</p>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* P1: 跟量成交建议价格输入 */}
+                            {feedRule === 1 && (
+                                <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4">
+                                    <label className="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-3 block">
+                                        卖方建议成交价格
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={suggestedPrice}
+                                        onChange={(e) => setSuggestedPrice(e.target.value)}
+                                        placeholder={`输入建议价格 (参考价: ${selectedOrder.refPrice || '未知'})`}
+                                        className="w-full bg-slate-800 border border-blue-500/20 rounded-xl px-4 py-3 text-white focus:border-blue-500/50 transition-all"
+                                    />
+                                    <p className="text-slate-500 text-xs mt-2">
+                                        喂价员将验证此价格是否合理。如价格不合理，喂价员可拒绝或修正。
+                                    </p>
+                                </div>
+                            )}
 
                             {/* P2: 跟量成交喂价降级提示 */}
                             {selectedFeedType === 2 && (

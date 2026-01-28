@@ -212,10 +212,24 @@ export function FeederPanel() {
                           <p className="text-[10px] font-black text-amber-400 bg-amber-400/5 px-3 py-1 rounded-full tracking-widest border border-amber-400/10 uppercase">
                             {FEED_TIER_LABELS[req.tier]?.name || '未知档位'}
                           </p>
+                          {/* P2: 喂价规则标签 */}
+                          <p className={`text-[10px] font-black px-3 py-1 rounded-full tracking-widest border uppercase ${req.feedRule === 1
+                            ? 'text-purple-400 bg-purple-400/5 border-purple-400/10'
+                            : 'text-emerald-400 bg-emerald-400/5 border-emerald-400/10'
+                            }`}>
+                            {req.feedRule === 1 ? '📈 跟量成交' : '📊 正常喂价'}
+                          </p>
                         </div>
                         <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">
                           请求 ID-{Number(req.requestId)} · 进度: {Number(req.submittedCount)}/{Number(req.totalFeeders)}
                         </p>
+                        {/* P2: T+X 条件显示 */}
+                        {req.exerciseDelay && Number(req.exerciseDelay) > 0 && (
+                          <p className="text-[10px] font-bold text-rose-400 mt-2 flex items-center gap-1">
+                            <span>⏱️</span>
+                            T+{Number(req.exerciseDelay)} 行权延迟要求
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -252,6 +266,22 @@ export function FeederPanel() {
                       </div>
                     </div>
                   </div>
+
+                  {/* P2: 跟量成交建议价格显示 */}
+                  {req.feedRule === 1 && req.suggestedPrice && (
+                    <div className="mt-6 bg-purple-500/5 border border-purple-500/10 rounded-2xl p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-purple-400 text-lg">💡</span>
+                        <div>
+                          <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">卖方建议成交价格</p>
+                          <p className="text-white font-bold text-lg">{req.suggestedPrice}</p>
+                        </div>
+                      </div>
+                      <p className="text-slate-500 text-xs max-w-xs text-right">
+                        请验证此价格是否合理。如合理可直接使用，如不合理可拒绝或输入修正价格。
+                      </p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -356,6 +386,24 @@ export function FeederPanel() {
                     </div>
                   </div>
                 )}
+
+                {/* P2: T+X 条件和喂价规则显示 */}
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  {selectedRequest.exerciseDelay && Number(selectedRequest.exerciseDelay) > 0 && (
+                    <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-4">
+                      <p className="text-[10px] text-rose-400 font-bold uppercase mb-1">⏱️ 行权延迟要求</p>
+                      <p className="text-white font-bold text-lg">T+{Number(selectedRequest.exerciseDelay)}</p>
+                      <p className="text-slate-500 text-[10px] mt-1">需确认满足 T+X 条件后方可喂价</p>
+                    </div>
+                  )}
+                  {selectedRequest.feedRule === 1 && (
+                    <div className="bg-purple-500/5 border border-purple-500/10 rounded-2xl p-4">
+                      <p className="text-[10px] text-purple-400 font-bold uppercase mb-1">📈 跟量成交喂价</p>
+                      <p className="text-white font-bold text-lg">{selectedRequest.suggestedPrice || '待验证'}</p>
+                      <p className="text-slate-500 text-[10px] mt-1">卖方建议价格，请验证合理性</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex space-x-4 pt-4">
@@ -381,17 +429,41 @@ export function FeederPanel() {
               {/* Reject option */}
               <div className="border-t border-white/10 pt-6">
                 <p className="text-slate-500 text-sm mb-4">如果无法获取价格，可以拒绝喂价：</p>
+
+                {/* P1: 预定义拒绝原因 */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {[
+                    { id: 'T_PLUS_X_NOT_MET', label: '不符合T+X条件', icon: '📅' },
+                    { id: 'NO_TRADING_VOLUME', label: '无成交量/无法跟量', icon: '📉' },
+                    { id: 'MARKET_CLOSED', label: '市场休市', icon: '🏢' },
+                    { id: 'PRICE_NOT_AVAILABLE', label: '无法获取价格', icon: '❓' },
+                  ].map(reason => (
+                    <button
+                      key={reason.id}
+                      type="button"
+                      onClick={() => setRejectReason(reason.label)}
+                      className={`p-3 rounded-xl border text-left transition-all text-xs ${rejectReason === reason.label
+                        ? 'bg-rose-500/20 border-rose-500/30 text-rose-400'
+                        : 'bg-slate-800/50 border-white/10 text-slate-400 hover:border-white/20'
+                        }`}
+                    >
+                      <span className="mr-2">{reason.icon}</span>
+                      {reason.label}
+                    </button>
+                  ))}
+                </div>
+
                 <input
                   type="text"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="拒绝原因 (如: 市场休市)"
+                  placeholder="拒绝原因 (可自定义)"
                   className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white mb-4"
                 />
                 <button
                   onClick={handleRejectFeed}
                   disabled={isLoading || !rejectReason}
-                  className="w-full h-12 rounded-xl border border-red-500/30 text-red-400 font-bold disabled:opacity-50"
+                  className="w-full h-12 rounded-xl border border-red-500/30 text-red-400 font-bold disabled:opacity-50 hover:bg-red-500/10 transition-all"
                 >
                   拒绝喂价
                 </button>
