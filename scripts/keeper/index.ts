@@ -6,6 +6,7 @@
  * - 追保超时强平
  * - 仲裁窗口自动结算
  * - 平仓喂价超时惩罚 (P1)
+ * - 连板/涨幅强平监控 (P2)
  * 
  * 运行方式:
  *   npx ts-node scripts/keeper/index.ts
@@ -18,6 +19,7 @@ import { runRfqKeeper } from './rfqKeeper';
 import { runMarginKeeper } from './marginKeeper';
 import { runSettleKeeper } from './settleKeeper';
 import { runExerciseFeedKeeper } from './exerciseFeedKeeper';
+import { runLimitUpKeeper } from './limitUpKeeper';
 import { log } from './utils';
 
 const SCAN_INTERVAL_MS = 60 * 1000; // 每 60 秒扫描一次
@@ -31,6 +33,7 @@ async function runAllKeepers(): Promise<void> {
             runMarginKeeper(),
             runSettleKeeper(),
             runExerciseFeedKeeper(),
+            runLimitUpKeeper(),
         ]);
     } catch (error) {
         log('MAIN', 'Keeper cycle error', { error: (error as Error).message });

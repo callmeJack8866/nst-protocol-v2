@@ -126,7 +126,9 @@ export function MyOrders() {
         { id: 'LIVE', label: '运行中' },
         { id: 'WAITING_FINAL_FEED', label: '待期末喂价' },
         { id: 'PENDING_SETTLEMENT', label: '待结算' },
-        { id: 'SETTLED', label: '已结算' }
+        { id: 'SETTLED', label: '已结算' },
+        { id: 'CANCELLED', label: '已取消' },
+        { id: 'LIQUIDATED', label: '已强平' },
     ];
 
     const openQuotesModal = async (order: Order) => {
@@ -717,7 +719,11 @@ export function MyOrders() {
                                                     ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                                     : order.status === 'LIVE'
                                                         ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                        : 'bg-white/5 text-slate-400 border-white/[0.05]'
+                                                        : order.status === 'CANCELLED' || order.status === 'LIQUIDATED'
+                                                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                                            : order.status === 'SETTLED'
+                                                                ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                                                                : 'bg-white/5 text-slate-400 border-white/[0.05]'
                                                 }`}>
                                                 {STATUS_ZH[order.status] || order.status}
                                             </span>
@@ -889,6 +895,59 @@ export function MyOrders() {
                                                     </span>
                                                 );
                                             })()}
+                                        </div>
+                                    )}
+
+                                    {/* P2: 已取消/已强平订单的资金去向说明 */}
+                                    {(order.status === 'CANCELLED' || order.status === 'LIQUIDATED') && (
+                                        <div className="mt-6 p-5 rounded-2xl bg-rose-500/5 border border-rose-500/10">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <span className="text-rose-400 text-lg">⚠️</span>
+                                                <h4 className="text-[11px] font-black text-rose-400 uppercase tracking-widest">
+                                                    {order.status === 'CANCELLED' ? '订单已取消' : '订单已强平'} — 资金去向
+                                                </h4>
+                                            </div>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px]">
+                                                {order.status === 'CANCELLED' ? (
+                                                    <>
+                                                        <div>
+                                                            <p className="text-slate-500 mb-1">取消原因</p>
+                                                            <p className="text-slate-300 font-medium">RFQ 超时 / 喂价员拒绝</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-slate-500 mb-1">建仓费 (1U)</p>
+                                                            <p className="text-amber-400 font-medium">已扣除 → 协议</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-slate-500 mb-1">期权费</p>
+                                                            <p className="text-emerald-400 font-medium">未支付 / 已退回</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-slate-500 mb-1">保证金</p>
+                                                            <p className="text-emerald-400 font-medium">已退回 → 卖方</p>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div>
+                                                            <p className="text-slate-500 mb-1">强平原因</p>
+                                                            <p className="text-slate-300 font-medium">追保超时 / 连板触发</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-slate-500 mb-1">剩余保证金</p>
+                                                            <p className="text-white font-bold">{formatAmount(order.currentMargin)}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-slate-500 mb-1">买方盈亏</p>
+                                                            <p className="text-emerald-400 font-medium">按最后喂价结算</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-slate-500 mb-1">卖方损失</p>
+                                                            <p className="text-rose-400 font-medium">保证金划转买方</p>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
