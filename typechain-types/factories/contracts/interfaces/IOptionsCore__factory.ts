@@ -20,6 +20,92 @@ const _abi = [
       },
       {
         indexed: true,
+        internalType: "uint256",
+        name: "arbitrationId",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "initiator",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "originalPrice",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "arbitrationPrice",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "bool",
+        name: "resultChanged",
+        type: "bool",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "initiatorReward",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "timestamp",
+        type: "uint256",
+      },
+    ],
+    name: "ArbitrationResolved",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint256",
+        name: "orderId",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "dividendPerShare",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "totalDividend",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "timestamp",
+        type: "uint256",
+      },
+    ],
+    name: "DividendRecorded",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint256",
+        name: "orderId",
+        type: "uint256",
+      },
+      {
+        indexed: true,
         internalType: "address",
         name: "seller",
         type: "address",
@@ -744,6 +830,11 @@ const _abi = [
             name: "lastFeedPrice",
             type: "uint256",
           },
+          {
+            internalType: "uint256",
+            name: "dividendAmount",
+            type: "uint256",
+          },
         ],
         internalType: "struct Order",
         name: "",
@@ -884,6 +975,24 @@ const _abi = [
         type: "uint256",
       },
       {
+        internalType: "uint256",
+        name: "dividendPerShare",
+        type: "uint256",
+      },
+    ],
+    name: "recordDividend",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "orderId",
+        type: "uint256",
+      },
+      {
         internalType: "enum FeedTier",
         name: "tier",
         type: "uint8",
@@ -892,6 +1001,29 @@ const _abi = [
     name: "requestFeed",
     outputs: [],
     stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "orderId",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "arbitrationPrice",
+        type: "uint256",
+      },
+      {
+        internalType: "address[]",
+        name: "arbitrators",
+        type: "address[]",
+      },
+    ],
+    name: "resolveArbitration",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {

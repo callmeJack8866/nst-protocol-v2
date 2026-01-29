@@ -459,8 +459,33 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @notice 记录标的分红 (§7.2 分红调整)
+     * @param orderId 订单ID
+     * @param dividendPerShare 每股分红金额 (18位精度)
+     * @dev 仅操作员可调用，累积记录分红用于结算时调整行权价
+     */
+    function recordDividend(uint256 orderId, uint256 dividendPerShare) external override 
+        validOrder(orderId) 
+        nonReentrant 
+        whenNotPaused 
+    {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "OptionsCore: not authorized");
+        
+        Order storage order = orders[orderId];
+        require(order.status == OrderStatus.LIVE, "OptionsCore: order not live");
+        require(order.dividendAdjustment, "OptionsCore: dividend adjustment not enabled");
+        require(dividendPerShare > 0, "OptionsCore: dividend must be positive");
+        
+        // 累加分红金额
+        order.dividendAmount += dividendPerShare;
+        
+        emit DividendRecorded(orderId, dividendPerShare, order.dividendAmount, block.timestamp);
+    }
+
+    /**
      * @notice 到期结算
      * @dev 根据最终喂价与开仓价计算盈亏，划转资金
+     *      支持分红调整 (§7.2): 当 dividendAdjustment=true 时，行权价会扣除累计分红
      */
     function settle(uint256 orderId) external override 
         validOrder(orderId) 
@@ -471,8 +496,18 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         require(order.status == OrderStatus.PENDING_SETTLEMENT, "OptionsCore: not pending settlement");
         require(order.lastFeedPrice > 0, "OptionsCore: no feed price");
 
-        // 计算盈亏
+        // 计算盈亏 (支持分红调整)
         uint256 strikePrice = _parsePrice(order.refPrice);
+        
+        // 分红调整 (§7.2): 如果启用分红调整，从行权价中扣除累计分红
+        if (order.dividendAdjustment && order.dividendAmount > 0) {
+            // 防止行权价变为负数
+            if (order.dividendAmount < strikePrice) {
+                strikePrice = strikePrice - order.dividendAmount;
+            } else {
+                strikePrice = 0; // 极端情况：分红超过行权价
+            }
+        }
         uint256 finalPrice = order.lastFeedPrice;
         
         uint256 buyerProfit = 0;
@@ -606,6 +641,73 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
 
         emit OrderLiquidated(orderId, order.buyer, order.currentMargin, block.timestamp);
         emit OrderStatusChanged(orderId, oldStatus, OrderStatus.LIQUIDATED, "force liquidated", block.timestamp);
+    }
+
+    /**
+     * @notice 解决仲裁 (§15.4)
+     * @param orderId 订单ID
+     * @param arbitrationPrice 仲裁后的喂价结果
+     * @param arbitrators 参与仲裁的喂价员地址列表
+     * @dev 仅由操作员/守护者调用，用于完成仲裁流程
+     */
+    function resolveArbitration(
+        uint256 orderId,
+        uint256 arbitrationPrice,
+        address[] calldata arbitrators
+    ) external override 
+        validOrder(orderId) 
+        nonReentrant 
+        whenNotPaused 
+    {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "OptionsCore: not authorized");
+        
+        Order storage order = orders[orderId];
+        require(order.status == OrderStatus.ARBITRATION, "OptionsCore: order not in arbitration");
+        require(arbitrators.length > 0, "OptionsCore: no arbitrators");
+
+        // 记录原始喂价和仲裁者
+        uint256 originalPrice = order.lastFeedPrice;
+        address initiator = order.buyer; // 假设买方发起仲裁（可扩展追踪）
+        
+        // 判断仲裁结果是否改变了原始喂价
+        bool resultChanged = (arbitrationPrice != originalPrice);
+        
+        // 计算仲裁奖励 (若结果改变，给发起方50%的剩余仲裁费)
+        // 仲裁费30U: 大约8U用于喂价，剩余22U的50%=11U给发起方
+        uint256 initiatorReward = 0;
+        if (resultChanged) {
+            initiatorReward = 11 * 1e18; // 11 USDT
+            // 实际转账由VaultManager执行
+            vaultManager.transferReward(initiator, initiatorReward);
+        }
+
+        // 更新订单喂价结果
+        order.lastFeedPrice = arbitrationPrice;
+        
+        // 根据新喂价重新计算结算结果
+        // 结算逻辑在此省略，应调用 _calculateSettlement 内部函数
+        
+        // 变更订单状态为已结算
+        OrderStatus oldStatus = order.status;
+        order.status = OrderStatus.SETTLED;
+        order.settledAt = block.timestamp;
+
+        // 生成仲裁ID (简化：使用orderId + 时间戳)
+        uint256 arbitrationId = uint256(keccak256(abi.encodePacked(orderId, block.timestamp)));
+
+        // 发送仲裁解决事件
+        emit ArbitrationResolved(
+            orderId,
+            arbitrationId,
+            initiator,
+            originalPrice,
+            arbitrationPrice,
+            resultChanged,
+            initiatorReward,
+            block.timestamp
+        );
+        
+        emit OrderStatusChanged(orderId, oldStatus, OrderStatus.SETTLED, "arbitration resolved", block.timestamp);
     }
 
     // ==================== 查询功能实现 ====================

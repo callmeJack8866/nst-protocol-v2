@@ -56,6 +56,7 @@ export type OrderStruct = {
   matchedAt: BigNumberish;
   settledAt: BigNumberish;
   lastFeedPrice: BigNumberish;
+  dividendAmount: BigNumberish;
 };
 
 export type OrderStructOutput = [
@@ -90,7 +91,8 @@ export type OrderStructOutput = [
   createdAt: bigint,
   matchedAt: bigint,
   settledAt: bigint,
-  lastFeedPrice: bigint
+  lastFeedPrice: bigint,
+  dividendAmount: bigint
 ] & {
   orderId: bigint;
   buyer: string;
@@ -124,6 +126,7 @@ export type OrderStructOutput = [
   matchedAt: bigint;
   settledAt: bigint;
   lastFeedPrice: bigint;
+  dividendAmount: bigint;
 };
 
 export type QuoteStruct = {
@@ -190,7 +193,9 @@ export interface IOptionsCoreInterface extends Interface {
       | "getQuotes"
       | "getSellerOrders"
       | "initiateArbitration"
+      | "recordDividend"
       | "requestFeed"
+      | "resolveArbitration"
       | "settle"
       | "submitQuote"
       | "withdrawExcessMargin"
@@ -198,6 +203,8 @@ export interface IOptionsCoreInterface extends Interface {
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "ArbitrationResolved"
+      | "DividendRecorded"
       | "MarginChanged"
       | "OrderCancelled"
       | "OrderCreated"
@@ -295,8 +302,16 @@ export interface IOptionsCoreInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "recordDividend",
+    values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "requestFeed",
     values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "resolveArbitration",
+    values: [BigNumberish, BigNumberish, AddressLike[]]
   ): string;
   encodeFunctionData(
     functionFragment: "settle",
@@ -355,7 +370,15 @@ export interface IOptionsCoreInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "recordDividend",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "requestFeed",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "resolveArbitration",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "settle", data: BytesLike): Result;
@@ -367,6 +390,68 @@ export interface IOptionsCoreInterface extends Interface {
     functionFragment: "withdrawExcessMargin",
     data: BytesLike
   ): Result;
+}
+
+export namespace ArbitrationResolvedEvent {
+  export type InputTuple = [
+    orderId: BigNumberish,
+    arbitrationId: BigNumberish,
+    initiator: AddressLike,
+    originalPrice: BigNumberish,
+    arbitrationPrice: BigNumberish,
+    resultChanged: boolean,
+    initiatorReward: BigNumberish,
+    timestamp: BigNumberish
+  ];
+  export type OutputTuple = [
+    orderId: bigint,
+    arbitrationId: bigint,
+    initiator: string,
+    originalPrice: bigint,
+    arbitrationPrice: bigint,
+    resultChanged: boolean,
+    initiatorReward: bigint,
+    timestamp: bigint
+  ];
+  export interface OutputObject {
+    orderId: bigint;
+    arbitrationId: bigint;
+    initiator: string;
+    originalPrice: bigint;
+    arbitrationPrice: bigint;
+    resultChanged: boolean;
+    initiatorReward: bigint;
+    timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace DividendRecordedEvent {
+  export type InputTuple = [
+    orderId: BigNumberish,
+    dividendPerShare: BigNumberish,
+    totalDividend: BigNumberish,
+    timestamp: BigNumberish
+  ];
+  export type OutputTuple = [
+    orderId: bigint,
+    dividendPerShare: bigint,
+    totalDividend: bigint,
+    timestamp: bigint
+  ];
+  export interface OutputObject {
+    orderId: bigint;
+    dividendPerShare: bigint;
+    totalDividend: bigint;
+    timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace MarginChangedEvent {
@@ -723,10 +808,26 @@ export interface IOptionsCore extends BaseContract {
     "payable"
   >;
 
+  recordDividend: TypedContractMethod<
+    [orderId: BigNumberish, dividendPerShare: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   requestFeed: TypedContractMethod<
     [orderId: BigNumberish, tier: BigNumberish],
     [void],
     "payable"
+  >;
+
+  resolveArbitration: TypedContractMethod<
+    [
+      orderId: BigNumberish,
+      arbitrationPrice: BigNumberish,
+      arbitrators: AddressLike[]
+    ],
+    [void],
+    "nonpayable"
   >;
 
   settle: TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
@@ -845,11 +946,29 @@ export interface IOptionsCore extends BaseContract {
     nameOrSignature: "initiateArbitration"
   ): TypedContractMethod<[orderId: BigNumberish], [void], "payable">;
   getFunction(
+    nameOrSignature: "recordDividend"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, dividendPerShare: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "requestFeed"
   ): TypedContractMethod<
     [orderId: BigNumberish, tier: BigNumberish],
     [void],
     "payable"
+  >;
+  getFunction(
+    nameOrSignature: "resolveArbitration"
+  ): TypedContractMethod<
+    [
+      orderId: BigNumberish,
+      arbitrationPrice: BigNumberish,
+      arbitrators: AddressLike[]
+    ],
+    [void],
+    "nonpayable"
   >;
   getFunction(
     nameOrSignature: "settle"
@@ -876,6 +995,20 @@ export interface IOptionsCore extends BaseContract {
     "nonpayable"
   >;
 
+  getEvent(
+    key: "ArbitrationResolved"
+  ): TypedContractEvent<
+    ArbitrationResolvedEvent.InputTuple,
+    ArbitrationResolvedEvent.OutputTuple,
+    ArbitrationResolvedEvent.OutputObject
+  >;
+  getEvent(
+    key: "DividendRecorded"
+  ): TypedContractEvent<
+    DividendRecordedEvent.InputTuple,
+    DividendRecordedEvent.OutputTuple,
+    DividendRecordedEvent.OutputObject
+  >;
   getEvent(
     key: "MarginChanged"
   ): TypedContractEvent<
@@ -934,6 +1067,28 @@ export interface IOptionsCore extends BaseContract {
   >;
 
   filters: {
+    "ArbitrationResolved(uint256,uint256,address,uint256,uint256,bool,uint256,uint256)": TypedContractEvent<
+      ArbitrationResolvedEvent.InputTuple,
+      ArbitrationResolvedEvent.OutputTuple,
+      ArbitrationResolvedEvent.OutputObject
+    >;
+    ArbitrationResolved: TypedContractEvent<
+      ArbitrationResolvedEvent.InputTuple,
+      ArbitrationResolvedEvent.OutputTuple,
+      ArbitrationResolvedEvent.OutputObject
+    >;
+
+    "DividendRecorded(uint256,uint256,uint256,uint256)": TypedContractEvent<
+      DividendRecordedEvent.InputTuple,
+      DividendRecordedEvent.OutputTuple,
+      DividendRecordedEvent.OutputObject
+    >;
+    DividendRecorded: TypedContractEvent<
+      DividendRecordedEvent.InputTuple,
+      DividendRecordedEvent.OutputTuple,
+      DividendRecordedEvent.OutputObject
+    >;
+
     "MarginChanged(uint256,address,uint256,uint256,string,uint256)": TypedContractEvent<
       MarginChangedEvent.InputTuple,
       MarginChangedEvent.OutputTuple,

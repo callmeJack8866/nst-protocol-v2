@@ -68,6 +68,26 @@ interface IOptionsCore {
         uint256 timestamp
     );
 
+    /// @notice 仲裁解决事件 (§15.4)
+    event ArbitrationResolved(
+        uint256 indexed orderId,
+        uint256 indexed arbitrationId,
+        address initiator,
+        uint256 originalPrice,
+        uint256 arbitrationPrice,
+        bool resultChanged,
+        uint256 initiatorReward,
+        uint256 timestamp
+    );
+
+    /// @notice 分红记录事件 (§7.2)
+    event DividendRecorded(
+        uint256 indexed orderId,
+        uint256 dividendPerShare,
+        uint256 totalDividend,
+        uint256 timestamp
+    );
+
     // ==================== 买方功能 ====================
 
     /**
@@ -168,6 +188,14 @@ interface IOptionsCore {
      */
     function withdrawExcessMargin(uint256 orderId, uint256 amount) external;
 
+    /**
+     * @notice 记录标的分红 (§7.2 分红调整)
+     * @param orderId 订单ID
+     * @param dividendPerShare 每股分红金额 (18位精度)
+     * @dev 仅当 dividendAdjustment=true 时，分红将用于调整结算价
+     */
+    function recordDividend(uint256 orderId, uint256 dividendPerShare) external;
+
     // ==================== 结算功能 ====================
 
     /**
@@ -184,6 +212,18 @@ interface IOptionsCore {
      * @notice 强制清算
      */
     function forceLiquidate(uint256 orderId) external;
+
+    /**
+     * @notice 解决仲裁 (§15.4)
+     * @param orderId 订单ID
+     * @param arbitrationPrice 仲裁后的喂价结果
+     * @param arbitrators 参与仲裁的喂价员地址列表
+     */
+    function resolveArbitration(
+        uint256 orderId,
+        uint256 arbitrationPrice,
+        address[] calldata arbitrators
+    ) external;
 
     // ==================== 查询功能 ====================
 

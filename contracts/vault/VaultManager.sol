@@ -361,6 +361,34 @@ contract VaultManager is AccessControl, ReentrancyGuard, Pausable {
         emit ProfitDistributed(_token, totalAmount, "profit_allocation", block.timestamp);
     }
 
+    // ==================== 仲裁奖励操作 ====================
+
+    /**
+     * @notice 发放仲裁奖励 (§15.4)
+     * @param _recipient 奖励接收者
+     * @param _amount 奖励金额
+     * @dev 从利润池中发放仲裁奖励给成功的仲裁发起方
+     */
+    function transferReward(
+        address _recipient,
+        uint256 _amount
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(_recipient != address(0), "VaultManager: invalid recipient");
+        require(_amount > 0, "VaultManager: amount must be greater than 0");
+        
+        // 从利润池扣除奖励金额
+        address usdtAddress = address(config.optionsCoreAddress()) != address(0) 
+            ? address(0x9f2140319726F9b851073a303415f13EC0cdA269) // BSC Testnet USDT
+            : address(0x55d398326f99059fF775485246999027B3197955); // BSC Mainnet USDT
+            
+        require(profitPoolBalance[usdtAddress] >= _amount, "VaultManager: insufficient profit pool for reward");
+        
+        profitPoolBalance[usdtAddress] -= _amount;
+        IERC20(usdtAddress).safeTransfer(_recipient, _amount);
+        
+        emit ProfitDistributed(usdtAddress, _amount, "arbitration_reward", block.timestamp);
+    }
+
     // ==================== 查询函数 ====================
 
     /**

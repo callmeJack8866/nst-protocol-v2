@@ -56,6 +56,7 @@ export interface VaultManagerInterface extends Interface {
       | "setConfig"
       | "supportsInterface"
       | "transferMargin"
+      | "transferReward"
       | "transferToFeedProtocol"
       | "unpause"
       | "userMarginBalance"
@@ -191,6 +192,10 @@ export interface VaultManagerInterface extends Interface {
     values: [AddressLike, AddressLike, AddressLike, BigNumberish, string]
   ): string;
   encodeFunctionData(
+    functionFragment: "transferReward",
+    values: [AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "transferToFeedProtocol",
     values: [AddressLike, BigNumberish, AddressLike]
   ): string;
@@ -310,6 +315,10 @@ export interface VaultManagerInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "transferMargin",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "transferReward",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -751,6 +760,12 @@ export interface VaultManager extends BaseContract {
     "nonpayable"
   >;
 
+  transferReward: TypedContractMethod<
+    [_recipient: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   transferToFeedProtocol: TypedContractMethod<
     [_token: AddressLike, _amount: BigNumberish, _feedProtocol: AddressLike],
     [void],
@@ -952,6 +967,13 @@ export interface VaultManager extends BaseContract {
       _amount: BigNumberish,
       _reason: string
     ],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "transferReward"
+  ): TypedContractMethod<
+    [_recipient: AddressLike, _amount: BigNumberish],
     [void],
     "nonpayable"
   >;
