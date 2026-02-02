@@ -149,7 +149,7 @@ export function FeederPanel() {
             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_12px_#3b82f6]" />
             <span className="text-label text-blue-400">去中心化预言机节点集群</span>
           </div>
-          <h1 className="text-6xl font-extrabold text-white tracking-tighter italic">数据终端 <span className="text-blue-500">Feeder</span></h1>
+          <h1 className="text-4xl lg:text-5xl font-bold text-white tracking-tight">数据终端</h1>
           <p className="text-slate-500 text-xl max-w-2xl font-medium leading-relaxed">
             实时验证并上报全球资产的市场价格信号，确保协议在清算与交割时的公平性与准确性。
           </p>
@@ -183,7 +183,7 @@ export function FeederPanel() {
               <div key={i} className="glass-surface p-8 rounded-[40px] group relative overflow-hidden transition-all hover:bg-white/[0.04]">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 blur-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
                 <p className="text-label mb-4 opacity-50 uppercase">{stat.label}</p>
-                <p className={`text-3xl font-bold tracking-tighter italic ${stat.color}`}>{stat.value}</p>
+                <p className={`text-2xl font-bold tracking-tight ${stat.color}`}>{stat.value}</p>
               </div>
             ))}
           </div>
@@ -192,8 +192,8 @@ export function FeederPanel() {
         {/* Pending Requests */}
         <div className="space-y-12">
           <div className="flex items-center justify-between px-2">
-            <h2 className="text-[11px] font-black text-slate-600 uppercase tracking-[0.4em] italic mb-2">
-              待处理数据请求流 ({pendingRequests.length})
+            <h2 className="text-xs font-semibold text-slate-500 tracking-wide mb-2">
+              待处理请求 ({pendingRequests.length})
             </h2>
             <button
               onClick={() => setRefreshKey(k => k + 1)}
@@ -217,7 +217,7 @@ export function FeederPanel() {
                       <div className="w-20 h-20 rounded-[32px] bg-slate-950 border border-white/5 flex items-center justify-center text-5xl shadow-inner group-hover:scale-110 transition-transform duration-1000">📡</div>
                       <div>
                         <div className="flex items-center space-x-5 mb-3">
-                          <h3 className="text-2xl font-bold text-white italic tracking-tighter">订单 #{Number(req.orderId)}</h3>
+                          <h3 className="text-xl font-bold text-white tracking-tight">订单 #{Number(req.orderId)}</h3>
                           <p className="text-[10px] font-black text-blue-400 bg-blue-400/5 px-3 py-1 rounded-full tracking-widest border border-blue-400/10 uppercase">
                             {FEED_TYPE_LABELS[req.feedType] || '未知类型'}
                           </p>

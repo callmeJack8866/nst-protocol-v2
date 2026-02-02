@@ -1,3 +1,42 @@
+## 2026-01-29 11:30 (端到端流程测试与修复)
+**[Status]**: Done ✅  
+**[Changes]**:
+- 完成 Create RFQ 流程测试（5步导航正常）
+- 完成 Order Market 页面测试（筛选器正常）
+- 发现并修复遗漏的 h-20 输入框问题：
+  - `CreateBuyerRFQ.tsx`: 5 处修复
+  - `CreateSellerOrder.tsx`: 12 处修复
+- 修复页面标题斜体样式
+
+**[发现的问题]**:
+- ⚠️ Order Market 页面缺少"金额"筛选器（非阻塞）
+
+**[Next Step]**: 测试完成，等待用户验收
+
+---
+
+## 2026-01-29 11:15 (UI/UX 全面优化)
+**[Status]**: Done ✅  
+**[Changes]**:
+- 移除过度激进的斜体和全大写样式
+- 标题字体从 `text-6xl font-extrabold italic` 简化为 `text-4xl font-bold`
+- 输入框高度从 `h-20` (80px) 降低为 `h-14` (56px)
+- 简化按钮文字和视图切换标签
+- 改进空状态设计 (PointsCenter, FeederPanel)
+- 优化统计卡片样式
+
+**[修改文件]**:
+- `Header.tsx` - Logo 和导航样式
+- `OrderMarket.tsx` - 标题和按钮
+- `CreateBuyerRFQ.tsx` - 表单输入框高度
+- `MyOrders.tsx` - 视图切换和操作按钮
+- `FeederPanel.tsx` - 标题和卡片样式
+- `PointsCenter.tsx` - 空状态和标题
+
+**[Next Step]**: UI 优化完成，等待用户反馈
+
+---
+
 ## 2026-01-29 10:50 (OptionsCore 升级部署成功)
 **[Status]**: Done ✅  
 **[Changes]**:

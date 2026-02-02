@@ -49,11 +49,15 @@ export function PointsCenter() {
   if (!isConnected) {
     return (
       <div className="max-w-[1400px] mx-auto px-10 py-16 text-center animate-elite-entry">
-        <div className="glass-surface p-28 rounded-[56px] border-dashed border-white/10 flex flex-col items-center">
-          <div className="text-8xl mb-14 opacity-10">🏆</div>
-          <h3 className="text-2xl font-bold text-white mb-6 italic tracking-tighter uppercase">保险柜锁定 Vault Locked</h3>
-          <p className="text-slate-500 text-lg mb-12 max-w-sm mx-auto font-medium leading-relaxed">请连接您的 Web3 身份以同步您的忠诚度矩阵并领取协议分配奖励。</p>
-          <button onClick={() => connect()} className="btn-elite-primary px-16 h-16 shadow-2xl">授权钱包连接</button>
+        <div className="glass-surface p-16 rounded-[40px] border-dashed border-white/10 flex flex-col items-center">
+          <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mb-8">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-500">
+              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold text-white mb-3">请先连接钱包</h3>
+          <p className="text-slate-400 text-sm mb-8 max-w-sm mx-auto leading-relaxed">连接殞取您的积分余额和 NST 代币分配权益</p>
+          <button onClick={() => connect()} className="btn-elite-primary px-8 h-12 text-sm font-semibold">连接钱包</button>
         </div>
       </div>
     );
@@ -62,15 +66,15 @@ export function PointsCenter() {
   return (
     <div className="max-w-[1400px] mx-auto px-10 py-16 animate-elite-entry">
       {/* Header Section */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-12 mb-24">
-        <div className="space-y-6">
-          <div className="flex items-center space-x-4">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_12px_#10b981]" />
-            <span className="text-label text-emerald-500/80">生态价值与贡献矩阵</span>
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-10 mb-16">
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-semibold text-emerald-500/80 tracking-wide">生态价值与贡献</span>
           </div>
-          <h1 className="text-6xl font-extrabold text-white tracking-tighter italic">积分中心 <span className="text-emerald-500">Points Hub</span></h1>
-          <p className="text-slate-500 text-xl max-w-2xl font-medium leading-relaxed">
-            参与协议治理与流动性提供，通过战略性贡献捕获 NST 代币的早期分发权益。
+          <h1 className="text-4xl lg:text-5xl font-bold text-white tracking-tight">积分中心</h1>
+          <p className="text-slate-400 text-base max-w-xl leading-relaxed">
+            参与协议治理与流动性提供，捕获 NST 代币的早期分配权益
           </p>
         </div>
 
@@ -89,10 +93,10 @@ export function PointsCenter() {
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-12 mb-20 relative z-10">
             <div>
-              <p className="text-label mb-5 opacity-40 uppercase tracking-widest">可提取积分余额 Available Balance</p>
-              <div className="flex items-baseline space-x-6">
-                <h2 className="text-9xl font-black text-white tracking-tighter italic leading-none">{formatPoints(availablePoints)}</h2>
-                <span className="text-3xl font-black text-emerald-500 italic uppercase">pts</span>
+              <p className="text-xs font-semibold text-slate-500 mb-3 tracking-wide">可提取积分余额</p>
+              <div className="flex items-baseline space-x-3">
+                <h2 className="text-6xl font-bold text-white tracking-tight leading-none">{formatPoints(availablePoints)}</h2>
+                <span className="text-xl font-bold text-emerald-500">pts</span>
               </div>
             </div>
             <div className="w-32 h-32 rounded-[32px] bg-slate-950 border border-white/5 flex items-center justify-center text-7xl shadow-inner group-hover:scale-110 transition-transform duration-700">🥇</div>

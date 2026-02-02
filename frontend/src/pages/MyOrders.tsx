@@ -599,12 +599,12 @@ export function MyOrders() {
                     </p>
                 </div>
 
-                <div className="bg-slate-900 border border-white/[0.08] p-2 rounded-2xl flex">
-                    <button onClick={() => setViewMode('buyer')} className={`px-10 py-3 rounded-xl text-[12px] font-black uppercase transition-all ${viewMode === 'buyer' ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
-                        买方视图 (Buyer)
+                <div className="bg-slate-900 border border-white/[0.08] p-1.5 rounded-xl flex">
+                    <button onClick={() => setViewMode('buyer')} className={`px-8 py-2.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'buyer' ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                        买方视图
                     </button>
-                    <button onClick={() => setViewMode('seller')} className={`px-10 py-3 rounded-xl text-[12px] font-black uppercase transition-all ${viewMode === 'seller' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
-                        卖方视图 (Seller)
+                    <button onClick={() => setViewMode('seller')} className={`px-8 py-2.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'seller' ? 'bg-amber-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>
+                        卖方视图
                     </button>
                 </div>
             </div>
@@ -620,7 +620,7 @@ export function MyOrders() {
                     ].map((stat, i) => (
                         <div key={i} className={`glass-surface p-8 rounded-[40px] border-white/5 shadow-sm ${stat.highlight ? 'border-amber-500/30 bg-amber-500/5' : ''}`}>
                             <p className="text-label mb-4 opacity-50">{stat.label}</p>
-                            <p className={`text-3xl font-bold tracking-tight italic ${stat.highlight ? 'text-amber-400' : 'text-white'}`}>{stat.value}</p>
+                            <p className={`text-2xl font-bold tracking-tight ${stat.highlight ? 'text-amber-400' : 'text-white'}`}>{stat.value}</p>
                         </div>
                     ))}
                 </div>
@@ -648,8 +648,8 @@ export function MyOrders() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
-                        <Link to="/create-rfq" className="btn-elite-primary px-8 h-12 text-[11px] rounded-xl tracking-widest">
-                            建立新仓位 OPEN POSITION
+                        <Link to="/create-rfq" className="btn-elite-primary px-6 h-11 text-sm font-semibold rounded-xl">
+                            新建仓位
                         </Link>
                     </div>
 

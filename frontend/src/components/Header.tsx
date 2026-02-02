@@ -23,11 +23,11 @@ export function Header() {
 
         <div className="flex items-center space-x-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-4 group">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 transition-all group-hover:scale-110 group-hover:rotate-3">
-              <span className="text-slate-950 font-black text-xl italic leading-none">N</span>
+          <Link to="/" className="flex items-center space-x-3 group">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 transition-all group-hover:scale-105">
+              <span className="text-slate-950 font-black text-lg leading-none">N</span>
             </div>
-            <span className="text-white font-extrabold text-xl tracking-tighter italic">NST Finance</span>
+            <span className="text-white font-bold text-lg tracking-tight">NST Finance</span>
           </Link>
 
           {/* Nav */}
