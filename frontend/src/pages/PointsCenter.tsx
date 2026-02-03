@@ -4,19 +4,34 @@ import { useWalletContext } from '../context/WalletContext';
 import { formatUnits } from 'ethers';
 
 export function PointsCenter() {
-  const { isConnected, userPoints, fetchUserPoints, getCurrentAirdrop, calculateClaimableNST, claimAirdrop, isLoading } = usePoints();
+  const { isConnected, userPoints, fetchUserPoints, getCurrentAirdrop, calculateClaimableNST, claimAirdrop, isLoading, getPointsHistory } = usePoints();
   const { connect } = useWalletContext();
   const [claimableNST, setClaimableNST] = useState('0');
   const [airdropInfo, setAirdropInfo] = useState<any>(null);
   const [claimError, setClaimError] = useState('');
   const [claimSuccess, setClaimSuccess] = useState(false);
+  const [pointsHistory, setPointsHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     if (isConnected) {
       fetchUserPoints();
       loadAirdropInfo();
+      loadPointsHistory();
     }
   }, [isConnected]);
+
+  const loadPointsHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const history = await getPointsHistory();
+      setPointsHistory(history);
+    } catch (e) {
+      console.error('Failed to load points history:', e);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const loadAirdropInfo = async () => {
     try {
@@ -52,11 +67,16 @@ export function PointsCenter() {
         <div className="glass-surface p-16 rounded-[40px] border-dashed border-white/10 flex flex-col items-center">
           <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mb-8">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-500">
-              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+              <path d="M4 22h16" />
+              <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+              <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
             </svg>
           </div>
           <h3 className="text-xl font-bold text-white mb-3">请先连接钱包</h3>
-          <p className="text-slate-400 text-sm mb-8 max-w-sm mx-auto leading-relaxed">连接殞取您的积分余额和 NST 代币分配权益</p>
+          <p className="text-slate-400 text-sm mb-8 max-w-sm mx-auto leading-relaxed">连接以查看您的积分余额和 NST 代币分配权益</p>
           <button onClick={() => connect()} className="btn-elite-primary px-8 h-12 text-sm font-semibold">连接钱包</button>
         </div>
       </div>
@@ -106,11 +126,11 @@ export function PointsCenter() {
             <div className="flex items-center space-x-6">
               <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
                 <p className="text-[10px] font-black text-slate-600 uppercase mb-2 tracking-widest">累计获取收益</p>
-                <p className="text-2xl font-bold text-white italic tracking-tighter">{formatPoints(totalPoints)} <span className="text-xs not-italic opacity-30">pts</span></p>
+                <p className="text-xl font-bold text-white tracking-tight">{formatPoints(totalPoints)} <span className="text-xs opacity-30">pts</span></p>
               </div>
               <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
                 <p className="text-[10px] font-black text-slate-600 uppercase mb-2 tracking-widest">已领奖励份额</p>
-                <p className="text-2xl font-bold text-white italic tracking-tighter">{formatPoints(claimedPoints)} <span className="text-xs not-italic opacity-30">pts</span></p>
+                <p className="text-xl font-bold text-white tracking-tight">{formatPoints(claimedPoints)} <span className="text-xs opacity-30">pts</span></p>
               </div>
             </div>
             <div className="flex flex-col justify-center items-end">
@@ -135,7 +155,7 @@ export function PointsCenter() {
               <div className="bg-slate-950/60 border border-white/5 rounded-[32px] p-10 flex flex-col items-center">
                 <p className="text-label opacity-40 uppercase mb-4">当前可领奖励 Claimable NST</p>
                 <div className="flex items-baseline space-x-3">
-                  <p className="text-6xl font-extrabold text-emerald-400 italic tracking-tighter">{parseFloat(claimableNST).toFixed(2)}</p>
+                  <p className="text-5xl font-bold text-emerald-400 tracking-tight">{parseFloat(claimableNST).toFixed(2)}</p>
                   <p className="text-xl font-bold text-white opacity-40 italic">NST</p>
                 </div>
               </div>
@@ -189,13 +209,26 @@ export function PointsCenter() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.03]">
-              {[
-                { type: 'RFQ_ACTIVATION', source: 'RFQ-0x2035', points: '+150', status: 'CONFIRMED', time: '2026-01-27 14:20' },
-                { type: 'LP_CONTRIBUTION', source: 'UNDERWRITE-0x12', points: '+500', status: 'CONFIRMED', time: '2026-01-26 18:45' },
-                { type: 'ORDER_MATCHED', source: 'MATCH-0x981', points: '+200', status: 'CONFIRMED', time: '2026-01-26 10:12' },
-                { type: 'DAILY_BOOST', source: 'LOYALTY_MATRIX', points: '+25', status: 'CONFIRMED', time: '2026-01-26 00:00' },
-                { type: 'FEED_CONTRIBUTION', source: 'ORACLE-0x55', points: '+80', status: 'CONFIRMED', time: '2026-01-25 21:30' },
-              ].map((log, i) => (
+              {historyLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-10 py-16 text-center">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">正在读取链上积分记录...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : pointsHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-10 py-16 text-center">
+                    <div className="space-y-4">
+                      <div className="text-4xl opacity-30">📊</div>
+                      <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">暂无积分记录 NO RECORDS YET</p>
+                      <p className="text-[10px] text-slate-700">参与交易、报价或喂价后将在此显示积分获取详情</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : pointsHistory.map((log, i) => (
                 <tr key={i} className="group hover:bg-white/[0.01] transition-colors">
                   <td className="px-10 py-8">
                     <div className="flex items-center space-x-3">
@@ -204,13 +237,20 @@ export function PointsCenter() {
                     </div>
                   </td>
                   <td className="px-10 py-8">
-                    <span className="text-[11px] font-mono font-bold text-slate-400 group-hover:text-white transition-colors">{log.source}</span>
+                    <a
+                      href={`https://testnet.bscscan.com/tx/${log.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-mono font-bold text-slate-400 group-hover:text-emerald-400 transition-colors hover:underline"
+                    >
+                      {log.source}
+                    </a>
                   </td>
                   <td className="px-10 py-8">
                     <span className="text-xl font-bold text-emerald-400 italic tracking-tighter">{log.points}</span>
                   </td>
                   <td className="px-10 py-8">
-                    <span className="px-3 py-1 rounded-full bg-white/5 border border-white/5 text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                    <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-widest">
                       {log.status}
                     </span>
                   </td>

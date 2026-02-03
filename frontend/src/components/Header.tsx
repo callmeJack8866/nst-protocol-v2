@@ -13,6 +13,7 @@ export function Header() {
     { name: '我的订单', path: '/orders' },
     { name: '数据终端', path: '/feeder' },
     { name: '积分中心', path: '/points' },
+    { name: '席位管理', path: '/seat' },
   ];
 
   const isActive = (path: string) => location.pathname === path || (path === '/market' && location.pathname === '/');

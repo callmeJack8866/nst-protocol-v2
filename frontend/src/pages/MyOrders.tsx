@@ -73,9 +73,10 @@ export function MyOrders() {
         getBuyerOrders, getSellerOrders, getOrder, isConnected,
         addMargin, withdrawExcessMargin, earlyExercise, settleOrder,
         initiateArbitration, getQuotesForOrder, acceptQuote,
+        processInitialFeedResult, processFinalFeedResult,
         loading: optionsLoading
     } = useOptions();
-    const { requestFeed, isLoading: feedLoading, error: feedError } = useFeedProtocol();
+    const { requestFeed, isLoading: feedLoading, error: feedError, checkInitialFeedCompleted } = useFeedProtocol();
 
     const [viewMode, setViewMode] = useState<'buyer' | 'seller'>('buyer');
     const [statusFilter, setStatusFilter] = useState('ALL');
@@ -240,66 +241,57 @@ export function MyOrders() {
                 }
                 setSellerOrders(sData);
 
-                // ========== 演示用 Mock 订单 (临时，演示后删除) ==========
-                const DEMO_ORDERS: Order[] = [
-                    {
-                        orderId: 99901,
-                        buyer: account || '0x0000000000000000000000000000000000000000',
-                        seller: '0xDemoSeller1111111111111111111111111111',
-                        underlyingName: '比特币',
-                        underlyingCode: 'BTC/USDT',
-                        market: 'CRYPTO',
-                        country: 'GLOBAL',
-                        direction: 'Call',
-                        notionalUSDT: 100000000000n,  // 100,000 USDT
-                        premiumRate: 650,
-                        premiumAmount: 6500000000n,
-                        expiryTimestamp: Math.floor(Date.now() / 1000) + 7 * 24 * 3600,
-                        status: 'LIVE',  // 运行中 - 可提前行权
-                        initialMargin: 15000000000n,
-                        currentMargin: 15000000000n,
-                        createdAt: Math.floor(Date.now() / 1000) - 3600,
-                        matchedAt: Math.floor(Date.now() / 1000) - 3000,
-                        refPrice: '42000',
-                        lastFeedPrice: 45000000000000000000000n,  // 45000 (18位小数)
-                        minMarginRate: 1000,
-                        marginCallDeadline: 0,
-                        arbitrationWindow: 12 * 3600,
-                        settledAt: 0,
-                    },
-                    {
-                        orderId: 99902,
-                        buyer: account || '0x0000000000000000000000000000000000000000',
-                        seller: '0xDemoSeller2222222222222222222222222222',
-                        underlyingName: '以太坊',
-                        underlyingCode: 'ETH/USDT',
-                        market: 'CRYPTO',
-                        country: 'GLOBAL',
-                        direction: 'Put',
-                        notionalUSDT: 50000000000n,  // 50,000 USDT
-                        premiumRate: 550,
-                        premiumAmount: 2750000000n,
-                        expiryTimestamp: Math.floor(Date.now() / 1000) - 100,  // 已到期
-                        status: 'PENDING_SETTLEMENT',  // 待结算 - 可结算/仲裁
-                        initialMargin: 7500000000n,
-                        currentMargin: 7500000000n,
-                        createdAt: Math.floor(Date.now() / 1000) - 7 * 24 * 3600,
-                        matchedAt: Math.floor(Date.now() / 1000) - 7 * 24 * 3600 + 600,
-                        refPrice: '2500',
-                        lastFeedPrice: 2350000000000000000000n,  // 2350 (18位小数)
-                        minMarginRate: 1000,
-                        marginCallDeadline: 0,
-                        arbitrationWindow: Math.floor(Date.now() / 1000) + 6 * 3600,  // 6小时仲裁窗口
-                        settledAt: 0,
-                    },
-                ];
-                // 合并到买方订单列表
-                setBuyerOrders(prev => [...prev, ...DEMO_ORDERS]);
-                // ========== 演示 Mock 订单结束 ==========
+                // 检查 MATCHED 状态订单的喂价状态，如果已完成则同步链上状态为 LIVE
+                const checkAndUpdateFeedStatus = async (orders: Order[]): Promise<Order[]> => {
+                    const updatedOrders: Order[] = [];
+                    for (const order of orders) {
+                        if (order.status === 'MATCHED') {
+                            try {
+                                const feedResult = await checkInitialFeedCompleted(order.orderId);
+                                if (feedResult.completed && feedResult.finalPrice > 0n) {
+                                    // 喂价已完成，尝试调用合约同步状态
+                                    try {
+                                        console.log(`🔄 Syncing order #${order.orderId} status to LIVE...`);
+                                        await processInitialFeedResult(order.orderId, feedResult.finalPrice);
+                                        console.log(`✅ Order #${order.orderId} status synced to LIVE`);
+                                        // 更新为 LIVE 状态
+                                        updatedOrders.push({
+                                            ...order,
+                                            status: 'LIVE',
+                                            lastFeedPrice: feedResult.finalPrice,
+                                            refPrice: (Number(feedResult.finalPrice) / 1e18).toFixed(2),
+                                        });
+                                        continue;
+                                    } catch (syncErr) {
+                                        console.warn(`⚠️ Failed to sync order #${order.orderId}:`, syncErr);
+                                        // 如果合约调用失败，仍在前端覆盖显示
+                                        updatedOrders.push({
+                                            ...order,
+                                            status: 'LIVE',
+                                            lastFeedPrice: feedResult.finalPrice,
+                                            refPrice: (Number(feedResult.finalPrice) / 1e18).toFixed(2),
+                                        });
+                                        continue;
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Failed to check feed status for order', order.orderId, e);
+                            }
+                        }
+                        updatedOrders.push(order);
+                    }
+                    return updatedOrders;
+                };
+
+                // 更新买方和卖方订单的喂价状态
+                const updatedBuyerOrders = await checkAndUpdateFeedStatus(bData);
+                const updatedSellerOrders = await checkAndUpdateFeedStatus(sData);
+                setBuyerOrders(updatedBuyerOrders);
+                setSellerOrders(updatedSellerOrders);
             } finally { setLoading(false); }
         };
         fetchOrders();
-    }, [isConnected, account, getBuyerOrders, getSellerOrders, getOrder, refreshKey]);
+    }, [isConnected, account, getBuyerOrders, getSellerOrders, getOrder, refreshKey, checkInitialFeedCompleted]);
 
     const formatAmount = (val: bigint) => {
         const num = Number(formatUnits(val, 6));
@@ -593,7 +585,7 @@ export function MyOrders() {
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="text-label text-emerald-500/80">个人资产与仓位看板</span>
                     </div>
-                    <h1 className="text-6xl font-extrabold text-white tracking-tighter italic">我的订单 <span className="text-emerald-500">My Orders</span></h1>
+                    <h1 className="text-4xl lg:text-5xl font-bold text-white tracking-tight">我的订单</h1>
                     <p className="text-slate-500 text-xl max-w-2xl font-medium leading-relaxed">
                         实时管理您的合约头寸，监控市场风险，并获取持仓对应的权利金与收益明细。
                     </p>
@@ -668,7 +660,7 @@ export function MyOrders() {
                                         </div>
                                         <div>
                                             <div className="flex items-center space-x-4 mb-2.5">
-                                                <h3 className="text-2xl font-bold text-white tracking-tight italic">{order.underlyingName}</h3>
+                                                <h3 className="text-xl font-bold text-white tracking-tight">{order.underlyingName}</h3>
                                                 <span className="text-[10px] font-black text-slate-500 bg-white/5 px-2.5 py-1 rounded-full tracking-widest uppercase border border-white/5">{order.underlyingCode}</span>
                                             </div>
                                             <p className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.1em] flex items-center gap-2">
@@ -1329,7 +1321,7 @@ export function MyOrders() {
 
                         <div className="text-center mb-16">
                             <p className="text-[11px] font-black text-emerald-500 uppercase tracking-[0.5em] mb-4">实时报价分析终端 (Node Monitor)</p>
-                            <h3 className="text-4xl font-extrabold text-white tracking-tighter italic">询价单详情 <span className="opacity-20">/</span> {selectedRFQ.underlyingCode}</h3>
+                            <h3 className="text-2xl font-bold text-white tracking-tight">询价单详情 / {selectedRFQ.underlyingCode}</h3>
                         </div>
 
                         <div className="grid grid-cols-4 gap-10 mb-16 py-10 border-y border-white/[0.08]">
@@ -1402,7 +1394,7 @@ export function MyOrders() {
 
                                             <div className="text-right">
                                                 <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">权利金费率</p>
-                                                <p className="text-3xl font-bold text-emerald-400 italic tracking-tighter">{(quote.premiumRate / 100).toFixed(2)}%</p>
+                                                <p className="text-2xl font-bold text-emerald-400 tracking-tight">{(quote.premiumRate / 100).toFixed(2)}%</p>
                                             </div>
                                             <button
                                                 onClick={() => handleAcceptQuote(quote)}

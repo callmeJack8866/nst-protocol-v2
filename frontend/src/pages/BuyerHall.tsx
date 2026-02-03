@@ -107,7 +107,7 @@ export function BuyerHall() {
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-label text-emerald-500/80">实时行情与撮合终端</span>
           </div>
-          <h1 className="text-6xl font-extrabold text-white tracking-tighter italic">买方大厅 <span className="text-emerald-500">Buyer Hall</span></h1>
+          <h1 className="text-4xl lg:text-5xl font-bold text-white tracking-tight">买方大厅</h1>
           <p className="text-slate-500 text-xl max-w-2xl font-medium leading-relaxed">
             浏览全球市场的实时询价订单，寻找最符合您投资策略的场外期权流动性。
           </p>
@@ -117,12 +117,12 @@ export function BuyerHall() {
           <div className="flex items-center space-x-12 px-10 py-6 glass-surface rounded-[32px]">
             <div>
               <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">全网总流动性</p>
-              <p className="text-2xl font-bold text-white tracking-tight italic">$---</p>
+              <p className="text-2xl font-bold text-white tracking-tight">$---</p>
             </div>
             <div className="w-px h-10 bg-white/10" />
             <div>
               <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">活跃询价订单</p>
-              <p className="text-2xl font-bold text-white tracking-tight italic">{rfqs.length}</p>
+              <p className="text-2xl font-bold text-white tracking-tight">{rfqs.length}</p>
             </div>
           </div>
           <Link to="/create-rfq" className="btn-elite-primary px-12 h-20 rounded-[28px] text-[14px] tracking-[0.05em] shadow-2xl shadow-emerald-500/20">
@@ -228,7 +228,7 @@ export function BuyerHall() {
 
             <div className="text-center mb-16">
               <p className="text-[11px] font-black text-emerald-500 uppercase tracking-[0.5em] mb-4">实时报价分析终端</p>
-              <h3 className="text-4xl font-extrabold text-white tracking-tighter italic">询价单详情 <span className="opacity-20">/</span> {selectedRFQ.underlyingCode}</h3>
+              <h3 className="text-2xl font-bold text-white tracking-tight">询价单详情 / {selectedRFQ.underlyingCode}</h3>
             </div>
 
             <div className="grid grid-cols-4 gap-10 mb-16 py-10 border-y border-white/[0.08]">
@@ -297,7 +297,7 @@ export function BuyerHall() {
 
                       <div className="text-right">
                         <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">提供的权利金费率</p>
-                        <p className="text-3xl font-bold text-emerald-400 italic tracking-tighter">{(quote.premiumRate / 100).toFixed(2)}%</p>
+                        <p className="text-2xl font-bold text-emerald-400 tracking-tight">{(quote.premiumRate / 100).toFixed(2)}%</p>
                       </div>
                       <button
                         onClick={() => handleAccept(quote)}
@@ -330,7 +330,7 @@ function MetricItem({ label, value, gold }: { label: string, value: string, gold
   return (
     <div className="space-y-3">
       <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">{label}</p>
-      <p className={`text-2xl font-bold italic tracking-tighter ${gold ? 'text-emerald-400' : 'text-white'}`}>{value}</p>
+      <p className={`text-xl font-bold tracking-tight ${gold ? 'text-emerald-400' : 'text-white'}`}>{value}</p>
     </div>
   );
 }

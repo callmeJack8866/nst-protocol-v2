@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Contract, parseUnits, formatUnits } from 'ethers';
 import { useWalletContext } from '../context/WalletContext';
 import { getContractAddresses } from '../contracts/config';
-import { FeedProtocolABI, PointsManagerABI } from '../contracts/abis';
+import { FeedProtocolABI, PointsManagerABI, VolumeBasedFeedABI } from '../contracts/abis';
 
 // Types
 export interface FeedRequest {
@@ -211,8 +211,8 @@ export function useFeedProtocol() {
         try {
             const signer = await provider.getSigner();
 
-            // USDT uses 6 decimals
-            const stakeAmountWei = parseUnits(stakeAmount, 6);
+            // Mock USDT uses 18 decimals
+            const stakeAmountWei = parseUnits(stakeAmount, 18);
 
             // Step 1: Check and approve USDT
             const usdtContract = new Contract(
@@ -302,6 +302,41 @@ export function useFeedProtocol() {
         }
     }, [getReadContract]);
 
+    // Get feed requests for a specific order
+    const getOrderFeedRequests = useCallback(async (orderId: number): Promise<number[]> => {
+        const contract = await getReadContract();
+        if (!contract) return [];
+
+        try {
+            const requestIds = await contract.getOrderFeedRequests(orderId);
+            return requestIds.map((id: bigint) => Number(id));
+        } catch (err) {
+            console.error('Failed to get order feed requests:', err);
+            return [];
+        }
+    }, [getReadContract]);
+
+    // Check if initial feed is completed for an order
+    const checkInitialFeedCompleted = useCallback(async (orderId: number): Promise<{
+        completed: boolean;
+        finalPrice: bigint;
+    }> => {
+        const requestIds = await getOrderFeedRequests(orderId);
+        if (requestIds.length === 0) {
+            return { completed: false, finalPrice: 0n };
+        }
+
+        // 检查最新的喂价请求
+        const latestRequestId = Math.max(...requestIds);
+        const request = await getFeedRequest(latestRequestId);
+
+        if (request && request.finalized) {
+            return { completed: true, finalPrice: request.finalPrice };
+        }
+
+        return { completed: false, finalPrice: 0n };
+    }, [getOrderFeedRequests, getFeedRequest]);
+
     return {
         isLoading,
         error,
@@ -315,6 +350,8 @@ export function useFeedProtocol() {
         submitFeed,
         rejectFeed,
         getFeedFee,
+        getOrderFeedRequests,
+        checkInitialFeedCompleted,
     };
 }
 
@@ -423,6 +460,79 @@ export function usePoints() {
         }
     }, [getContract]);
 
+    // 积分历史记录类型
+    interface PointsHistoryItem {
+        type: string;
+        source: string;
+        points: string;
+        status: 'CONFIRMED';
+        time: string;
+        txHash: string;
+    }
+
+    /**
+     * 获取用户积分历史记录
+     * 通过读取 PointsAccumulated 事件获取
+     * @param maxBlocks 最大查询区块数 (默认 10000)
+     */
+    const getPointsHistory = useCallback(async (maxBlocks: number = 10000): Promise<PointsHistoryItem[]> => {
+        if (!provider || !chainId || !account) return [];
+
+        const addresses = getContractAddresses(chainId);
+        if (!addresses.PointsManager) return [];
+
+        try {
+            const contract = new Contract(addresses.PointsManager, PointsManagerABI, provider);
+
+            // 获取当前区块
+            const currentBlock = await provider.getBlockNumber();
+            const fromBlock = Math.max(0, currentBlock - maxBlocks);
+
+            // 查询 PointsAccumulated 事件
+            const filter = contract.filters.PointsAccumulated(account);
+            const events = await contract.queryFilter(filter, fromBlock, currentBlock);
+
+            // 格式化事件数据
+            const history: PointsHistoryItem[] = await Promise.all(
+                events.map(async (event) => {
+                    const block = await event.getBlock();
+                    const timestamp = block.timestamp;
+                    const date = new Date(timestamp * 1000);
+                    const timeStr = date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                    });
+
+                    // 解析事件参数
+                    const args = (event as any).args;
+                    const amount = args.amount;
+                    const feeType = args.feeType;
+
+                    // 生成来源标识
+                    const sourceId = `${feeType.toUpperCase()}-${event.transactionHash.slice(0, 6)}`;
+
+                    return {
+                        type: feeType.toUpperCase(),
+                        source: sourceId,
+                        points: `+${formatUnits(amount, 0)}`,
+                        status: 'CONFIRMED' as const,
+                        time: timeStr,
+                        txHash: event.transactionHash,
+                    };
+                })
+            );
+
+            // 按时间倒序排列
+            return history.reverse();
+        } catch (err) {
+            console.error('Failed to fetch points history:', err);
+            return [];
+        }
+    }, [provider, chainId, account]);
+
     return {
         isLoading,
         error,
@@ -433,5 +543,212 @@ export function usePoints() {
         calculateClaimableNST,
         claimAirdrop,
         getCurrentAirdropId,
+        getPointsHistory,
+    };
+}
+
+// ==================== 跟量成交喂价 Hook ====================
+
+// 跟量成交喂价请求状态常量
+export const VolumeBasedFeedStatus = {
+    Pending: 0,
+    Approved: 1,
+    Rejected: 2,
+    Modified: 3,
+    Expired: 4,
+    Finalized: 5,
+} as const;
+export type VolumeBasedFeedStatus = typeof VolumeBasedFeedStatus[keyof typeof VolumeBasedFeedStatus];
+
+// 拒绝原因常量
+export const RejectReason = {
+    T_PLUS_X_NOT_MET: 0,
+    NO_TRADING_VOLUME: 1,
+    MARKET_CLOSED: 2,
+    PRICE_NOT_AVAILABLE: 3,
+    PRICE_UNREASONABLE: 4,
+    OTHER: 5,
+} as const;
+export type RejectReason = typeof RejectReason[keyof typeof RejectReason];
+
+// 拒绝原因标签
+export const REJECT_REASON_LABELS: Record<RejectReason, string> = {
+    [RejectReason.T_PLUS_X_NOT_MET]: '不符合T+X行权条件',
+    [RejectReason.NO_TRADING_VOLUME]: '跟量成交无成交量',
+    [RejectReason.MARKET_CLOSED]: '市场休市',
+    [RejectReason.PRICE_NOT_AVAILABLE]: '无法获取价格',
+    [RejectReason.PRICE_UNREASONABLE]: '价格不合理',
+    [RejectReason.OTHER]: '其他原因',
+};
+
+export interface VolumeBasedFeedRequest {
+    requestId: bigint;
+    orderId: bigint;
+    seller: string;
+    suggestedPrice: bigint;
+    priceEvidence: string;
+    submittedAt: bigint;
+    deadline: bigint;
+    isVerified: boolean;
+    verifiedBy: string;
+    finalPrice: bigint;
+    status: VolumeBasedFeedStatus;
+    rejectReason: RejectReason;
+    rejectDescription: string;
+    feedType: number;
+    isInitialFeed: boolean;
+}
+
+export function useVolumeBasedFeed() {
+    const { provider, chainId } = useWalletContext();
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const getContract = useCallback(async () => {
+        if (!provider || !chainId) return null;
+
+        const addresses = getContractAddresses(chainId);
+        if (!addresses.VolumeBasedFeed) return null;
+
+        const signer = await provider.getSigner();
+        return new Contract(addresses.VolumeBasedFeed, VolumeBasedFeedABI, signer);
+    }, [provider, chainId]);
+
+    const getReadContract = useCallback(async () => {
+        if (!provider || !chainId) return null;
+
+        const addresses = getContractAddresses(chainId);
+        if (!addresses.VolumeBasedFeed) return null;
+
+        return new Contract(addresses.VolumeBasedFeed, VolumeBasedFeedABI, provider);
+    }, [provider, chainId]);
+
+    /**
+     * 获取跟量成交喂价请求详情
+     */
+    const getVolumeRequest = useCallback(async (requestId: number): Promise<VolumeBasedFeedRequest | null> => {
+        const contract = await getReadContract();
+        if (!contract) return null;
+
+        try {
+            const request = await contract.getRequest(requestId);
+            return request as VolumeBasedFeedRequest;
+        } catch (err) {
+            console.error('Failed to fetch volume-based feed request:', err);
+            return null;
+        }
+    }, [getReadContract]);
+
+    /**
+     * 获取订单的所有跟量成交请求ID
+     */
+    const getOrderVolumeRequests = useCallback(async (orderId: number): Promise<number[]> => {
+        const contract = await getReadContract();
+        if (!contract) return [];
+
+        try {
+            const requestIds = await contract.getOrderVolumeRequests(orderId);
+            return requestIds.map((id: bigint) => Number(id));
+        } catch (err) {
+            console.error('Failed to fetch order volume requests:', err);
+            return [];
+        }
+    }, [getReadContract]);
+
+    /**
+     * 喂价员确认使用卖方建议价格
+     */
+    const approvePrice = useCallback(async (requestId: number) => {
+        const contract = await getContract();
+        if (!contract) throw new Error('Contract not initialized');
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const tx = await contract.approvePrice(requestId);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Approve price failed';
+            setError(message);
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getContract]);
+
+    /**
+     * 喂价员修正价格
+     */
+    const modifyPrice = useCallback(async (requestId: number, modifiedPrice: string, reason: string) => {
+        const contract = await getContract();
+        if (!contract) throw new Error('Contract not initialized');
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            // 价格使用 18 位精度
+            const tx = await contract.modifyPrice(requestId, parseUnits(modifiedPrice, 18), reason);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Modify price failed';
+            setError(message);
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getContract]);
+
+    /**
+     * 喂价员拒绝喂价
+     */
+    const rejectPrice = useCallback(async (requestId: number, reason: RejectReason, description: string) => {
+        const contract = await getContract();
+        if (!contract) throw new Error('Contract not initialized');
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const tx = await contract.rejectPrice(requestId, reason, description);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Reject price failed';
+            setError(message);
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getContract]);
+
+    /**
+     * 获取请求最终价格
+     */
+    const getFinalPrice = useCallback(async (requestId: number): Promise<{ price: string; isValid: boolean }> => {
+        const contract = await getReadContract();
+        if (!contract) return { price: '0', isValid: false };
+
+        try {
+            const [price, isValid] = await contract.getFinalPrice(requestId);
+            return { price: formatUnits(price, 18), isValid };
+        } catch (err) {
+            console.error('Failed to get final price:', err);
+            return { price: '0', isValid: false };
+        }
+    }, [getReadContract]);
+
+    return {
+        isLoading,
+        error,
+        getVolumeRequest,
+        getOrderVolumeRequests,
+        approvePrice,
+        modifyPrice,
+        rejectPrice,
+        getFinalPrice,
     };
 }

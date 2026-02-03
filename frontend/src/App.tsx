@@ -10,6 +10,8 @@ import { MyOrders } from './pages/MyOrders';
 import CreateBuyerRFQ from './pages/CreateBuyerRFQ';
 import CreateSellerOrder from './pages/CreateSellerOrder';
 import { PointsCenter } from './pages/PointsCenter';
+import { SeatManagement } from './pages/SeatManagement';
+import SubmitQuotePage from './pages/SubmitQuotePage';
 
 function App() {
   return (
@@ -38,6 +40,9 @@ function App() {
                     <Route path="/points" element={<PointsCenter />} />
                     <Route path="/create-rfq" element={<CreateBuyerRFQ />} />
                     <Route path="/create-order" element={<CreateSellerOrder />} />
+                    <Route path="/seat" element={<SeatManagement />} />
+                    {/* 卖方对买方RFQ提交报价 */}
+                    <Route path="/quote/:orderId" element={<SubmitQuotePage />} />
                   </Routes>
                 </div>
 

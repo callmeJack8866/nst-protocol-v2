@@ -16,7 +16,7 @@ export const OptionsCoreABI = [
 
     // Write functions
     'function createBuyerRFQ(string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 expiryTimestamp, uint256 maxPremiumRate, uint256 minMarginRate, uint8 acceptedSellerType, address designatedSeller, uint256 arbitrationWindow, uint256 marginCallDeadline, bool dividendAdjustment, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint8 feedRule) returns (uint256 orderId)',
-    'function createSellerOrder(string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 expiryTimestamp, uint256 premiumRate, uint256 marginAmount, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint256 arbitrationWindow, bool dividendAdjustment) returns (uint256 orderId)',
+    'function createSellerOrder(string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 expiryTimestamp, uint256 premiumRate, uint256 marginAmount, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint256 arbitrationWindow, bool dividendAdjustment, uint8 exerciseDelay, uint8 feedRule) returns (uint256 orderId)',
     'function submitQuote(uint256 orderId, uint256 premiumRate, uint256 marginRate, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent) returns (uint256 quoteId)',
     'function acceptQuote(uint256 quoteId)',
     'function cancelRFQ(uint256 orderId)',
@@ -25,6 +25,7 @@ export const OptionsCoreABI = [
     'function requestFeed(uint256 orderId, uint8 tier) payable',
     'function earlyExercise(uint256 orderId)',
     'function settle(uint256 orderId)',
+    'function acceptSellerOrder(uint256 orderId)',
     'function initiateArbitration(uint256 orderId)',
     'function forceLiquidate(uint256 orderId)',
 
@@ -82,8 +83,8 @@ export const PointsManagerABI = [
     'function claimAirdrop(uint256 airdropId)',
 
     // Events
-    'event PointsAdded(address indexed user, uint256 amount, uint256 feeAmount, string feeType, uint256 timestamp)',
-    'event AirdropCreated(uint256 indexed airdropId, uint256 totalNSTPool, uint256 startTime, uint256 endTime, uint256 timestamp)',
+    'event PointsAccumulated(address indexed user, uint256 amount, string feeType, uint256 timestamp)',
+    'event AirdropCreated(uint256 indexed airdropId, uint256 totalPool, uint256 startTime, uint256 endTime, uint256 timestamp)',
     'event AirdropClaimed(address indexed user, uint256 indexed airdropId, uint256 pointsUsed, uint256 nstAmount, uint256 timestamp)',
 ] as const;
 
@@ -137,4 +138,33 @@ export const ERC20ABI = [
     'function transferFrom(address from, address to, uint256 amount) returns (bool)',
     'event Transfer(address indexed from, address indexed to, uint256 value)',
     'event Approval(address indexed owner, address indexed spender, uint256 value)',
+] as const;
+
+// VolumeBasedFeed ABI (跟量成交喂价)
+export const VolumeBasedFeedABI = [
+    // Read functions
+    'function getRequest(uint256 requestId) view returns (tuple(uint256 requestId, uint256 orderId, address seller, uint256 suggestedPrice, string priceEvidence, uint256 submittedAt, uint256 deadline, bool isVerified, address verifiedBy, uint256 finalPrice, uint8 status, uint8 rejectReason, string rejectDescription, uint8 feedType, bool isInitialFeed))',
+    'function getOrderVolumeRequests(uint256 orderId) view returns (uint256[])',
+    'function getFinalPrice(uint256 requestId) view returns (uint256, bool)',
+    'function getRequestStatus(uint256 requestId) view returns (uint8)',
+    'function isExpired(uint256 requestId) view returns (bool)',
+    'function nextRequestId() view returns (uint256)',
+    'function verificationTimeout() view returns (uint256)',
+
+    // Write functions - 卖方
+    'function submitSuggestedPrice(uint256 orderId, uint256 suggestedPrice, string priceEvidence, uint8 feedType, bool isInitialFeed) returns (uint256 requestId)',
+
+    // Write functions - 喂价员
+    'function approvePrice(uint256 requestId)',
+    'function modifyPrice(uint256 requestId, uint256 modifiedPrice, string reason)',
+    'function rejectPrice(uint256 requestId, uint8 reason, string description)',
+    'function markExpired(uint256 requestId)',
+
+    // Events
+    'event SuggestedPriceSubmitted(uint256 indexed requestId, uint256 indexed orderId, address indexed seller, uint256 suggestedPrice, string priceEvidence, uint8 feedType, uint256 timestamp)',
+    'event PriceApproved(uint256 indexed requestId, address indexed feeder, uint256 finalPrice, uint256 timestamp)',
+    'event PriceModified(uint256 indexed requestId, address indexed feeder, uint256 originalPrice, uint256 modifiedPrice, string reason, uint256 timestamp)',
+    'event PriceRejected(uint256 indexed requestId, address indexed feeder, uint8 reason, string description, uint256 timestamp)',
+    'event RequestExpired(uint256 indexed requestId, uint256 timestamp)',
+    'event RefeedRequired(uint256 indexed requestId, uint256 indexed orderId, string reason, uint256 timestamp)',
 ] as const;

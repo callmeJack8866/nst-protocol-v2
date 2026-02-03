@@ -18,6 +18,28 @@ const FEED_TIER_LABELS: Record<number, { name: string; desc: string }> = {
   2: { name: '10-7档', desc: '10个喂价员，取中间7个' },
 };
 
+// P2: 喂价员等级系统
+const FEEDER_RANKS = [
+  { name: 'Rookie', minFeeds: 0, maxFeeds: 9, color: 'text-slate-400', bg: 'bg-slate-500/10', border: 'border-slate-500/20', emoji: '🌱' },
+  { name: 'Regular', minFeeds: 10, maxFeeds: 49, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', emoji: '⚡' },
+  { name: 'Expert', minFeeds: 50, maxFeeds: 199, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', emoji: '🔮' },
+  { name: 'Elite', minFeeds: 200, maxFeeds: Infinity, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', emoji: '👑' },
+];
+
+const getFeederRank = (completedFeeds: number) => {
+  return FEEDER_RANKS.find(r => completedFeeds >= r.minFeeds && completedFeeds <= r.maxFeeds) || FEEDER_RANKS[0];
+};
+
+const getRankProgress = (completedFeeds: number): { current: number; next: number; percent: number } => {
+  const rank = getFeederRank(completedFeeds);
+  const nextRank = FEEDER_RANKS.find(r => r.minFeeds > completedFeeds);
+  if (!nextRank) return { current: completedFeeds, next: completedFeeds, percent: 100 };
+  const progress = completedFeeds - rank.minFeeds;
+  const total = nextRank.minFeeds - rank.minFeeds;
+  return { current: completedFeeds, next: nextRank.minFeeds, percent: Math.round((progress / total) * 100) };
+};
+
+
 export function FeederPanel() {
   const { isConnected, account, connect } = useWallet();
   const {
@@ -129,12 +151,40 @@ export function FeederPanel() {
   // Not connected state
   if (!isConnected) {
     return (
-      <div className="max-w-[1240px] mx-auto px-10 py-40 text-center animate-elite-entry">
-        <div className="glass-surface p-28 rounded-[56px] border-dashed border-white/10 flex flex-col items-center">
-          <div className="text-8xl mb-14 opacity-10">📡</div>
-          <h3 className="text-2xl font-bold text-white mb-6 italic tracking-tighter uppercase">终端离线 Station Offline</h3>
-          <p className="text-slate-500 text-lg mb-12 max-w-sm font-medium leading-relaxed">连接您的 Web3 身份以访问去中心化喂价工作台与协议共识网络。</p>
-          <button onClick={() => connect()} className="btn-elite-primary px-16 h-16 shadow-2xl">授权连接终端</button>
+      <div className="max-w-[1200px] mx-auto px-10 py-20 animate-elite-entry">
+        <div className="glass-surface rounded-3xl p-10">
+          {/* 网络状态预览 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 pb-8 border-b border-white/5">
+            <div className="text-center p-4 rounded-2xl bg-slate-900/30">
+              <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">节点状态</p>
+              <p className="text-lg font-bold text-blue-400">在线</p>
+            </div>
+            <div className="text-center p-4 rounded-2xl bg-slate-900/30">
+              <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">活跃喂价员</p>
+              <p className="text-2xl font-bold text-white">--</p>
+            </div>
+            <div className="text-center p-4 rounded-2xl bg-slate-900/30">
+              <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">待处理请求</p>
+              <p className="text-2xl font-bold text-white">--</p>
+            </div>
+            <div className="text-center p-4 rounded-2xl bg-slate-900/30">
+              <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">今日喂价</p>
+              <p className="text-2xl font-bold text-emerald-400">--</p>
+            </div>
+          </div>
+
+          {/* 连接提示 */}
+          <div className="text-center py-8">
+            <div className="w-16 h-16 rounded-2xl bg-blue-500/10 mx-auto mb-5 flex items-center justify-center">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400">
+                <path d="M2 12h2m16 0h2M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41" />
+                <circle cx="12" cy="12" r="4" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">终端离线</h3>
+            <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto">连接您的 Web3 身份以访问去中心化喂价工作台</p>
+            <button onClick={() => connect()} className="btn-elite-primary h-12 px-8 rounded-xl text-sm font-semibold">授权连接终端</button>
+          </div>
         </div>
       </div>
     );
@@ -188,6 +238,46 @@ export function FeederPanel() {
             ))}
           </div>
         )}
+
+        {/* P2: 喂价员等级徽章 */}
+        {feederInfo?.isActive && (() => {
+          const completedFeeds = Number(feederInfo.completedFeeds || 0);
+          const rank = getFeederRank(completedFeeds);
+          const progress = getRankProgress(completedFeeds);
+          return (
+            <div className="glass-surface rounded-[48px] p-10 flex flex-col md:flex-row items-center justify-between gap-8">
+              <div className="flex items-center gap-6">
+                <div className={`w-20 h-20 rounded-[24px] ${rank.bg} border ${rank.border} flex items-center justify-center text-4xl`}>
+                  {rank.emoji}
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">当前等级</p>
+                  <h3 className={`text-2xl font-black ${rank.color} tracking-tight`}>{rank.name}</h3>
+                  <p className="text-slate-500 text-sm">已完成 {completedFeeds} 次喂价</p>
+                </div>
+              </div>
+              {progress.percent < 100 && (
+                <div className="flex-1 max-w-md">
+                  <div className="flex justify-between text-xs font-bold text-slate-500 mb-2">
+                    <span>距离下一等级</span>
+                    <span>{progress.current} / {progress.next}</span>
+                  </div>
+                  <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${progress.percent}%`, backgroundColor: rank.color.includes('amber') ? '#f59e0b' : rank.color.includes('purple') ? '#a855f7' : rank.color.includes('blue') ? '#3b82f6' : '#64748b' }}
+                    />
+                  </div>
+                </div>
+              )}
+              {progress.percent >= 100 && (
+                <div className="px-6 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                  <span className="text-amber-400 font-bold text-sm">🏆 最高等级已达成</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Pending Requests */}
         <div className="space-y-12">
@@ -248,13 +338,13 @@ export function FeederPanel() {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-16 flex-1 border-l border-white/5 pl-16">
                       <div className="text-right">
                         <p className="text-label mb-2">喂价进度</p>
-                        <p className="text-2xl font-bold text-emerald-400 italic tracking-tighter">
+                        <p className="text-xl font-bold text-emerald-400 tracking-tight">
                           {Number(req.submittedCount)}/{Number(req.totalFeeders)}
                         </p>
                       </div>
                       <div className="text-right border-l border-white/5 pl-16">
                         <p className="text-label mb-2">剩余时间</p>
-                        <p className="text-2xl font-bold text-white italic tracking-tighter">
+                        <p className="text-xl font-bold text-white tracking-tight">
                           {getTimeRemaining(req.deadline)}
                         </p>
                       </div>
@@ -299,291 +389,318 @@ export function FeederPanel() {
             </div>
           )}
         </div>
-      </div>
+      </div >
 
       {/* Register Modal */}
-      {showRegisterModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="glass-surface p-12 rounded-[40px] w-full max-w-lg">
-            <h2 className="text-2xl font-bold text-white mb-8">注册成为喂价员</h2>
+      {
+        showRegisterModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+            <div className="glass-surface p-12 rounded-[40px] w-full max-w-lg">
+              <h2 className="text-2xl font-bold text-white mb-8">注册成为喂价员</h2>
 
-            <div className="space-y-6">
-              <div>
-                <label className="text-label mb-2 block">质押金额 (USDT)</label>
-                <input
-                  type="number"
-                  value={stakeAmount}
-                  onChange={(e) => setStakeAmount(e.target.value)}
-                  placeholder="最低 100 USDT"
-                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white"
-                />
-                <p className="text-slate-500 text-sm mt-2">最低质押要求: 100 USDT</p>
-              </div>
-
-              <div className="flex space-x-4 pt-4">
-                <button
-                  onClick={() => setShowRegisterModal(false)}
-                  className="flex-1 h-14 rounded-xl border border-white/10 text-white font-bold"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleRegister}
-                  disabled={isLoading || Number(stakeAmount) < 100}
-                  className="flex-1 h-14 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50"
-                >
-                  {isLoading ? '处理中...' : '确认注册'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Feed Modal */}
-      {showFeedModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="glass-surface p-12 rounded-[40px] w-full max-w-lg">
-            <h2 className="text-2xl font-bold text-white mb-2">提交喂价</h2>
-            <p className="text-slate-500 mb-8">订单 #{Number(selectedRequest.orderId)} · {FEED_TYPE_LABELS[selectedRequest.feedType]}</p>
-
-            <div className="space-y-6">
-              {/* P2: 跟量成交模式 - 三选项 UI */}
-              {selectedRequest.feedRule === 1 && selectedRequest.suggestedPrice ? (
-                <div className="space-y-4">
-                  <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">📈 跟量成交喂价模式</p>
-
-                  {/* 三选项单选 */}
-                  <div className="space-y-3">
-                    <button
-                      type="button"
-                      onClick={() => setVolumeFeedMode('confirm')}
-                      className={`w-full p-4 rounded-2xl border text-left transition-all ${volumeFeedMode === 'confirm'
-                        ? 'bg-emerald-500/20 border-emerald-500/30'
-                        : 'bg-slate-800/50 border-white/10 hover:border-white/20'
-                        }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${volumeFeedMode === 'confirm' ? 'border-emerald-400' : 'border-slate-500'}`}>
-                          {volumeFeedMode === 'confirm' && <div className="w-2 h-2 rounded-full bg-emerald-400" />}
-                        </div>
-                        <div>
-                          <p className="text-white font-bold text-sm">价格合理，确认使用此价格</p>
-                          <p className="text-emerald-400 font-bold text-lg mt-1">{selectedRequest.suggestedPrice}</p>
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setVolumeFeedMode('modify')}
-                      className={`w-full p-4 rounded-2xl border text-left transition-all ${volumeFeedMode === 'modify'
-                        ? 'bg-blue-500/20 border-blue-500/30'
-                        : 'bg-slate-800/50 border-white/10 hover:border-white/20'
-                        }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${volumeFeedMode === 'modify' ? 'border-blue-400' : 'border-slate-500'}`}>
-                          {volumeFeedMode === 'modify' && <div className="w-2 h-2 rounded-full bg-blue-400" />}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-white font-bold text-sm">价格不合理，修正为:</p>
-                        </div>
-                      </div>
-                      {volumeFeedMode === 'modify' && (
-                        <input
-                          type="number"
-                          value={priceInput}
-                          onChange={(e) => setPriceInput(e.target.value)}
-                          placeholder="输入修正后的价格"
-                          className="w-full bg-slate-900 border border-blue-500/30 rounded-xl px-4 py-3 text-white mt-3"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setVolumeFeedMode('reject')}
-                      className={`w-full p-4 rounded-2xl border text-left transition-all ${volumeFeedMode === 'reject'
-                        ? 'bg-rose-500/20 border-rose-500/30'
-                        : 'bg-slate-800/50 border-white/10 hover:border-white/20'
-                        }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${volumeFeedMode === 'reject' ? 'border-rose-400' : 'border-slate-500'}`}>
-                          {volumeFeedMode === 'reject' && <div className="w-2 h-2 rounded-full bg-rose-400" />}
-                        </div>
-                        <p className="text-white font-bold text-sm">拒绝喂价（无成交量等原因）</p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* 正常喂价模式 */
+              <div className="space-y-6">
                 <div>
-                  <label className="text-label mb-2 block">价格</label>
+                  <label className="text-label mb-2 block">质押金额 (USDT)</label>
                   <input
                     type="number"
-                    value={priceInput}
-                    onChange={(e) => setPriceInput(e.target.value)}
-                    placeholder="输入当前市场价格"
+                    value={stakeAmount}
+                    onChange={(e) => setStakeAmount(e.target.value)}
+                    placeholder="最低 100 USDT"
                     className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white"
                   />
+                  <p className="text-slate-500 text-sm mt-2">最低质押要求: 100 USDT</p>
                 </div>
-              )}
 
-              <div className="bg-slate-800/50 rounded-xl p-4">
-                <p className="text-slate-400 text-sm">
-                  当前进度: {Number(selectedRequest.submittedCount)}/{Number(selectedRequest.totalFeeders)} 个喂价员已提交
-                </p>
-              </div>
-
-              {/* Order Constraints - Elite 2.1 新增 */}
-              <div className="border-t border-white/5 pt-8">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 italic">标的合约约束约束 (Order Constraints)</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-                    <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">定价模型</p>
-                    <p className="text-white font-bold text-sm italic">Black-Scholes (T+0)</p>
-                  </div>
-                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-                    <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">分红调整</p>
-                    <p className="text-emerald-400 font-bold text-sm italic">协议自动补偿</p>
-                  </div>
-                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-                    <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">结算延迟</p>
-                    <p className="text-white font-bold text-sm italic">7200s (T+2h)</p>
-                  </div>
-                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-                    <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">强平线</p>
-                    <p className="text-rose-400 font-bold text-sm italic">110% 保证金率</p>
-                  </div>
-                </div>
-                {selectedOrderDetails && (
-                  <div className="mt-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl p-5 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] text-blue-400 font-bold uppercase mb-1">标的资产</p>
-                      <p className="text-white font-bold text-sm">{selectedOrderDetails.underlyingName} ({selectedOrderDetails.underlyingCode})</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-blue-400 font-bold uppercase mb-1">名义本金</p>
-                      <p className="text-white font-bold text-sm italic">${Number(formatUnits(selectedOrderDetails.notionalUSDT, 6)).toLocaleString()}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* P2: T+X 条件和喂价规则显示 */}
-                <div className="mt-4 grid grid-cols-2 gap-4">
-                  {selectedRequest.exerciseDelay && Number(selectedRequest.exerciseDelay) > 0 && (
-                    <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-4">
-                      <p className="text-[10px] text-rose-400 font-bold uppercase mb-1">⏱️ 行权延迟要求</p>
-                      <p className="text-white font-bold text-lg">T+{Number(selectedRequest.exerciseDelay)}</p>
-                      <p className="text-slate-500 text-[10px] mt-1">需确认满足 T+X 条件后方可喂价</p>
-                    </div>
-                  )}
-                  {selectedRequest.feedRule === 1 && (
-                    <div className="bg-purple-500/5 border border-purple-500/10 rounded-2xl p-4">
-                      <p className="text-[10px] text-purple-400 font-bold uppercase mb-1">📈 跟量成交喂价</p>
-                      <p className="text-white font-bold text-lg">{selectedRequest.suggestedPrice || '待验证'}</p>
-                      <p className="text-slate-500 text-[10px] mt-1">卖方建议价格，请验证合理性</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex space-x-4 pt-4">
-                <button
-                  onClick={() => {
-                    setShowFeedModal(false);
-                    setSelectedRequest(null);
-                    setPriceInput('');
-                    setVolumeFeedMode('confirm');
-                  }}
-                  className="flex-1 h-14 rounded-xl border border-white/10 text-white font-bold"
-                >
-                  取消
-                </button>
-                {/* P2: 跟量成交拒绝模式单独处理 */}
-                {selectedRequest.feedRule === 1 && volumeFeedMode === 'reject' ? (
+                <div className="flex space-x-4 pt-4">
                   <button
-                    onClick={() => {
-                      setRejectReason('无成交量/无法跟量');
-                      handleRejectFeed();
-                    }}
-                    disabled={isLoading}
-                    className="flex-1 h-14 rounded-xl bg-rose-600 text-white font-bold disabled:opacity-50"
+                    onClick={() => setShowRegisterModal(false)}
+                    className="flex-1 h-14 rounded-xl border border-white/10 text-white font-bold"
                   >
-                    {isLoading ? '处理中...' : '确认拒绝'}
+                    取消
                   </button>
-                ) : (
                   <button
-                    onClick={handleSubmitFeed}
-                    disabled={isLoading || (selectedRequest.feedRule !== 1 && !priceInput) || (selectedRequest.feedRule === 1 && volumeFeedMode === 'modify' && !priceInput)}
+                    onClick={handleRegister}
+                    disabled={isLoading || Number(stakeAmount) < 100}
                     className="flex-1 h-14 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50"
                   >
-                    {isLoading ? '提交中...' : volumeFeedMode === 'confirm' && selectedRequest.feedRule === 1 ? '确认建议价格' : '确认提交'}
-                  </button>
-                )}
-              </div>
-
-              {/* Reject option - 仅正常喂价模式显示 */}
-              {selectedRequest.feedRule !== 1 && (
-                <div className="border-t border-white/10 pt-6">
-                  <p className="text-slate-500 text-sm mb-4">如果无法获取价格，可以拒绝喂价：</p>
-
-                  {/* P1: 预定义拒绝原因 */}
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    {[
-                      { id: 'T_PLUS_X_NOT_MET', label: '不符合T+X条件', icon: '📅' },
-                      { id: 'NO_TRADING_VOLUME', label: '无成交量/无法跟量', icon: '📉' },
-                      { id: 'MARKET_CLOSED', label: '市场休市', icon: '🏢' },
-                      { id: 'PRICE_NOT_AVAILABLE', label: '无法获取价格', icon: '❓' },
-                    ].map(reason => (
-                      <button
-                        key={reason.id}
-                        type="button"
-                        onClick={() => setRejectReason(reason.label)}
-                        className={`p-3 rounded-xl border text-left transition-all text-xs ${rejectReason === reason.label
-                          ? 'bg-rose-500/20 border-rose-500/30 text-rose-400'
-                          : 'bg-slate-800/50 border-white/10 text-slate-400 hover:border-white/20'
-                          }`}
-                      >
-                        <span className="mr-2">{reason.icon}</span>
-                        {reason.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <input
-                    type="text"
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="拒绝原因 (可自定义)"
-                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white mb-4"
-                  />
-                  <button
-                    onClick={handleRejectFeed}
-                    disabled={isLoading || !rejectReason}
-                    className="w-full h-12 rounded-xl border border-red-500/30 text-red-400 font-bold disabled:opacity-50 hover:bg-red-500/10 transition-all"
-                  >
-                    拒绝喂价
+                    {isLoading ? '处理中...' : '确认注册'}
                   </button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {/* Feed Modal */}
+      {
+        showFeedModal && selectedRequest && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+            <div className="glass-surface p-12 rounded-[40px] w-full max-w-lg">
+              <h2 className="text-2xl font-bold text-white mb-2">提交喂价</h2>
+              <p className="text-slate-500 mb-8">订单 #{Number(selectedRequest.orderId)} · {FEED_TYPE_LABELS[selectedRequest.feedType]}</p>
+
+              <div className="space-y-6">
+                {/* P2: 跟量成交模式 - 三选项 UI */}
+                {selectedRequest.feedRule === 1 && selectedRequest.suggestedPrice ? (
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">📈 跟量成交喂价模式</p>
+
+                    {/* 三选项单选 */}
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => setVolumeFeedMode('confirm')}
+                        className={`w-full p-4 rounded-2xl border text-left transition-all ${volumeFeedMode === 'confirm'
+                          ? 'bg-emerald-500/20 border-emerald-500/30'
+                          : 'bg-slate-800/50 border-white/10 hover:border-white/20'
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${volumeFeedMode === 'confirm' ? 'border-emerald-400' : 'border-slate-500'}`}>
+                            {volumeFeedMode === 'confirm' && <div className="w-2 h-2 rounded-full bg-emerald-400" />}
+                          </div>
+                          <div>
+                            <p className="text-white font-bold text-sm">价格合理，确认使用此价格</p>
+                            <p className="text-emerald-400 font-bold text-lg mt-1">{selectedRequest.suggestedPrice}</p>
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setVolumeFeedMode('modify')}
+                        className={`w-full p-4 rounded-2xl border text-left transition-all ${volumeFeedMode === 'modify'
+                          ? 'bg-blue-500/20 border-blue-500/30'
+                          : 'bg-slate-800/50 border-white/10 hover:border-white/20'
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${volumeFeedMode === 'modify' ? 'border-blue-400' : 'border-slate-500'}`}>
+                            {volumeFeedMode === 'modify' && <div className="w-2 h-2 rounded-full bg-blue-400" />}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-white font-bold text-sm">价格不合理，修正为:</p>
+                          </div>
+                        </div>
+                        {volumeFeedMode === 'modify' && (
+                          <input
+                            type="number"
+                            value={priceInput}
+                            onChange={(e) => setPriceInput(e.target.value)}
+                            placeholder="输入修正后的价格"
+                            className="w-full bg-slate-900 border border-blue-500/30 rounded-xl px-4 py-3 text-white mt-3"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setVolumeFeedMode('reject')}
+                        className={`w-full p-4 rounded-2xl border text-left transition-all ${volumeFeedMode === 'reject'
+                          ? 'bg-rose-500/20 border-rose-500/30'
+                          : 'bg-slate-800/50 border-white/10 hover:border-white/20'
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${volumeFeedMode === 'reject' ? 'border-rose-400' : 'border-slate-500'}`}>
+                            {volumeFeedMode === 'reject' && <div className="w-2 h-2 rounded-full bg-rose-400" />}
+                          </div>
+                          <p className="text-white font-bold text-sm">拒绝喂价（无成交量等原因）</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* 正常喂价模式 */
+                  <div>
+                    <label className="text-label mb-2 block">价格</label>
+                    <input
+                      type="number"
+                      value={priceInput}
+                      onChange={(e) => setPriceInput(e.target.value)}
+                      placeholder="输入当前市场价格"
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white"
+                    />
+                  </div>
+                )}
+
+                <div className="bg-slate-800/50 rounded-xl p-4">
+                  <p className="text-slate-400 text-sm">
+                    当前进度: {Number(selectedRequest.submittedCount)}/{Number(selectedRequest.totalFeeders)} 个喂价员已提交
+                  </p>
+                </div>
+
+                {/* Order Constraints - Elite 2.1 新增 */}
+                <div className="border-t border-white/5 pt-8">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 italic">标的合约约束 (Order Constraints)</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* 平仓规则 */}
+                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+                      <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">平仓规则</p>
+                      <p className="text-white font-bold text-sm italic">
+                        {selectedOrderDetails?.liquidationRule === 0 ? '自然到期' :
+                          selectedOrderDetails?.liquidationRule === 1 ? `连续${selectedOrderDetails?.consecutiveDays || '-'}日平仓` :
+                            selectedOrderDetails?.liquidationRule === 2 ? `涨跌${selectedOrderDetails?.dailyLimitPercent || '-'}%强平` :
+                              '待加载...'}
+                      </p>
+                    </div>
+                    {/* 分红调整 */}
+                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+                      <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">分红调整</p>
+                      <p className={`font-bold text-sm italic ${selectedOrderDetails?.dividendAdjustment ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        {selectedOrderDetails?.dividendAdjustment !== undefined
+                          ? (selectedOrderDetails.dividendAdjustment ? '✓ 协议自动补偿' : '✗ 不调整')
+                          : '待加载...'}
+                      </p>
+                    </div>
+                    {/* T+X 行权延迟 */}
+                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+                      <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">行权延迟</p>
+                      <p className="text-white font-bold text-sm italic">
+                        {selectedOrderDetails?.exerciseDelay !== undefined
+                          ? (Number(selectedOrderDetails.exerciseDelay) > 0 ? `T+${selectedOrderDetails.exerciseDelay}` : 'T+0 (即时)')
+                          : '待加载...'}
+                      </p>
+                    </div>
+                    {/* 保证金率 */}
+                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+                      <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">最低保证金率</p>
+                      <p className="text-rose-400 font-bold text-sm italic">
+                        {selectedOrderDetails?.minMarginRate !== undefined
+                          ? `${Number(selectedOrderDetails.minMarginRate)}%`
+                          : '待加载...'}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedOrderDetails && (
+                    <div className="mt-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl p-5 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] text-blue-400 font-bold uppercase mb-1">标的资产</p>
+                        <p className="text-white font-bold text-sm">{selectedOrderDetails.underlyingName} ({selectedOrderDetails.underlyingCode})</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-blue-400 font-bold uppercase mb-1">名义本金</p>
+                        <p className="text-white font-bold text-sm italic">${Number(formatUnits(selectedOrderDetails.notionalUSDT, 6)).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* P2: T+X 条件和喂价规则显示 */}
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    {selectedRequest.exerciseDelay && Number(selectedRequest.exerciseDelay) > 0 && (
+                      <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-4">
+                        <p className="text-[10px] text-rose-400 font-bold uppercase mb-1">⏱️ 行权延迟要求</p>
+                        <p className="text-white font-bold text-lg">T+{Number(selectedRequest.exerciseDelay)}</p>
+                        <p className="text-slate-500 text-[10px] mt-1">需确认满足 T+X 条件后方可喂价</p>
+                      </div>
+                    )}
+                    {selectedRequest.feedRule === 1 && (
+                      <div className="bg-purple-500/5 border border-purple-500/10 rounded-2xl p-4">
+                        <p className="text-[10px] text-purple-400 font-bold uppercase mb-1">📈 跟量成交喂价</p>
+                        <p className="text-white font-bold text-lg">{selectedRequest.suggestedPrice || '待验证'}</p>
+                        <p className="text-slate-500 text-[10px] mt-1">卖方建议价格，请验证合理性</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex space-x-4 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowFeedModal(false);
+                      setSelectedRequest(null);
+                      setPriceInput('');
+                      setVolumeFeedMode('confirm');
+                    }}
+                    className="flex-1 h-14 rounded-xl border border-white/10 text-white font-bold"
+                  >
+                    取消
+                  </button>
+                  {/* P2: 跟量成交拒绝模式单独处理 */}
+                  {selectedRequest.feedRule === 1 && volumeFeedMode === 'reject' ? (
+                    <button
+                      onClick={() => {
+                        setRejectReason('无成交量/无法跟量');
+                        handleRejectFeed();
+                      }}
+                      disabled={isLoading}
+                      className="flex-1 h-14 rounded-xl bg-rose-600 text-white font-bold disabled:opacity-50"
+                    >
+                      {isLoading ? '处理中...' : '确认拒绝'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSubmitFeed}
+                      disabled={isLoading || (selectedRequest.feedRule !== 1 && !priceInput) || (selectedRequest.feedRule === 1 && volumeFeedMode === 'modify' && !priceInput)}
+                      className="flex-1 h-14 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50"
+                    >
+                      {isLoading ? '提交中...' : volumeFeedMode === 'confirm' && selectedRequest.feedRule === 1 ? '确认建议价格' : '确认提交'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Reject option - 仅正常喂价模式显示 */}
+                {selectedRequest.feedRule !== 1 && (
+                  <div className="border-t border-white/10 pt-6">
+                    <p className="text-slate-500 text-sm mb-4">如果无法获取价格，可以拒绝喂价：</p>
+
+                    {/* P1: 预定义拒绝原因 */}
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      {[
+                        { id: 'T_PLUS_X_NOT_MET', label: '不符合T+X条件', icon: '📅' },
+                        { id: 'NO_TRADING_VOLUME', label: '无成交量/无法跟量', icon: '📉' },
+                        { id: 'MARKET_CLOSED', label: '市场休市', icon: '🏢' },
+                        { id: 'PRICE_NOT_AVAILABLE', label: '无法获取价格', icon: '❓' },
+                      ].map(reason => (
+                        <button
+                          key={reason.id}
+                          type="button"
+                          onClick={() => setRejectReason(reason.label)}
+                          className={`p-3 rounded-xl border text-left transition-all text-xs ${rejectReason === reason.label
+                            ? 'bg-rose-500/20 border-rose-500/30 text-rose-400'
+                            : 'bg-slate-800/50 border-white/10 text-slate-400 hover:border-white/20'
+                            }`}
+                        >
+                          <span className="mr-2">{reason.icon}</span>
+                          {reason.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      placeholder="拒绝原因 (可自定义)"
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white mb-4"
+                    />
+                    <button
+                      onClick={handleRejectFeed}
+                      disabled={isLoading || !rejectReason}
+                      className="w-full h-12 rounded-xl border border-red-500/30 text-red-400 font-bold disabled:opacity-50 hover:bg-red-500/10 transition-all"
+                    >
+                      拒绝喂价
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       {/* Error display */}
-      {error && (
-        <div className="fixed bottom-8 right-8 bg-red-500/20 border border-red-500/30 rounded-xl px-6 py-4 text-red-400">
-          {error}
-        </div>
-      )}
+      {
+        error && (
+          <div className="fixed bottom-8 right-8 bg-red-500/20 border border-red-500/30 rounded-xl px-6 py-4 text-red-400">
+            {error}
+          </div>
+        )
+      }
 
       <div className="h-32" />
-    </div>
+    </div >
   );
 }

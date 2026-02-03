@@ -126,7 +126,7 @@ export function SellerHall() {
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
             <span className="text-label text-amber-500/80">流动性分发与承保终端</span>
           </div>
-          <h1 className="text-6xl font-extrabold text-white tracking-tighter italic">流动性大厅 <span className="text-amber-500">Seller Hall</span></h1>
+          <h1 className="text-4xl lg:text-5xl font-bold text-white tracking-tight">流动性大厅</h1>
           <p className="text-slate-500 text-xl max-w-2xl font-medium leading-relaxed">
             作为授权流动性节点，承接优质资产询价订单，捕获去中心化保险协议的权利金收益。
           </p>
@@ -135,12 +135,12 @@ export function SellerHall() {
           <div className="flex items-center space-x-12 px-10 py-6 glass-surface rounded-[32px]">
             <div>
               <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">已承保总额</p>
-              <p className="text-2xl font-bold text-white tracking-tight italic">$1.2M</p>
+              <p className="text-2xl font-bold text-white tracking-tight">$1.2M</p>
             </div>
             <div className="w-px h-10 bg-white/10" />
             <div>
               <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">待响应订单</p>
-              <p className="text-2xl font-bold text-white tracking-tight italic">{filteredRFQs.length}</p>
+              <p className="text-2xl font-bold text-white tracking-tight">{filteredRFQs.length}</p>
             </div>
           </div>
           <Link to="/create-order" className="btn-elite-warning px-12 h-20 rounded-[28px] text-[14px] tracking-[0.05em] flex items-center gap-3">
@@ -217,7 +217,7 @@ export function SellerHall() {
 
             <div className="text-center mb-12">
               <p className="text-[11px] font-black text-amber-500 uppercase tracking-[0.5em] mb-3">提交报价终端</p>
-              <h3 className="text-3xl font-extrabold text-white tracking-tighter italic">报价单详情 / {selectedRFQ.underlyingCode}</h3>
+              <h3 className="text-2xl font-bold text-white tracking-tight">报价单详情 / {selectedRFQ.underlyingCode}</h3>
             </div>
 
             <div className="grid grid-cols-4 gap-6 mb-10 py-8 border-y border-white/[0.08]">

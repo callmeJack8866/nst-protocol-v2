@@ -23,8 +23,8 @@ interface DeployedContracts {
     usdt: string;
 }
 
-// BSC Testnet USDT address (can use mock for testing)
-const BSC_TESTNET_USDT = "0x9f2140319726F9b851073a303415f13EC0cdA269";
+// BSC Testnet Mock USDT (18 decimals) - 用于测试
+const BSC_TESTNET_USDT = "0x6ae0833E637D1d99F3FCB6204860386f6a6713C0";
 const BSC_MAINNET_USDT = "0x55d398326f99059fF775485246999027B3197955";
 
 async function main() {

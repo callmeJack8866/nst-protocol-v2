@@ -207,6 +207,41 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @notice 买方直接承接卖方挂单
+     * @param orderId 卖方订单ID
+     */
+    function acceptSellerOrder(uint256 orderId) external 
+        validOrder(orderId) 
+        nonReentrant 
+        whenNotPaused 
+    {
+        Order storage order = orders[orderId];
+        
+        // 验证订单状态 - 必须是卖方创建的挂单
+        require(order.status == OrderStatus.RFQ_CREATED, "OptionsCore: order not available");
+        require(order.seller != address(0), "OptionsCore: not a seller order");
+        require(order.buyer == address(0), "OptionsCore: already has buyer");
+        require(msg.sender != order.seller, "OptionsCore: cannot accept own order");
+        
+        // 更新订单信息
+        order.buyer = msg.sender;
+        OrderStatus oldStatus = order.status;
+        order.status = OrderStatus.MATCHED;
+        order.matchedAt = block.timestamp;
+        
+        // 买方支付期权费 + 交易手续费
+        uint256 tradingFee = (order.notionalUSDT * config.tradingFeeRate()) / 10000;
+        uint256 totalPayment = order.premiumAmount + tradingFee;
+        usdt.safeTransferFrom(msg.sender, address(vaultManager), totalPayment);
+        
+        // 添加到买方订单列表
+        buyerOrders[msg.sender].push(orderId);
+        
+        emit OrderMatched(order.orderId, order.buyer, order.seller, block.timestamp);
+        emit OrderStatusChanged(order.orderId, oldStatus, OrderStatus.MATCHED, "seller order accepted", block.timestamp);
+    }
+
+    /**
      * @notice 买方发起喂价请求
      */
     function requestFeed(uint256 orderId, FeedTier tier) external payable override 
@@ -232,8 +267,8 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
     {
         Order storage order = orders[orderId];
         
-        // 检查 T+X 条件
-        uint256 requiredDelay = uint256(order.exerciseDelay) * 1 days;
+        // 检查 T+X 条件 (MVP演示: 改为秒而不是天)
+        uint256 requiredDelay = uint256(order.exerciseDelay) * 1 seconds;
         require(
             block.timestamp >= order.matchedAt + requiredDelay,
             "OptionsCore: exercise delay not met"
@@ -758,5 +793,76 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
 
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
+    }
+
+    /**
+     * @notice 处理期初喂价结果，将订单状态从 MATCHED 更新为 LIVE
+     * @dev 由管理员或 Keeper 在喂价完成后调用
+     * @param orderId 订单ID
+     * @param initialPrice 期初喂价结果（18位小数）
+     */
+    function processInitialFeedResult(
+        uint256 orderId, 
+        uint256 initialPrice
+    ) external validOrder(orderId) onlyRole(DEFAULT_ADMIN_ROLE) {
+        Order storage order = orders[orderId];
+        require(order.status == OrderStatus.MATCHED, "OptionsCore: order not matched");
+        require(initialPrice > 0, "OptionsCore: invalid price");
+
+        // 更新订单状态为 LIVE
+        OrderStatus oldStatus = order.status;
+        order.status = OrderStatus.LIVE;
+        order.refPrice = _uintToString(initialPrice / 1e18); // 转换为可读价格字符串
+        order.lastFeedPrice = initialPrice;
+
+        emit OrderStatusChanged(orderId, oldStatus, OrderStatus.LIVE, "initial feed completed", block.timestamp);
+    }
+
+    /**
+     * @notice 处理期末喂价结果并结算订单
+     * @dev 由管理员或 Keeper 在喂价完成后调用
+     * @param orderId 订单ID
+     * @param finalPrice 期末喂价结果（18位小数）
+     */
+    function processFinalFeedResult(
+        uint256 orderId, 
+        uint256 finalPrice
+    ) external validOrder(orderId) onlyRole(DEFAULT_ADMIN_ROLE) {
+        Order storage order = orders[orderId];
+        require(
+            order.status == OrderStatus.LIVE || order.status == OrderStatus.WAITING_FINAL_FEED, 
+            "OptionsCore: order not in valid state for final feed"
+        );
+        require(finalPrice > 0, "OptionsCore: invalid price");
+
+        // 更新订单状态为待结算
+        OrderStatus oldStatus = order.status;
+        order.status = OrderStatus.PENDING_SETTLEMENT;
+        order.lastFeedPrice = finalPrice;
+        order.settledAt = block.timestamp;
+
+        emit OrderStatusChanged(orderId, oldStatus, OrderStatus.PENDING_SETTLEMENT, "final feed completed", block.timestamp);
+    }
+
+    /**
+     * @notice 将 uint256 转换为字符串
+     */
+    function _uintToString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
     }
 }

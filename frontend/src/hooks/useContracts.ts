@@ -92,12 +92,14 @@ export function useOptions() {
         setLoading(true);
         setError(null);
         try {
-            const creationFee = parseUnits('1', 18);
+            // 动态获取 USDT 精度 (可能是 6 或 18)
+            const decimals = await usdt.decimals();
+            const creationFee = parseUnits('1', decimals);
             const optionsCoreAddr = getOptionsCoreAddress();
             const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
 
             if (currentAllowance < creationFee) {
-                const approveTx = await usdt.approve(optionsCoreAddr, parseUnits('1000000', 18));
+                const approveTx = await usdt.approve(optionsCoreAddr, parseUnits('1000000', decimals));
                 await approveTx.wait();
             }
 
@@ -149,14 +151,28 @@ export function useOptions() {
         setLoading(true);
         setError(null);
         try {
-            const creationFee = parseUnits('1', 18);
+            // 动态获取 USDT 精度 (可能是 6 或 18)
+            const decimals = await usdt.decimals();
+            const creationFee = parseUnits('1', decimals);
             const totalRequired = creationFee + params.marginAmount;
             const optionsCoreAddr = getOptionsCoreAddress();
-            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
 
+            // 检查用户 USDT 余额
+            const balance = await usdt.balanceOf(account);
+            if (balance < totalRequired) {
+                const divisor = 10 ** Number(decimals);
+                const needed = Number(totalRequired) / divisor;
+                const has = Number(balance) / divisor;
+                throw new Error(`USDT 余额不足。需要 ${needed.toFixed(2)} USDT，当前余额 ${has.toFixed(2)} USDT。`);
+            }
+
+            // 检查并设置授权
+            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
             if (currentAllowance < totalRequired) {
-                const approveTx = await usdt.approve(optionsCoreAddr, parseUnits('1000000', 18));
+                console.log('Approving USDT...', { currentAllowance: currentAllowance.toString(), needed: totalRequired.toString() });
+                const approveTx = await usdt.approve(optionsCoreAddr, parseUnits('1000000', decimals));
                 await approveTx.wait();
+                console.log('USDT approved successfully');
             }
 
             // 调用合约创建卖方订单 (已支持 exerciseDelay 和 feedRule)
@@ -594,6 +610,54 @@ export function useOptions() {
         }
     }, [optionsCore, usdt, account, getOptionsCoreAddress]);
 
+    /**
+     * 处理期初喂价结果（管理员功能）
+     * 将订单状态从 MATCHED 更新为 LIVE
+     */
+    const processInitialFeedResult = useCallback(async (orderId: number, initialPrice: bigint) => {
+        if (!optionsCore) {
+            throw new Error('Contract not initialized. Please connect your wallet first.');
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            const tx = await optionsCore.processInitialFeedResult(orderId, initialPrice);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Process initial feed failed';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [optionsCore]);
+
+    /**
+     * 处理期末喂价结果（管理员功能）
+     * 将订单状态从 LIVE 更新为 PENDING_SETTLEMENT
+     */
+    const processFinalFeedResult = useCallback(async (orderId: number, finalPrice: bigint) => {
+        if (!optionsCore) {
+            throw new Error('Contract not initialized. Please connect your wallet first.');
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            const tx = await optionsCore.processFinalFeedResult(orderId, finalPrice);
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Process final feed failed';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, [optionsCore]);
+
     return {
         loading,
         error,
@@ -614,6 +678,8 @@ export function useOptions() {
         getAllActiveSellerOrders,
         acceptSellerOrder,
         getQuotesForOrder,
-        getOptionsCoreAddress
+        getOptionsCoreAddress,
+        processInitialFeedResult,
+        processFinalFeedResult
     };
 }

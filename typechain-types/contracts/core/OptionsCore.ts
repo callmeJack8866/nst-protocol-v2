@@ -183,6 +183,7 @@ export interface OptionsCoreInterface extends Interface {
     nameOrSignature:
       | "DEFAULT_ADMIN_ROLE"
       | "acceptQuote"
+      | "acceptSellerOrder"
       | "addMargin"
       | "buyerOrders"
       | "cancelRFQ"
@@ -207,6 +208,8 @@ export interface OptionsCoreInterface extends Interface {
       | "orders"
       | "pause"
       | "paused"
+      | "processFinalFeedResult"
+      | "processInitialFeedResult"
       | "quotes"
       | "recordDividend"
       | "renounceRole"
@@ -250,6 +253,10 @@ export interface OptionsCoreInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "acceptQuote",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "acceptSellerOrder",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
@@ -378,6 +385,14 @@ export interface OptionsCoreInterface extends Interface {
   encodeFunctionData(functionFragment: "pause", values?: undefined): string;
   encodeFunctionData(functionFragment: "paused", values?: undefined): string;
   encodeFunctionData(
+    functionFragment: "processFinalFeedResult",
+    values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "processInitialFeedResult",
+    values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "quotes",
     values: [BigNumberish]
   ): string;
@@ -451,6 +466,10 @@ export interface OptionsCoreInterface extends Interface {
     functionFragment: "acceptQuote",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "acceptSellerOrder",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "addMargin", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "buyerOrders",
@@ -517,6 +536,14 @@ export interface OptionsCoreInterface extends Interface {
   decodeFunctionResult(functionFragment: "orders", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "pause", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "paused", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "processFinalFeedResult",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "processInitialFeedResult",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "quotes", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "recordDividend",
@@ -969,6 +996,12 @@ export interface OptionsCore extends BaseContract {
     "nonpayable"
   >;
 
+  acceptSellerOrder: TypedContractMethod<
+    [orderId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   addMargin: TypedContractMethod<
     [orderId: BigNumberish, amount: BigNumberish],
     [void],
@@ -1217,6 +1250,18 @@ export interface OptionsCore extends BaseContract {
 
   paused: TypedContractMethod<[], [boolean], "view">;
 
+  processFinalFeedResult: TypedContractMethod<
+    [orderId: BigNumberish, finalPrice: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  processInitialFeedResult: TypedContractMethod<
+    [orderId: BigNumberish, initialPrice: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   quotes: TypedContractMethod<
     [arg0: BigNumberish],
     [
@@ -1346,6 +1391,9 @@ export interface OptionsCore extends BaseContract {
   getFunction(
     nameOrSignature: "acceptQuote"
   ): TypedContractMethod<[quoteId: BigNumberish], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "acceptSellerOrder"
+  ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "addMargin"
   ): TypedContractMethod<
@@ -1594,6 +1642,20 @@ export interface OptionsCore extends BaseContract {
   getFunction(
     nameOrSignature: "paused"
   ): TypedContractMethod<[], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "processFinalFeedResult"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, finalPrice: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "processInitialFeedResult"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, initialPrice: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "quotes"
   ): TypedContractMethod<
