@@ -3,6 +3,7 @@ import { useOptions } from '../hooks';
 import { OrderCard } from '../components/OrderCard';
 import { Link } from 'react-router-dom';
 import { formatUnits } from 'ethers';
+import { useTranslation } from 'react-i18next';
 
 interface RFQOrder {
   orderId: number;
@@ -20,38 +21,39 @@ interface RFQOrder {
   createdAt: number;
 }
 
-// T+X 行权延迟选项
+// T+X Exercise Delay Options
 const EXERCISE_DELAY_OPTIONS = [
-  { value: 1, label: 'T+1', desc: '次日行权' },
-  { value: 2, label: 'T+2', desc: '2日后行权' },
-  { value: 3, label: 'T+3', desc: '3日后行权' },
-  { value: 5, label: 'T+5', desc: '5日后行权' },
+  { value: 1, label: 'T+1', desc: 'Next Day' },
+  { value: 2, label: 'T+2', desc: '2 Days' },
+  { value: 3, label: 'T+3', desc: '3 Days' },
+  { value: 5, label: 'T+5', desc: '5 Days' },
 ];
 
-// 平仓规则选项
+// Liquidation Rules
 const LIQUIDATION_OPTIONS = [
-  { value: 0, label: '无强平', desc: '不设自动强平' },
-  { value: 1, label: '连板强平', desc: '连续涨停触发' },
-  { value: 2, label: '涨幅强平', desc: '单日涨幅触发' },
+  { value: 0, label: 'NONE', desc: 'No Auto-Liq' },
+  { value: 1, label: 'LIMIT', desc: 'Consecutive Limit' },
+  { value: 2, label: 'PRICE', desc: 'Price Surge' },
 ];
 
 export function SellerHall() {
   const { getAllActiveRFQs, submitQuote, isConnected } = useOptions();
+  const { t } = useTranslation();
   const [filter, setFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [rfqs, setRfqs] = useState<RFQOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Quote Modal State - 扩展报价表单
+  // Quote Modal State
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [selectedRFQ, setSelectedRFQ] = useState<RFQOrder | null>(null);
   const [quoteForm, setQuoteForm] = useState({
     premiumRate: '6.5',
     marginAmount: '150000',
-    exerciseDelay: 1,        // T+1 默认
-    liquidationRule: 0,      // 无强平默认
-    consecutiveDays: 3,      // 连板天数
-    dailyLimitPercent: 10,   // 涨幅百分比
+    exerciseDelay: 1,
+    liquidationRule: 0,
+    consecutiveDays: 3,
+    dailyLimitPercent: 10,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -106,72 +108,71 @@ export function SellerHall() {
         consecutiveDays: quoteForm.consecutiveDays,
         dailyLimitPercent: quoteForm.dailyLimitPercent,
         notionalUSDT: selectedRFQ.notionalUSDT,
-        // exerciseDelay 需要在合约中支持后传递
       });
       setSubmitSuccess(true);
       setTimeout(() => {
         setShowQuoteModal(false);
         getAllActiveRFQs().then(data => setRfqs(data));
       }, 1500);
-    } catch (err: any) { setSubmitError(err.message || '报价提交失败'); }
+    } catch (err: any) { setSubmitError(err.message || 'Failed to submit quote'); }
     finally { setIsSubmitting(false); }
   };
 
   return (
-    <div className="max-w-[1400px] mx-auto pt-16 pb-20">
+    <div className="max-w-[1400px] mx-auto px-6 py-12">
       {/* Header Section */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-12 mb-24">
-        <div className="space-y-6">
-          <div className="flex items-center space-x-4">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            <span className="text-label text-amber-500/80">流动性分发与承保终端</span>
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-16">
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.8)]" />
+            <span className="text-[10px] font-black text-gold-500/80 uppercase tracking-[0.3em]">Provider Liquidity Terminal</span>
           </div>
-          <h1 className="text-4xl lg:text-5xl font-bold text-white tracking-tight">流动性大厅</h1>
-          <p className="text-slate-500 text-xl max-w-2xl font-medium leading-relaxed">
-            作为授权流动性节点，承接优质资产询价订单，捕获去中心化保险协议的权利金收益。
+          <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter">{t('seller_hall.title')}</h1>
+          <p className="text-gray-500 text-lg max-w-2xl font-bold leading-relaxed">
+            As a licensed provider, hedge institutional risks and capture premium yields through secure OTC underwriting.
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-6">
-          <div className="flex items-center space-x-12 px-10 py-6 glass-surface rounded-[32px]">
+          <div className="flex items-center space-x-12 px-8 py-6 glass-panel rounded-3xl">
             <div>
-              <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">已承保总额</p>
-              <p className="text-2xl font-bold text-white tracking-tight">$1.2M</p>
+              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Underwritten</p>
+              <p className="text-2xl font-black text-white tracking-tight">$1.2M</p>
             </div>
-            <div className="w-px h-10 bg-white/10" />
+            <div className="w-px h-8 bg-white/5" />
             <div>
-              <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">待响应订单</p>
-              <p className="text-2xl font-bold text-white tracking-tight">{filteredRFQs.length}</p>
+              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Pending Requests</p>
+              <p className="text-2xl font-black text-white tracking-tight">{filteredRFQs.length}</p>
             </div>
           </div>
-          <Link to="/create-order" className="btn-elite-warning px-12 h-20 rounded-[28px] text-[14px] tracking-[0.05em] flex items-center gap-3">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="M12 5v14M5 12h14" /></svg>
-            发布卖方报单
+          <Link to="/create-order" className="btn-gold px-10 h-16 flex items-center justify-center text-xs tracking-widest gap-3">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="M12 5v14M5 12h14" /></svg>
+            {t('seller_hall.post_order')}
           </Link>
         </div>
       </div>
 
-      <div className="space-y-20">
+      <div className="space-y-12">
         {/* Filter Toolbar */}
-        <div className="flex flex-col xl:flex-row justify-between items-center gap-10 pb-10 border-b border-white/[0.05]">
-          <div className="relative w-full xl:w-[480px]">
-            <input type="text" placeholder="搜索资产、市场或代码..." className="elite-input w-full pl-14 pr-8 h-16 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-            <svg className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+        <div className="flex flex-col xl:flex-row justify-between items-center gap-8 pb-8 border-b border-white/5">
+          <div className="relative w-full xl:w-[420px]">
+            <input type="text" placeholder="Search markets, nodes or assets..." className="obsidian-input w-full pl-12 pr-6 h-14 text-sm font-bold" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
           </div>
-          <div className="bg-slate-900 border border-white/[0.08] p-2 rounded-2xl flex">
+          <div className="bg-obsidian-900 border border-white/5 p-1.5 rounded-2xl flex">
             {['ALL', 'CN', 'US', 'CRYPTO'].map(m => (
-              <button key={m} onClick={() => setFilter(m)} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all ${filter === m ? 'bg-amber-500/10 text-amber-500 shadow-sm' : 'text-slate-500 hover:text-slate-200'}`}>
-                {m === 'ALL' ? '全部市场' : m}
+              <button key={m} onClick={() => setFilter(m)} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all tracking-widest ${filter === m ? 'bg-gold-500/10 text-gold-500' : 'text-gray-500 hover:text-gray-300'}`}>
+                {m === 'ALL' ? t('seller_hall.all_markets') : m}
               </button>
             ))}
           </div>
         </div>
 
         {/* Market Grid */}
-        <div className="space-y-12 min-h-[500px]">
+        <div className="min-h-[400px]">
           {!loading && isConnected && (
             <div className="grid grid-cols-1 gap-6">
               <div className="flex items-center justify-between px-2 mb-2">
-                <h2 className="text-[12px] font-black text-slate-600 uppercase tracking-[0.3em] italic">待报价请求流 ({filteredRFQs.length})</h2>
+                <h2 className="text-[10px] font-black text-gray-700 uppercase tracking-[0.4em] italic">Active Request Stream ({filteredRFQs.length})</h2>
               </div>
               {filteredRFQs.map((rfq) => (
                 <OrderCard
@@ -191,158 +192,181 @@ export function SellerHall() {
                     createdAt: rfq.createdAt
                   }}
                   onAction={() => handleOpenQuoteModal(rfq)}
-                  actionLabel="立即报价 (SUBMIT)"
+                  actionLabel={t('seller_hall.submit_quote')}
                 />
               ))}
+              {filteredRFQs.length === 0 && (
+                <div className="py-32 text-center glass-panel border-dashed rounded-[40px]">
+                  <p className="text-[12px] font-black text-gray-700 uppercase tracking-[0.3em] italic">No pending signals found</p>
+                </div>
+              )}
             </div>
           )}
           {!isConnected && !loading && (
-            <div className="py-40 rounded-[48px] border-2 border-dashed border-white/[0.05] bg-white/[0.01] text-center flex flex-col items-center">
-              <div className="text-8xl opacity-10 mb-10">🛡️</div>
-              <h3 className="text-2xl font-bold text-slate-600 uppercase tracking-widest mb-4">连接受限</h3>
-              <p className="text-slate-500 text-lg font-medium max-w-sm leading-relaxed">请授权您的交易身份，访问去中心化协议的实时流动性脉冲。</p>
+            <div className="py-32 glass-panel border-dashed rounded-[40px] text-center flex flex-col items-center">
+              <div className="text-6xl opacity-20 mb-8">🛡️</div>
+              <h3 className="text-xl font-black text-gray-500 uppercase tracking-[0.4em] mb-4">Access Restricted</h3>
+              <p className="text-gray-600 font-bold max-w-sm leading-relaxed mb-10">Authorize your trading identity to access live protocol pulses.</p>
+              <button onClick={() => { }} className="btn-gold px-12 h-14 text-[10px] tracking-widest">{t('common.authenticate')}</button>
+            </div>
+          )}
+          {loading && (
+            <div className="py-32 flex flex-col items-center space-y-6">
+              <div className="w-10 h-10 border-4 border-gold-500/10 border-t-gold-500 rounded-full animate-spin" />
+              <p className="text-[10px] font-black text-gray-700 uppercase tracking-[0.4em]">Decoding Protocol Stream...</p>
             </div>
           )}
         </div>
       </div>
 
-      <div className="h-32" />
+      <div className="h-24" />
 
       {/* Quote Modal */}
       {showQuoteModal && selectedRFQ && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-8">
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-3xl" onClick={() => setShowQuoteModal(false)} />
-          <div className="w-full max-w-[640px] glass-surface rounded-[48px] p-12 relative z-10 shadow-2xl animate-elite-entry border-amber-500/20" onClick={(e) => e.stopPropagation()}>
-            <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/5 blur-[120px] -mr-40 -mt-40 pointer-events-none" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-obsidian-950/95 backdrop-blur-3xl animate-in fade-in duration-500" onClick={() => setShowQuoteModal(false)} />
+          <div className="w-full max-w-[700px] glass-panel rounded-[48px] p-10 relative z-10 shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-500 border-white/10" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-0 right-0 w-72 h-72 bg-gold-500/5 blur-[100px] -mr-36 -mt-36 pointer-events-none" />
 
-            <div className="text-center mb-12">
-              <p className="text-[11px] font-black text-amber-500 uppercase tracking-[0.5em] mb-3">提交报价终端</p>
-              <h3 className="text-2xl font-bold text-white tracking-tight">报价单详情 / {selectedRFQ.underlyingCode}</h3>
+            <div className="text-center mb-10">
+              <p className="text-[10px] font-black text-gold-500 uppercase tracking-[0.5em] mb-3">Transmission Terminal</p>
+              <h3 className="text-2xl font-black text-white tracking-tighter italic">Quote Detail / {selectedRFQ.underlyingCode}</h3>
             </div>
 
-            <div className="grid grid-cols-4 gap-6 mb-10 py-8 border-y border-white/[0.08]">
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-slate-600 uppercase">名义本金</p>
-                <p className="text-xl font-bold text-white">${Number(formatUnits(selectedRFQ.notionalUSDT, 6)).toLocaleString()}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 py-6 border-y border-white/5">
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Notional</span>
+                <span className="text-base font-black text-white">${Number(formatUnits(selectedRFQ.notionalUSDT, 6)).toLocaleString()}</span>
               </div>
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-slate-600 uppercase">期权方向</p>
-                <p className={`text-xl font-bold ${selectedRFQ.direction === 'Call' ? 'text-emerald-400' : 'text-rose-400'}`}>{selectedRFQ.direction === 'Call' ? '看涨 CALL' : '看跌 PUT'}</p>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Direction</span>
+                <span className={`text-base font-black ${selectedRFQ.direction === 'Call' ? 'text-emerald-500 italic' : 'text-red-500 italic'}`}>{selectedRFQ.direction.toUpperCase()}</span>
               </div>
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-slate-600 uppercase">参考价格</p>
-                <p className="text-xl font-bold text-white">${selectedRFQ.refPrice}</p>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Reference</span>
+                <span className="text-base font-black text-white">${selectedRFQ.refPrice}</span>
               </div>
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-slate-600 uppercase">目标费率</p>
-                <p className="text-xl font-bold text-amber-400">{(selectedRFQ.premiumRate / 100).toFixed(2)}%</p>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Target Rate</span>
+                <span className="text-base font-black text-gold-500 italic">{(selectedRFQ.premiumRate / 100).toFixed(2)}%</span>
               </div>
             </div>
 
-            <div className="space-y-6 mb-10">
-              <div className="space-y-3">
-                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">您的报价费率 (%)</label>
-                <input type="text" className="elite-input w-full h-16 text-2xl font-bold text-amber-500" value={quoteForm.premiumRate} onChange={e => setQuoteForm({ ...quoteForm, premiumRate: e.target.value })} />
-              </div>
-              <div className="space-y-3">
-                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">质押保证金 (USDT)</label>
-                <input type="text" className="elite-input w-full h-16 text-2xl font-bold" value={quoteForm.marginAmount} onChange={e => setQuoteForm({ ...quoteForm, marginAmount: e.target.value })} />
+            <div className="space-y-6 mb-10 max-h-[450px] overflow-y-auto pr-2 custom-scroll">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Premium Rate (%)</label>
+                  <input type="text" className="obsidian-input w-full h-14 text-xl font-black text-gold-500 italic" value={quoteForm.premiumRate} onChange={e => setQuoteForm({ ...quoteForm, premiumRate: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Collateral (USDT)</label>
+                  <input type="text" className="obsidian-input w-full h-14 text-xl font-black text-white italic" value={quoteForm.marginAmount} onChange={e => setQuoteForm({ ...quoteForm, marginAmount: e.target.value })} />
+                </div>
               </div>
 
-              {/* P1: T+X 行权延迟选择 */}
+              {/* T+X Exercise Delay */}
               <div className="space-y-3">
-                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">行权延迟 (T+X)</label>
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Exercise Latency (T+X)</label>
                 <div className="grid grid-cols-4 gap-3">
                   {EXERCISE_DELAY_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => setQuoteForm({ ...quoteForm, exerciseDelay: opt.value })}
-                      className={`p-3 rounded-xl border text-center transition-all ${quoteForm.exerciseDelay === opt.value
-                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-                        : 'bg-slate-800/50 border-white/10 text-slate-400 hover:border-white/20'
+                      className={`p-3 rounded-2xl border transition-all text-left ${quoteForm.exerciseDelay === opt.value
+                        ? 'bg-gold-500/10 border-gold-500/30 text-gold-500'
+                        : 'bg-obsidian-900 border-white/5 text-gray-500 hover:border-white/10'
                         }`}
                     >
-                      <p className="text-sm font-bold">{opt.label}</p>
-                      <p className="text-[9px] text-slate-500 mt-1">{opt.desc}</p>
+                      <p className="text-xs font-black">{opt.label}</p>
+                      <p className="text-[8px] font-bold opacity-50 mt-0.5">{opt.desc}</p>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* P1: 平仓规则选择 */}
+              {/* Liquidation Rules */}
               <div className="space-y-3">
-                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">平仓规则建议</label>
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Liquidation Protocol</label>
                 <div className="grid grid-cols-3 gap-3">
                   {LIQUIDATION_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => setQuoteForm({ ...quoteForm, liquidationRule: opt.value })}
-                      className={`p-3 rounded-xl border text-center transition-all ${quoteForm.liquidationRule === opt.value
-                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
-                        : 'bg-slate-800/50 border-white/10 text-slate-400 hover:border-white/20'
+                      className={`p-3 rounded-2xl border transition-all text-left ${quoteForm.liquidationRule === opt.value
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                        : 'bg-obsidian-900 border-white/5 text-gray-500 hover:border-white/10'
                         }`}
                     >
-                      <p className="text-sm font-bold">{opt.label}</p>
-                      <p className="text-[9px] text-slate-500 mt-1">{opt.desc}</p>
+                      <p className="text-xs font-black">{opt.label}</p>
+                      <p className="text-[8px] font-bold opacity-50 mt-0.5">{opt.desc}</p>
                     </button>
                   ))}
                 </div>
-                {/* 连板/涨幅参数 */}
+
                 {quoteForm.liquidationRule === 1 && (
-                  <div className="flex items-center gap-4 mt-3 p-3 bg-slate-800/30 rounded-xl">
-                    <span className="text-[11px] text-slate-400">连续涨停天数:</span>
+                  <div className="flex items-center gap-4 mt-2 p-3 bg-obsidian-900/50 rounded-xl border border-white/5">
+                    <span className="text-[9px] font-black text-gray-600 uppercase">Limit Days:</span>
                     <select
-                      className="elite-input px-3 py-2 text-sm"
+                      className="bg-transparent text-xs font-black text-white focus:outline-none"
                       value={quoteForm.consecutiveDays}
                       onChange={e => setQuoteForm({ ...quoteForm, consecutiveDays: Number(e.target.value) })}
                     >
-                      {[2, 3, 4, 5].map(n => <option key={n} value={n}>{n} 天</option>)}
+                      {[2, 3, 4, 5].map(n => <option key={n} value={n}>{n} SESSIONS</option>)}
                     </select>
                   </div>
                 )}
                 {quoteForm.liquidationRule === 2 && (
-                  <div className="flex items-center gap-4 mt-3 p-3 bg-slate-800/30 rounded-xl">
-                    <span className="text-[11px] text-slate-400">单日涨幅阈值:</span>
+                  <div className="flex items-center gap-4 mt-2 p-3 bg-obsidian-900/50 rounded-xl border border-white/5">
+                    <span className="text-[9px] font-black text-gray-600 uppercase">Threshold:</span>
                     <select
-                      className="elite-input px-3 py-2 text-sm"
+                      className="bg-transparent text-xs font-black text-white focus:outline-none"
                       value={quoteForm.dailyLimitPercent}
                       onChange={e => setQuoteForm({ ...quoteForm, dailyLimitPercent: Number(e.target.value) })}
                     >
-                      {[5, 10, 15, 20].map(n => <option key={n} value={n}>{n}%</option>)}
+                      {[5, 10, 15, 20].map(n => <option key={n} value={n}>{n}% SURGE</option>)}
                     </select>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* P1: 费用明细 */}
-            <div className="mb-6 p-4 bg-slate-800/30 rounded-2xl border border-white/[0.05]">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">📋 费用明细</p>
-              <div className="grid grid-cols-3 gap-4 text-[12px]">
-                <div>
-                  <p className="text-slate-500">建仓手续费</p>
-                  <p className="text-amber-400 font-bold">1 USDT</p>
+              {/* Cost Summary */}
+              <div className="p-4 bg-gold-500/5 rounded-3xl border border-gold-500/10">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[9px] font-black text-gold-500 uppercase tracking-widest">📋 Cost breakdown</p>
+                  <div className="px-2 py-0.5 rounded bg-gold-500 text-obsidian-950 text-[8px] font-black">L2 SPEED</div>
                 </div>
-                <div>
-                  <p className="text-slate-500">保证金锁定</p>
-                  <p className="text-white font-bold">{Number(quoteForm.marginAmount).toLocaleString()} USDT</p>
-                </div>
-                <div>
-                  <p className="text-slate-500">合计支出</p>
-                  <p className="text-emerald-400 font-bold">{(Number(quoteForm.marginAmount) + 1).toLocaleString()} USDT</p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-[8px] font-black text-gray-600 uppercase mb-0.5">Protocol Fee</p>
+                    <p className="text-xs font-black text-white">1 USDT</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black text-gray-600 uppercase mb-0.5">Locked Margin</p>
+                    <p className="text-xs font-black text-white">{Number(quoteForm.marginAmount).toLocaleString()} USDT</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[8px] font-black text-gray-600 uppercase mb-0.5">Total Commitment</p>
+                    <p className="text-xs font-black text-gold-500">{(Number(quoteForm.marginAmount) + 1).toLocaleString()} USDT</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {submitError && <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-500 text-[12px] font-bold text-center">{submitError}</div>}
-            {submitSuccess && <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-500 text-[12px] font-bold text-center uppercase tracking-widest">报价已提交成功！</div>}
+            {submitError && <div className="mb-6 p-4 bg-red-500/5 border border-red-500/20 rounded-2xl text-red-500 text-[9px] font-black text-center tracking-widest uppercase">{submitError}</div>}
+            {submitSuccess && <div className="mb-6 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl text-emerald-500 text-[9px] font-black text-center tracking-[0.2em] uppercase">{t('seller_hall.transmission_successful')}</div>}
 
-            <button onClick={handleSubmitQuote} disabled={isSubmitting || submitSuccess} className="w-full btn-elite-warning h-16 rounded-2xl text-[14px] tracking-widest">
-              {isSubmitting ? '处理中...' : submitSuccess ? '已提交' : '提交报价 TRANSMIT QUOTE'}
-            </button>
-            <button onClick={() => setShowQuoteModal(false)} className="mt-6 w-full text-[11px] font-black text-slate-600 uppercase tracking-[0.4em] hover:text-white transition-all">关闭终端 TERMINAL</button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button onClick={() => setShowQuoteModal(false)} className="h-14 rounded-2xl text-[10px] font-black tracking-widest text-gray-600 hover:text-white transition-all border border-white/5">{t('common.cancel')}</button>
+              <button
+                onClick={handleSubmitQuote}
+                disabled={isSubmitting || submitSuccess}
+                className={`h-14 rounded-2xl text-[10px] font-black tracking-widest transition-all ${isSubmitting || submitSuccess ? 'bg-obsidian-800 text-gray-700' : 'bg-gold-500 text-obsidian-950 hover:bg-gold-400 shadow-2xl shadow-gold-500/20'}`}
+              >
+                {isSubmitting ? t('common.transmitting') : submitSuccess ? 'SENT' : t('seller_hall.transmit_quote')}
+              </button>
+            </div>
           </div>
         </div>
       )}

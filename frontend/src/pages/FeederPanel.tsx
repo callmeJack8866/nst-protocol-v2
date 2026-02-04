@@ -1,29 +1,30 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
 import { useWallet, useFeedProtocol, useOptions } from '../hooks';
 import { formatUnits } from 'ethers';
+import { useTranslation } from 'react-i18next';
 import type { FeedRequest, Feeder } from '../hooks/useFeedAndPoints';
+
 
 // Feed type labels
 const FEED_TYPE_LABELS: Record<number, string> = {
-  0: '期初喂价',
-  1: '动态喂价',
-  2: '期末喂价',
-  3: '仲裁喂价',
+  0: 'INITIAL TICK',
+  1: 'DYNAMIC TICK',
+  2: 'SETTLEMENT TICK',
+  3: 'ARBITRATION',
 };
 
 // Feed tier labels
 const FEED_TIER_LABELS: Record<number, { name: string; desc: string }> = {
-  0: { name: '5-3档', desc: '5个喂价员，取中间3个' },
-  1: { name: '7-5档', desc: '7个喂价员，取中间5个' },
-  2: { name: '10-7档', desc: '10个喂价员，取中间7个' },
+  0: { name: 'Tier 5-3', desc: '5 Feeders, Median of 3' },
+  1: { name: 'Tier 7-5', desc: '7 Feeders, Median of 5' },
+  2: { name: 'Tier 10-7', desc: '10 Feeders, Median of 7' },
 };
 
-// P2: 喂价员等级系统
 const FEEDER_RANKS = [
-  { name: 'Rookie', minFeeds: 0, maxFeeds: 9, color: 'text-slate-400', bg: 'bg-slate-500/10', border: 'border-slate-500/20', emoji: '🌱' },
+  { name: 'Rookie', minFeeds: 0, maxFeeds: 9, color: 'text-gray-400', bg: 'bg-white/5', border: 'border-white/10', emoji: '🌱' },
   { name: 'Regular', minFeeds: 10, maxFeeds: 49, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', emoji: '⚡' },
   { name: 'Expert', minFeeds: 50, maxFeeds: 199, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', emoji: '🔮' },
-  { name: 'Elite', minFeeds: 200, maxFeeds: Infinity, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', emoji: '👑' },
+  { name: 'Elite', minFeeds: 200, maxFeeds: Infinity, color: 'text-premium-gold', bg: 'bg-premium-gold/10', border: 'border-premium-gold/20', emoji: '👑' },
 ];
 
 const getFeederRank = (completedFeeds: number) => {
@@ -39,12 +40,13 @@ const getRankProgress = (completedFeeds: number): { current: number; next: numbe
   return { current: completedFeeds, next: nextRank.minFeeds, percent: Math.round((progress / total) * 100) };
 };
 
-
 export function FeederPanel() {
   const { isConnected, account, connect } = useWallet();
+  const { t } = useTranslation();
   const {
-    isLoading,
-    error,
+
+    isLoading: feedLoading,
+    error: feedError,
     getFeederInfo,
     getPendingRequests,
     submitFeed,
@@ -61,15 +63,12 @@ export function FeederPanel() {
   const [stakeAmount, setStakeAmount] = useState('100');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showFeedModal, setShowFeedModal] = useState(false);
-  const [selectedOrderDetails, setSelectedOrderDetails] = useState<any>(null); // Elite 2.1 新增
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  // P2: 跟量成交喂价模式 - 'confirm'确认建议价格 | 'modify'修正价格 | 'reject'拒绝
   const [volumeFeedMode, setVolumeFeedMode] = useState<'confirm' | 'modify' | 'reject'>('confirm');
 
-  // Load feeder info and pending requests
   const loadData = useCallback(async () => {
     if (!isConnected || !account) return;
-
     try {
       const [info, requests] = await Promise.all([
         getFeederInfo(),
@@ -86,19 +85,13 @@ export function FeederPanel() {
     loadData();
   }, [loadData, refreshKey]);
 
-  // Handle feed submission
   const handleSubmitFeed = async () => {
     if (!selectedRequest) return;
-
-    // P2: 跟量成交模式处理
     let finalPrice = priceInput;
     if (selectedRequest.feedRule === 1 && volumeFeedMode === 'confirm') {
-      // 确认模式：使用卖方建议价格
       finalPrice = selectedRequest.suggestedPrice || '';
     }
-
     if (!finalPrice) return;
-
     try {
       await submitFeed(Number(selectedRequest.requestId), finalPrice);
       setShowFeedModal(false);
@@ -111,10 +104,8 @@ export function FeederPanel() {
     }
   };
 
-  // Handle feed rejection
   const handleRejectFeed = async () => {
     if (!selectedRequest || !rejectReason) return;
-
     try {
       await rejectFeed(Number(selectedRequest.requestId), rejectReason);
       setShowFeedModal(false);
@@ -126,7 +117,6 @@ export function FeederPanel() {
     }
   };
 
-  // Handle feeder registration
   const handleRegister = async () => {
     try {
       await registerFeeder(stakeAmount);
@@ -137,570 +127,342 @@ export function FeederPanel() {
     }
   };
 
-  // Calculate time remaining
   const getTimeRemaining = (deadline: bigint) => {
     const now = BigInt(Math.floor(Date.now() / 1000));
     const remaining = deadline - now;
-    if (remaining <= 0n) return '已超时';
-
+    if (remaining <= 0n) return 'SESSION_EXPIRED';
     const minutes = Number(remaining / 60n);
     const seconds = Number(remaining % 60n);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${seconds.toString().padStart(2, '0')} `;
   };
 
-  // Not connected state
   if (!isConnected) {
     return (
-      <div className="max-w-[1200px] mx-auto px-10 py-20 animate-elite-entry">
-        <div className="glass-surface rounded-3xl p-10">
-          {/* 网络状态预览 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 pb-8 border-b border-white/5">
-            <div className="text-center p-4 rounded-2xl bg-slate-900/30">
-              <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">节点状态</p>
-              <p className="text-lg font-bold text-blue-400">在线</p>
-            </div>
-            <div className="text-center p-4 rounded-2xl bg-slate-900/30">
-              <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">活跃喂价员</p>
-              <p className="text-2xl font-bold text-white">--</p>
-            </div>
-            <div className="text-center p-4 rounded-2xl bg-slate-900/30">
-              <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">待处理请求</p>
-              <p className="text-2xl font-bold text-white">--</p>
-            </div>
-            <div className="text-center p-4 rounded-2xl bg-slate-900/30">
-              <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">今日喂价</p>
-              <p className="text-2xl font-bold text-emerald-400">--</p>
-            </div>
+      <div className="w-full h-[60vh] flex flex-col items-center justify-center p-12">
+        <div className="obsidian-glass p-20 rounded-[64px] border-white/5 text-center relative overflow-hidden grid-bg max-w-2xl">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-premium-gold/5 blur-[100px] pointer-events-none" />
+          <div className="w-24 h-24 rounded-[36px] bg-premium-gold/10 border border-premium-gold/20 mx-auto mb-10 flex items-center justify-center animate-pulse">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2.5">
+              <path d="M2.27 19a10 10 0 0 1 0-14M5.66 17.34a6 6 0 0 1 0-10.68M12 12l0 1M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+            </svg>
           </div>
-
-          {/* 连接提示 */}
-          <div className="text-center py-8">
-            <div className="w-16 h-16 rounded-2xl bg-blue-500/10 mx-auto mb-5 flex items-center justify-center">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400">
-                <path d="M2 12h2m16 0h2M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41" />
-                <circle cx="12" cy="12" r="4" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">终端离线</h3>
-            <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto">连接您的 Web3 身份以访问去中心化喂价工作台</p>
-            <button onClick={() => connect()} className="btn-elite-primary h-12 px-8 rounded-xl text-sm font-semibold">授权连接终端</button>
-          </div>
+          <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-4">{t('feeder.node_link_offline')}</h3>
+          <p className="text-white/20 font-bold italic mb-12 max-w-sm mx-auto uppercase text-[10px] tracking-[0.3em] leading-relaxed">{t('feeder.authorize_credentials')}</p>
+          <button onClick={() => connect()} className="btn-gold h-16 px-14 rounded-2xl text-[11px] tracking-widest italic font-black shadow-2xl">{t('points.establish_elite_link')}</button>
         </div>
       </div>
     );
   }
 
+
   return (
-    <div className="max-w-[1400px] mx-auto pt-16 pb-20 w-full animate-elite-entry">
-      {/* Header */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-12 mb-24">
-        <div className="space-y-6">
-          <div className="flex items-center space-x-4">
+    <div className="w-full flex flex-col pb-20 space-y-20">
+      {/* Header section explicitly closed */}
+      <div className="flex flex-col 2xl:flex-row 2xl:items-end justify-between gap-12">
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_12px_#3b82f6]" />
-            <span className="text-label text-blue-400">去中心化预言机节点集群</span>
+            <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em]">{t('feeder.oracle_authority_hub')}</span>
           </div>
-          <h1 className="text-4xl lg:text-5xl font-bold text-white tracking-tight">数据终端</h1>
-          <p className="text-slate-500 text-xl max-w-2xl font-medium leading-relaxed">
-            实时验证并上报全球资产的市场价格信号，确保协议在清算与交割时的公平性与准确性。
+          <h1 className="text-4xl lg:text-5xl font-black text-white tracking-tight italic">{t('feeder.price')} <span className="text-blue-500">{t('feeder.authority')}</span> {t('feeder.console')}</h1>
+          <p className="text-white/40 text-lg max-w-2xl font-bold leading-snug">
+            {t('feeder.page_description')}
           </p>
         </div>
 
         {feederInfo?.isActive ? (
-          <div className="bg-blue-500/5 border border-blue-500/15 px-8 py-4 rounded-[28px] flex items-center space-x-5 shadow-sm">
-            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_15px_#3b82f6]" />
-            <span className="text-[12px] font-black text-blue-400 uppercase tracking-[0.2em]">预言机节点状态: 运行中</span>
+          <div className="obsidian-glass px-10 py-5 rounded-[32px] border-blue-500/20 bg-blue-500/5 flex items-center space-x-6">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] italic">{t('feeder.cluster_identified')}</span>
+              <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">{t('feeder.active_broadcasting')}</span>
+            </div>
           </div>
         ) : (
-          <button
-            onClick={() => setShowRegisterModal(true)}
-            className="btn-elite-primary bg-blue-600 hover:bg-blue-500 shadow-blue-600/20 h-20 px-12 rounded-[32px] text-xs tracking-widest"
-          >
-            申请成为喂价节点
-          </button>
+          <button onClick={() => setShowRegisterModal(true)} className="btn-gold h-18 px-14 rounded-[32px] text-[11px] tracking-widest italic shadow-xl shadow-blue-600/20 !bg-blue-600 !text-white !border-none">{t('feeder.activate_oracle_node')}</button>
         )}
       </div>
 
-      <div className="space-y-24">
-        {/* Statistics Grid */}
-        {feederInfo?.isActive && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              { label: '累计完成喂价', value: feederInfo.completedFeeds?.toString() || '0', color: 'text-white' },
-              { label: '质押金额', value: `${formatUnits(feederInfo.stakedAmount || 0n, 6)} U`, color: 'text-blue-500' },
-              { label: '待处理请求', value: pendingRequests.length.toString(), color: 'text-emerald-400' },
-              { label: '拒绝次数', value: feederInfo.rejectedFeeds?.toString() || '0', color: 'text-white' },
-            ].map((stat, i) => (
-              <div key={i} className="glass-surface p-8 rounded-[40px] group relative overflow-hidden transition-all hover:bg-white/[0.04]">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 blur-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-                <p className="text-label mb-4 opacity-50 uppercase">{stat.label}</p>
-                <p className={`text-2xl font-bold tracking-tight ${stat.color}`}>{stat.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* P2: 喂价员等级徽章 */}
-        {feederInfo?.isActive && (() => {
-          const completedFeeds = Number(feederInfo.completedFeeds || 0);
-          const rank = getFeederRank(completedFeeds);
-          const progress = getRankProgress(completedFeeds);
-          return (
-            <div className="glass-surface rounded-[48px] p-10 flex flex-col md:flex-row items-center justify-between gap-8">
-              <div className="flex items-center gap-6">
-                <div className={`w-20 h-20 rounded-[24px] ${rank.bg} border ${rank.border} flex items-center justify-center text-4xl`}>
-                  {rank.emoji}
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">当前等级</p>
-                  <h3 className={`text-2xl font-black ${rank.color} tracking-tight`}>{rank.name}</h3>
-                  <p className="text-slate-500 text-sm">已完成 {completedFeeds} 次喂价</p>
-                </div>
-              </div>
-              {progress.percent < 100 && (
-                <div className="flex-1 max-w-md">
-                  <div className="flex justify-between text-xs font-bold text-slate-500 mb-2">
-                    <span>距离下一等级</span>
-                    <span>{progress.current} / {progress.next}</span>
-                  </div>
-                  <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${progress.percent}%`, backgroundColor: rank.color.includes('amber') ? '#f59e0b' : rank.color.includes('purple') ? '#a855f7' : rank.color.includes('blue') ? '#3b82f6' : '#64748b' }}
-                    />
-                  </div>
-                </div>
-              )}
-              {progress.percent >= 100 && (
-                <div className="px-6 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/20">
-                  <span className="text-amber-400 font-bold text-sm">🏆 最高等级已达成</span>
-                </div>
-              )}
+      {/* Stats Dashboard */}
+      {feederInfo?.isActive && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {[
+            { label: t('feeder.signal_broadcasts'), value: feederInfo.completedFeeds?.toString() || '0', color: 'text-white' },
+            { label: t('feeder.staked_liquidity'), value: `${formatUnits(feederInfo.stakedAmount || 0n, 6)} USDT`, color: 'text-blue-500' },
+            { label: t('feeder.active_tasks'), value: pendingRequests.length.toString(), color: 'text-emerald-500' },
+            { label: t('feeder.signal_conflicts'), value: feederInfo.rejectedFeeds?.toString() || '0', color: 'text-red-500' },
+          ].map((stat, i) => (
+            <div key={i} className="obsidian-glass p-10 rounded-[48px] group border-white/5 relative overflow-hidden grid-bg">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[80px] opacity-0 group-hover:opacity-100 transition-opacity" />
+              <p className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-4 italic">{stat.label}</p>
+              <p className={`text - 4xl font - black italic tracking - tighter ${stat.color} `}>{stat.value}</p>
             </div>
-          );
-        })()}
+          ))}
+        </div>
+      )}
 
-        {/* Pending Requests */}
-        <div className="space-y-12">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-xs font-semibold text-slate-500 tracking-wide mb-2">
-              待处理请求 ({pendingRequests.length})
-            </h2>
-            <button
-              onClick={() => setRefreshKey(k => k + 1)}
-              className="text-[11px] font-bold text-blue-500 uppercase tracking-widest hover:text-white transition-all underline underline-offset-8 decoration-blue-500/20"
-            >
-              强制同步节点数据
-            </button>
+      {/* Rank Section */}
+      {feederInfo?.isActive && (() => {
+        const completedFeeds = Number(feederInfo.completedFeeds || 0);
+        const rank = getFeederRank(completedFeeds);
+        const progress = getRankProgress(completedFeeds);
+        return (
+          <div className="obsidian-glass rounded-[64px] p-12 flex flex-col lg:flex-row items-center justify-between gap-16 border-white/5 relative overflow-hidden grid-bg">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent pointer-events-none" />
+            <div className="flex items-center gap-10 relative z-10 w-full lg:w-auto">
+              <div className={`w - 32 h - 32 rounded - [40px] ${rank.bg} border ${rank.border} flex items - center justify - center text - 6xl shadow - 2xl relative`}>
+                <div className="absolute inset-0 bg-current opacity-10 rounded-[40px] animate-pulse" />
+                <span className="relative z-10">{rank.emoji}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[11px] font-black text-white/20 uppercase tracking-[0.4em] mb-2 block italic">Feeder Intelligence Rank</span>
+                <h3 className={`text - 5xl font - black italic tracking - tighter uppercase ${rank.color} `}>{rank.name} <span className="text-2xl opacity-40 italic">PERSISTENCE</span></h3>
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-[10px] font-black text-white/40 italic uppercase tracking-widest">{completedFeeds} CONFIRMED TICKS</div>
+                </div>
+              </div>
+            </div>
+            {progress.percent < 100 ? (
+              <div className="flex-1 max-w-2xl relative z-10 w-full">
+                <div className="flex justify-between text-[11px] font-black mb-4 uppercase tracking-[0.2em] italic">
+                  <span className="text-white/20">Rank Evolution Simulation</span>
+                  <span className="text-white">{progress.current} <span className="opacity-20">/</span> {progress.next} <span className="opacity-40 italic ml-2">DATA POINTS</span></span>
+                </div>
+                <div className="h-4 bg-obsidian-950/80 rounded-full overflow-hidden p-1 border border-white/5 shadow-inner">
+                  <div className="h-full rounded-full transition-all duration-[2000ms] shadow-[0_0_20px_rgba(59,130,246,0.5)]" style={{ width: `${progress.percent}% `, backgroundColor: rank.color.includes('gold') ? '#EAB308' : rank.color.includes('purple') ? '#a855f7' : '#3b82f6' }} />
+                </div>
+              </div>
+            ) : (
+              <div className="px-12 py-6 rounded-[36px] bg-premium-gold/10 border border-premium-gold/30 shadow-2xl shadow-premium-gold/10 relative z-10 text-center">
+                <span className="text-premium-gold font-black text-[12px] uppercase tracking-[0.5em] italic">APEX ORACLE STATUS LOCKED</span>
+              </div>
+            )}
           </div>
+        );
+      })()}
 
+      {/* Main Queue */}
+      <div className="space-y-12">
+        <div className="flex items-center justify-between border-b border-white/[0.04] pb-8 px-4">
+          <div className="flex items-center gap-6">
+            <h2 className="text-[12px] font-black text-white tracking-[0.5em] uppercase italic">{t('feeder.signal_queue')}</h2>
+            <div className="px-4 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-500 italic tracking-widest">{pendingRequests.length} {t('feeder.active_tasks').toUpperCase()}</div>
+          </div>
+          <button onClick={() => setRefreshKey(k => k + 1)} className="text-[11px] font-black text-blue-500 uppercase tracking-widest hover:text-white transition-all underline underline-offset-8 decoration-blue-500/30 italic">{t('feeder.sync_infrastructure')}</button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-12">
           {pendingRequests.length === 0 ? (
-            <div className="glass-surface p-16 rounded-[56px] text-center">
-              <p className="text-slate-500 text-lg">暂无待处理的喂价请求</p>
-              <p className="text-slate-600 text-sm mt-2">当有新的喂价请求时，将在此处显示</p>
+            <div className="obsidian-glass p-40 rounded-[72px] text-center border-dashed border-white/5 bg-white/[0.01]">
+              <div className="w-20 h-20 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center text-4xl mx-auto mb-10 opacity-10">🔭</div>
+              <p className="text-[15px] font-black text-white/10 uppercase tracking-[0.8em] italic leading-loose">Passive Monitoring Mode — Node Cluster reporting zero task interference</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-6">
-              {pendingRequests.map((req) => (
-                <div key={Number(req.requestId)} className="group glass-surface p-10 rounded-[56px] relative overflow-hidden border-white/[0.03]">
-                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-12">
-                    <div className="flex items-center space-x-8">
-                      <div className="w-20 h-20 rounded-[32px] bg-slate-950 border border-white/5 flex items-center justify-center text-5xl shadow-inner group-hover:scale-110 transition-transform duration-1000">📡</div>
-                      <div>
-                        <div className="flex items-center space-x-5 mb-3">
-                          <h3 className="text-xl font-bold text-white tracking-tight">订单 #{Number(req.orderId)}</h3>
-                          <p className="text-[10px] font-black text-blue-400 bg-blue-400/5 px-3 py-1 rounded-full tracking-widest border border-blue-400/10 uppercase">
-                            {FEED_TYPE_LABELS[req.feedType] || '未知类型'}
-                          </p>
-                          <p className="text-[10px] font-black text-amber-400 bg-amber-400/5 px-3 py-1 rounded-full tracking-widest border border-amber-400/10 uppercase">
-                            {FEED_TIER_LABELS[req.tier]?.name || '未知档位'}
-                          </p>
-                          {/* P2: 喂价规则标签 */}
-                          <p className={`text-[10px] font-black px-3 py-1 rounded-full tracking-widest border uppercase ${req.feedRule === 1
-                            ? 'text-purple-400 bg-purple-400/5 border-purple-400/10'
-                            : 'text-emerald-400 bg-emerald-400/5 border-emerald-400/10'
-                            }`}>
-                            {req.feedRule === 1 ? '📈 跟量成交' : '📊 正常喂价'}
-                          </p>
-                        </div>
-                        <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">
-                          请求 ID-{Number(req.requestId)} · 进度: {Number(req.submittedCount)}/{Number(req.totalFeeders)}
-                        </p>
-                        {/* P2: T+X 条件显示 */}
-                        {req.exerciseDelay && Number(req.exerciseDelay) > 0 && (
-                          <p className="text-[10px] font-bold text-rose-400 mt-2 flex items-center gap-1">
-                            <span>⏱️</span>
-                            T+{Number(req.exerciseDelay)} 行权延迟要求
-                          </p>
-                        )}
-                      </div>
+            pendingRequests.map((req) => (
+              <div key={Number(req.requestId)} className="group obsidian-glass p-12 rounded-[64px] border-white/5 hover:border-blue-500/30 transition-all duration-700 relative overflow-hidden grid-bg">
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 blur-[160px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-16 relative z-10">
+                  <div className="flex items-center space-x-12">
+                    <div className="w-28 h-28 rounded-[44px] bg-obsidian-950/80 border border-white/5 flex items-center justify-center text-6xl shadow-2xl group-hover:scale-105 transition-transform duration-700 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-blue-500/5" />
+                      <span className="relative z-10">📡</span>
                     </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-16 flex-1 border-l border-white/5 pl-16">
-                      <div className="text-right">
-                        <p className="text-label mb-2">喂价进度</p>
-                        <p className="text-xl font-bold text-emerald-400 tracking-tight">
-                          {Number(req.submittedCount)}/{Number(req.totalFeeders)}
-                        </p>
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap items-center gap-5">
+                        <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase whitespace-nowrap">STRAT-#{Number(req.orderId)}</h3>
+                        <span className="px-5 py-2 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-[10px] font-black text-blue-400 uppercase tracking-widest italic">{FEED_TYPE_LABELS[req.feedType]}</span>
+                        <span className="px-5 py-2 rounded-2xl bg-premium-gold/10 border border-premium-gold/30 text-[10px] font-black text-premium-gold uppercase tracking-widest italic">{FEED_TIER_LABELS[req.tier]?.name}</span>
                       </div>
-                      <div className="text-right border-l border-white/5 pl-16">
-                        <p className="text-label mb-2">剩余时间</p>
-                        <p className="text-xl font-bold text-white tracking-tight">
-                          {getTimeRemaining(req.deadline)}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-end space-x-8 pl-16">
-                        {feederInfo?.isActive && (
-                          <button
-                            onClick={async () => {
-                              setSelectedRequest(req);
-                              setShowFeedModal(true);
-                              setSelectedOrderDetails(null);
-                              try {
-                                const details = await getOrder(Number(req.orderId));
-                                setSelectedOrderDetails(details);
-                              } catch (e) { console.error(e); }
-                            }}
-                            className="bg-blue-600 hover:bg-blue-500 text-slate-950 px-10 h-16 rounded-[24px] font-black text-[12px] shadow-2xl shadow-blue-600/20 tracking-widest"
-                          >
-                            提交价格信号
-                          </button>
-                        )}
+                      <div className="flex items-center gap-4">
+                        <span className="text-[11px] font-black text-white/20 uppercase tracking-[0.4em] italic">Task-0x{Number(req.requestId).toString(16).toUpperCase()}</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                        <span className={`text - [10px] font - black uppercase tracking - widest italic ${req.feedRule === 1 ? 'text-purple-400' : 'text-emerald-500'} `}>{req.feedRule === 1 ? 'VOLUME CONFORMATION REQUIRED' : 'SPOT PRICE BROADCAST'}</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest italic">QUORUM: {Number(req.submittedCount)} / {Number(req.totalFeeders)}</span>
                       </div>
                     </div>
                   </div>
-
-                  {/* P2: 跟量成交建议价格显示 */}
-                  {req.feedRule === 1 && req.suggestedPrice && (
-                    <div className="mt-6 bg-purple-500/5 border border-purple-500/10 rounded-2xl p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-purple-400 text-lg">💡</span>
-                        <div>
-                          <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">卖方建议成交价格</p>
-                          <p className="text-white font-bold text-lg">{req.suggestedPrice}</p>
-                        </div>
+                  <div className="flex-1 xl:border-l border-white/5 xl:pl-16 flex flex-col md:flex-row md:items-center justify-between gap-12">
+                    <div className="grid grid-cols-2 gap-16">
+                      <div className="space-y-2">
+                        <span className="section-label">Session Deadline</span>
+                        <p className="text-3xl font-black text-white italic tracking-tighter">{getTimeRemaining(req.deadline)}</p>
                       </div>
-                      <p className="text-slate-500 text-xs max-w-xs text-right">
-                        请验证此价格是否合理。如合理可直接使用，如不合理可拒绝或输入修正价格。
+                      <div className="space-y-2">
+                        <span className="section-label">Broadcast Result</span>
+                        <p className="text-3xl font-black text-emerald-500 italic tracking-tighter uppercase">Secure</p>
+                      </div>
+                    </div>
+                    <button onClick={async () => {
+                      setSelectedRequest(req);
+                      setShowFeedModal(true);
+                      setSelectedOrderDetails(null);
+                      try {
+                        const details = await getOrder(Number(req.orderId));
+                        setSelectedOrderDetails(details);
+                      } catch (e) { console.error(e); }
+                    }} className="btn-gold h-18 px-12 text-[11px] tracking-widest font-black italic shadow-2xl shadow-premium-gold/10 whitespace-nowrap !bg-white !text-obsidian-950">ENGAGE BROADCAST</button>
+                  </div>
+                </div>
+                {req.feedRule === 1 && req.suggestedPrice && (
+                  <div className="mt-12 p-10 obsidian-glass bg-purple-500/5 border border-purple-500/20 rounded-[40px] flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+                    <div className="flex items-center gap-8">
+                      <div className="w-16 h-16 rounded-[28px] bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-3xl shadow-xl">🕯️</div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-black text-purple-400/60 uppercase tracking-widest italic">Counterparty Suggested Execution</span>
+                        <p className="text-3xl font-black text-white italic tracking-tighter">{req.suggestedPrice}</p>
+                      </div>
+                    </div>
+                    <div className="max-w-md lg:text-right border-l lg:border-l-0 lg:border-r border-white/10 pl-8 lg:pl-0 lg:pr-8">
+                      <p className="text-white/20 text-[10px] font-bold uppercase tracking-widest italic leading-relaxed">
+                        Verify mark-to-market accuracy via primary data nodes. Feeder may certify or strictly override based on verified liquidity analytics.
                       </p>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                  </div>
+                )}
+              </div>
+            ))
           )}
         </div>
-      </div >
+      </div>
 
       {/* Register Modal */}
-      {
-        showRegisterModal && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-            <div className="glass-surface p-12 rounded-[40px] w-full max-w-lg">
-              <h2 className="text-2xl font-bold text-white mb-8">注册成为喂价员</h2>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="text-label mb-2 block">质押金额 (USDT)</label>
-                  <input
-                    type="number"
-                    value={stakeAmount}
-                    onChange={(e) => setStakeAmount(e.target.value)}
-                    placeholder="最低 100 USDT"
-                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white"
-                  />
-                  <p className="text-slate-500 text-sm mt-2">最低质押要求: 100 USDT</p>
+      {showRegisterModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-8 bg-black/95 backdrop-blur-3xl animate-in zoom-in-95 duration-500">
+          <div className="w-full max-w-xl obsidian-glass rounded-[64px] p-20 text-center relative border-white/10 shadow-2xl grid-bg">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 blur-[160px] pointer-events-none" />
+            <div className="w-24 h-24 rounded-[36px] bg-blue-500/10 border border-blue-500/30 mx-auto flex items-center justify-center text-4xl mb-10 shadow-xl">🛡️</div>
+            <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-3">Protocol <span className="text-blue-500">Enrollment</span></h2>
+            <p className="text-white/20 font-bold italic mb-14 uppercase text-[10px] tracking-[0.3em] leading-relaxed max-w-sm mx-auto">Stake institutional liquidity to activate primary Oracle capabilities and join the Consensus Matrix.</p>
+            <div className="space-y-12">
+              <div className="space-y-5 flex flex-col">
+                <div className="flex justify-between px-2">
+                  <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Activation Deposit (USDT)</span>
+                  <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest italic">Min. 100.00</span>
                 </div>
-
-                <div className="flex space-x-4 pt-4">
-                  <button
-                    onClick={() => setShowRegisterModal(false)}
-                    className="flex-1 h-14 rounded-xl border border-white/10 text-white font-bold"
-                  >
-                    取消
-                  </button>
-                  <button
-                    onClick={handleRegister}
-                    disabled={isLoading || Number(stakeAmount) < 100}
-                    className="flex-1 h-14 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50"
-                  >
-                    {isLoading ? '处理中...' : '确认注册'}
-                  </button>
-                </div>
+                <input type="number" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} className="obsidian-input h-20 w-full text-4xl font-black italic pr-10" />
+              </div>
+              <div className="flex gap-6">
+                <button onClick={() => setShowRegisterModal(false)} className="flex-1 h-18 rounded-[28px] obsidian-glass border-white/10 text-[11px] font-black uppercase tracking-widest text-white/20 hover:text-white transition-all">ABORT</button>
+                <button onClick={handleRegister} disabled={feedLoading || Number(stakeAmount) < 100} className="flex-1 h-18 rounded-[28px] bg-blue-600 text-white font-black text-[11px] tracking-widest uppercase italic shadow-2xl shadow-blue-600/30">CONFIRM & ACTIVATE</button>
               </div>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
-      {/* Feed Modal */}
-      {
-        showFeedModal && selectedRequest && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-            <div className="glass-surface p-12 rounded-[40px] w-full max-w-lg">
-              <h2 className="text-2xl font-bold text-white mb-2">提交喂价</h2>
-              <p className="text-slate-500 mb-8">订单 #{Number(selectedRequest.orderId)} · {FEED_TYPE_LABELS[selectedRequest.feedType]}</p>
+      {/* Broadcasting Modal */}
+      {showFeedModal && selectedRequest && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-8 bg-black/95 backdrop-blur-3xl animate-in zoom-in-95 duration-500">
+          <div className="w-full max-w-3xl obsidian-glass rounded-[72px] p-20 relative border-white/10 shadow-2xl grid-bg max-h-[95vh] overflow-y-auto custom-scroll">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-premium-gold/5 blur-[160px] pointer-events-none" />
+            <div className="flex flex-col items-center gap-4 mb-14 text-center">
+              <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.5em] italic">Intelligence Broadcast Engagement</span>
+              <h2 className="text-4xl font-black text-white italic tracking-tight uppercase">Tick Integration <span className="text-premium-gold">Matrix</span></h2>
+              <div className="flex items-center gap-4 opacity-40">
+                <span className="text-[10px] font-bold uppercase tracking-widest">SID: Pos-#{Number(selectedRequest.orderId)}</span>
+                <div className="w-1 h-1 bg-white rounded-full" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">{FEED_TYPE_LABELS[selectedRequest.feedType]}</span>
+              </div>
+            </div>
 
-              <div className="space-y-6">
-                {/* P2: 跟量成交模式 - 三选项 UI */}
-                {selectedRequest.feedRule === 1 && selectedRequest.suggestedPrice ? (
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">📈 跟量成交喂价模式</p>
-
-                    {/* 三选项单选 */}
-                    <div className="space-y-3">
-                      <button
-                        type="button"
-                        onClick={() => setVolumeFeedMode('confirm')}
-                        className={`w-full p-4 rounded-2xl border text-left transition-all ${volumeFeedMode === 'confirm'
-                          ? 'bg-emerald-500/20 border-emerald-500/30'
-                          : 'bg-slate-800/50 border-white/10 hover:border-white/20'
-                          }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${volumeFeedMode === 'confirm' ? 'border-emerald-400' : 'border-slate-500'}`}>
-                            {volumeFeedMode === 'confirm' && <div className="w-2 h-2 rounded-full bg-emerald-400" />}
-                          </div>
-                          <div>
-                            <p className="text-white font-bold text-sm">价格合理，确认使用此价格</p>
-                            <p className="text-emerald-400 font-bold text-lg mt-1">{selectedRequest.suggestedPrice}</p>
-                          </div>
+            <div className="space-y-16">
+              {selectedRequest.feedRule === 1 ? (
+                <div className="space-y-8">
+                  <span className="text-[9px] font-black text-white/40 uppercase italic tracking-[0.4em] mb-2 block">Volume Conformation Path</span>
+                  <div className="grid grid-cols-1 gap-6 flex flex-col">
+                    <button onClick={() => setVolumeFeedMode('confirm')} className={`group relative p - 8 rounded - [40px] border text - left transition - all duration - 500 ${volumeFeedMode === 'confirm' ? 'bg-emerald-500/10 border-emerald-500/40 shadow-2xl' : 'bg-white/[0.02] border-white/10 hover:border-white/20'} `}>
+                      <div className="flex items-center gap-8">
+                        <div className={`w - 10 h - 10 rounded - 2xl border - 2 flex items - center justify - center transition - colors ${volumeFeedMode === 'confirm' ? 'border-emerald-500 bg-emerald-500/10' : 'border-white/10'} `}>{volumeFeedMode === 'confirm' && <div className="w-4 h-4 rounded-lg bg-emerald-500 shadow-lg shadow-emerald-500/50" />}</div>
+                        <div className="space-y-1">
+                          <p className={`text - [10px] font - black uppercase italic tracking - widest ${volumeFeedMode === 'confirm' ? 'text-emerald-500' : 'text-white/20'} `}>Acknowledge Execution Price</p>
+                          <p className="text-4xl font-black text-white italic tracking-tighter">{selectedRequest.suggestedPrice}</p>
                         </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setVolumeFeedMode('modify')}
-                        className={`w-full p-4 rounded-2xl border text-left transition-all ${volumeFeedMode === 'modify'
-                          ? 'bg-blue-500/20 border-blue-500/30'
-                          : 'bg-slate-800/50 border-white/10 hover:border-white/20'
-                          }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${volumeFeedMode === 'modify' ? 'border-blue-400' : 'border-slate-500'}`}>
-                            {volumeFeedMode === 'modify' && <div className="w-2 h-2 rounded-full bg-blue-400" />}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-white font-bold text-sm">价格不合理，修正为:</p>
-                          </div>
+                      </div>
+                    </button>
+                    <button onClick={() => setVolumeFeedMode('modify')} className={`group relative p - 8 rounded - [40px] border text - left transition - all duration - 500 ${volumeFeedMode === 'modify' ? 'bg-blue-500/10 border-blue-500/40 shadow-2xl' : 'bg-white/[0.02] border-white/10 hover:border-white/20'} `}>
+                      <div className="flex items-center gap-8 mb-4">
+                        <div className={`w - 10 h - 10 rounded - 2xl border - 2 flex items - center justify - center transition - colors ${volumeFeedMode === 'modify' ? 'border-blue-500 bg-blue-500/10' : 'border-white/10'} `}>{volumeFeedMode === 'modify' && <div className="w-4 h-4 rounded-lg bg-blue-500 shadow-lg shadow-blue-500/50" />}</div>
+                        <p className={`text - [10px] font - black uppercase italic tracking - widest ${volumeFeedMode === 'modify' ? 'text-blue-500' : 'text-white/20'} `}>Manual Intelligence Override</p>
+                      </div>
+                      {volumeFeedMode === 'modify' && (
+                        <div className="relative animate-in slide-in-from-top-4 duration-500">
+                          <input type="number" value={priceInput} onChange={(e) => setPriceInput(e.target.value)} className="obsidian-input h-18 w-full text-3xl font-black italic pr-12" placeholder="0.0000" />
+                          <span className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black italic text-white/20">USD</span>
                         </div>
-                        {volumeFeedMode === 'modify' && (
-                          <input
-                            type="number"
-                            value={priceInput}
-                            onChange={(e) => setPriceInput(e.target.value)}
-                            placeholder="输入修正后的价格"
-                            className="w-full bg-slate-900 border border-blue-500/30 rounded-xl px-4 py-3 text-white mt-3"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setVolumeFeedMode('reject')}
-                        className={`w-full p-4 rounded-2xl border text-left transition-all ${volumeFeedMode === 'reject'
-                          ? 'bg-rose-500/20 border-rose-500/30'
-                          : 'bg-slate-800/50 border-white/10 hover:border-white/20'
-                          }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${volumeFeedMode === 'reject' ? 'border-rose-400' : 'border-slate-500'}`}>
-                            {volumeFeedMode === 'reject' && <div className="w-2 h-2 rounded-full bg-rose-400" />}
-                          </div>
-                          <p className="text-white font-bold text-sm">拒绝喂价（无成交量等原因）</p>
+                      )}
+                    </button>
+                    <button onClick={() => setVolumeFeedMode('reject')} className={`group relative p - 8 rounded - [40px] border text - left transition - all duration - 500 ${volumeFeedMode === 'reject' ? 'bg-red-500/10 border-red-500/40 shadow-2xl' : 'bg-white/[0.02] border-white/10 hover:border-white/20'} `}>
+                      <div className="flex items-center gap-8">
+                        <div className={`w - 10 h - 10 rounded - 2xl border - 2 flex items - center justify - center transition - colors ${volumeFeedMode === 'reject' ? 'border-red-500 bg-red-500/10' : 'border-white/10'} `}>{volumeFeedMode === 'reject' && <div className="w-4 h-4 rounded-lg bg-red-500 shadow-lg shadow-red-500/50" />}</div>
+                        <div className="space-y-1">
+                          <p className={`text - [10px] font - black uppercase italic tracking - widest ${volumeFeedMode === 'reject' ? 'text-red-500' : 'text-white/20'} `}>Reject Signal Accuracy</p>
+                          <p className="text-lg font-bold text-white/60 tracking-tight">Report Invalid Liquidity / Illegal Context</p>
                         </div>
-                      </button>
-                    </div>
+                      </div>
+                    </button>
                   </div>
+                </div>
+              ) : (
+                <div className="space-y-6 flex flex-col">
+                  <span className="text-[9px] font-black text-white/40 uppercase italic tracking-[0.4em] mb-2 block">Primary Market Tick Upload</span>
+                  <div className="relative">
+                    <input type="number" value={priceInput} onChange={(e) => setPriceInput(e.target.value)} placeholder="0.0000" className="obsidian-input h-24 w-full text-6xl font-black italic pr-20" />
+                    <span className="absolute right-8 top-1/2 -translate-y-1/2 text-sm font-black italic text-white/20 tracking-widest">USD TICK</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white/[0.02] rounded-[40px] p-10 border border-white/5 space-y-10 grid-bg">
+                <div className="flex items-center gap-4">
+                  <div className="w-1.5 h-1.5 rounded-full bg-premium-gold shadow-[0_0_8px_#EAB308]" />
+                  <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.5em] italic">Strategy Constraint Audit</span>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-12">
+                  <div className="space-y-2 flex flex-col">
+                    <p className="text-[9px] font-black text-white/20 uppercase italic">Settlement</p>
+                    <p className="text-sm font-black text-white uppercase italic tracking-tight">{selectedOrderDetails?.liquidationRule === 0 ? 'MATURITY' : 'AUTO-EXIT'}</p>
+                  </div>
+                  <div className="space-y-2 flex flex-col">
+                    <p className="text-[9px] font-black text-white/20 uppercase italic">Adjustment</p>
+                    <p className="text-sm font-black text-white uppercase italic tracking-tight">{selectedOrderDetails?.dividendAdjustment ? 'VOTING' : 'STATIC'}</p>
+                  </div>
+                  <div className="space-y-2 flex flex-col">
+                    <p className="text-[9px] font-black text-white/20 uppercase italic">Exp. Delay</p>
+                    <p className="text-sm font-black text-white uppercase italic tracking-tight">T+{selectedOrderDetails?.exerciseDelay || '0'}</p>
+                  </div>
+                  <div className="space-y-2 flex flex-col">
+                    <p className="text-[9px] font-black text-white/20 uppercase italic">Underlying</p>
+                    <p className="text-sm font-black text-premium-gold uppercase italic tracking-widest">{selectedOrderDetails?.underlyingCode}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-8">
+                <button onClick={() => { setShowFeedModal(false); setSelectedRequest(null); setPriceInput(''); setVolumeFeedMode('confirm'); }} className="flex-1 h-20 rounded-[32px] obsidian-glass border-white/10 text-[11px] font-black text-white/20 uppercase tracking-widest italic hover:text-white transition-all">ABORT ENGAGEMENT</button>
+                {selectedRequest.feedRule === 1 && volumeFeedMode === 'reject' ? (
+                  <button onClick={() => { setRejectReason('INVALID_LIQUIDITY'); handleRejectFeed(); }} className="flex-1 h-20 rounded-[32px] bg-red-600 text-white font-black text-[12px] tracking-widest uppercase italic shadow-2xl shadow-red-600/30">CONFIRM REJECTION</button>
                 ) : (
-                  /* 正常喂价模式 */
-                  <div>
-                    <label className="text-label mb-2 block">价格</label>
-                    <input
-                      type="number"
-                      value={priceInput}
-                      onChange={(e) => setPriceInput(e.target.value)}
-                      placeholder="输入当前市场价格"
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white"
-                    />
-                  </div>
-                )}
-
-                <div className="bg-slate-800/50 rounded-xl p-4">
-                  <p className="text-slate-400 text-sm">
-                    当前进度: {Number(selectedRequest.submittedCount)}/{Number(selectedRequest.totalFeeders)} 个喂价员已提交
-                  </p>
-                </div>
-
-                {/* Order Constraints - Elite 2.1 新增 */}
-                <div className="border-t border-white/5 pt-8">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 italic">标的合约约束 (Order Constraints)</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* 平仓规则 */}
-                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-                      <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">平仓规则</p>
-                      <p className="text-white font-bold text-sm italic">
-                        {selectedOrderDetails?.liquidationRule === 0 ? '自然到期' :
-                          selectedOrderDetails?.liquidationRule === 1 ? `连续${selectedOrderDetails?.consecutiveDays || '-'}日平仓` :
-                            selectedOrderDetails?.liquidationRule === 2 ? `涨跌${selectedOrderDetails?.dailyLimitPercent || '-'}%强平` :
-                              '待加载...'}
-                      </p>
-                    </div>
-                    {/* 分红调整 */}
-                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-                      <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">分红调整</p>
-                      <p className={`font-bold text-sm italic ${selectedOrderDetails?.dividendAdjustment ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {selectedOrderDetails?.dividendAdjustment !== undefined
-                          ? (selectedOrderDetails.dividendAdjustment ? '✓ 协议自动补偿' : '✗ 不调整')
-                          : '待加载...'}
-                      </p>
-                    </div>
-                    {/* T+X 行权延迟 */}
-                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-                      <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">行权延迟</p>
-                      <p className="text-white font-bold text-sm italic">
-                        {selectedOrderDetails?.exerciseDelay !== undefined
-                          ? (Number(selectedOrderDetails.exerciseDelay) > 0 ? `T+${selectedOrderDetails.exerciseDelay}` : 'T+0 (即时)')
-                          : '待加载...'}
-                      </p>
-                    </div>
-                    {/* 保证金率 */}
-                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-                      <p className="text-[10px] text-slate-600 font-bold uppercase mb-2">最低保证金率</p>
-                      <p className="text-rose-400 font-bold text-sm italic">
-                        {selectedOrderDetails?.minMarginRate !== undefined
-                          ? `${Number(selectedOrderDetails.minMarginRate)}%`
-                          : '待加载...'}
-                      </p>
-                    </div>
-                  </div>
-                  {selectedOrderDetails && (
-                    <div className="mt-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl p-5 flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] text-blue-400 font-bold uppercase mb-1">标的资产</p>
-                        <p className="text-white font-bold text-sm">{selectedOrderDetails.underlyingName} ({selectedOrderDetails.underlyingCode})</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] text-blue-400 font-bold uppercase mb-1">名义本金</p>
-                        <p className="text-white font-bold text-sm italic">${Number(formatUnits(selectedOrderDetails.notionalUSDT, 6)).toLocaleString()}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* P2: T+X 条件和喂价规则显示 */}
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    {selectedRequest.exerciseDelay && Number(selectedRequest.exerciseDelay) > 0 && (
-                      <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-4">
-                        <p className="text-[10px] text-rose-400 font-bold uppercase mb-1">⏱️ 行权延迟要求</p>
-                        <p className="text-white font-bold text-lg">T+{Number(selectedRequest.exerciseDelay)}</p>
-                        <p className="text-slate-500 text-[10px] mt-1">需确认满足 T+X 条件后方可喂价</p>
-                      </div>
-                    )}
-                    {selectedRequest.feedRule === 1 && (
-                      <div className="bg-purple-500/5 border border-purple-500/10 rounded-2xl p-4">
-                        <p className="text-[10px] text-purple-400 font-bold uppercase mb-1">📈 跟量成交喂价</p>
-                        <p className="text-white font-bold text-lg">{selectedRequest.suggestedPrice || '待验证'}</p>
-                        <p className="text-slate-500 text-[10px] mt-1">卖方建议价格，请验证合理性</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex space-x-4 pt-4">
-                  <button
-                    onClick={() => {
-                      setShowFeedModal(false);
-                      setSelectedRequest(null);
-                      setPriceInput('');
-                      setVolumeFeedMode('confirm');
-                    }}
-                    className="flex-1 h-14 rounded-xl border border-white/10 text-white font-bold"
-                  >
-                    取消
+                  <button onClick={handleSubmitFeed} disabled={feedLoading} className="flex-1 h-20 rounded-[32px] btn-gold text-lg italic shadow-2xl shadow-premium-gold/20 flex items-center justify-center gap-6">
+                    {feedLoading ? 'TRANSMITTING...' : 'AUTHORIZE BROADCAST'}
+                    {!feedLoading && <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="m5 12 14 0m-7-7 7 7-7 7" /></svg>}
                   </button>
-                  {/* P2: 跟量成交拒绝模式单独处理 */}
-                  {selectedRequest.feedRule === 1 && volumeFeedMode === 'reject' ? (
-                    <button
-                      onClick={() => {
-                        setRejectReason('无成交量/无法跟量');
-                        handleRejectFeed();
-                      }}
-                      disabled={isLoading}
-                      className="flex-1 h-14 rounded-xl bg-rose-600 text-white font-bold disabled:opacity-50"
-                    >
-                      {isLoading ? '处理中...' : '确认拒绝'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleSubmitFeed}
-                      disabled={isLoading || (selectedRequest.feedRule !== 1 && !priceInput) || (selectedRequest.feedRule === 1 && volumeFeedMode === 'modify' && !priceInput)}
-                      className="flex-1 h-14 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50"
-                    >
-                      {isLoading ? '提交中...' : volumeFeedMode === 'confirm' && selectedRequest.feedRule === 1 ? '确认建议价格' : '确认提交'}
-                    </button>
-                  )}
-                </div>
-
-                {/* Reject option - 仅正常喂价模式显示 */}
-                {selectedRequest.feedRule !== 1 && (
-                  <div className="border-t border-white/10 pt-6">
-                    <p className="text-slate-500 text-sm mb-4">如果无法获取价格，可以拒绝喂价：</p>
-
-                    {/* P1: 预定义拒绝原因 */}
-                    <div className="grid grid-cols-2 gap-2 mb-4">
-                      {[
-                        { id: 'T_PLUS_X_NOT_MET', label: '不符合T+X条件', icon: '📅' },
-                        { id: 'NO_TRADING_VOLUME', label: '无成交量/无法跟量', icon: '📉' },
-                        { id: 'MARKET_CLOSED', label: '市场休市', icon: '🏢' },
-                        { id: 'PRICE_NOT_AVAILABLE', label: '无法获取价格', icon: '❓' },
-                      ].map(reason => (
-                        <button
-                          key={reason.id}
-                          type="button"
-                          onClick={() => setRejectReason(reason.label)}
-                          className={`p-3 rounded-xl border text-left transition-all text-xs ${rejectReason === reason.label
-                            ? 'bg-rose-500/20 border-rose-500/30 text-rose-400'
-                            : 'bg-slate-800/50 border-white/10 text-slate-400 hover:border-white/20'
-                            }`}
-                        >
-                          <span className="mr-2">{reason.icon}</span>
-                          {reason.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <input
-                      type="text"
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder="拒绝原因 (可自定义)"
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-white mb-4"
-                    />
-                    <button
-                      onClick={handleRejectFeed}
-                      disabled={isLoading || !rejectReason}
-                      className="w-full h-12 rounded-xl border border-red-500/30 text-red-400 font-bold disabled:opacity-50 hover:bg-red-500/10 transition-all"
-                    >
-                      拒绝喂价
-                    </button>
-                  </div>
                 )}
               </div>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
-      {/* Error display */}
-      {
-        error && (
-          <div className="fixed bottom-8 right-8 bg-red-500/20 border border-red-500/30 rounded-xl px-6 py-4 text-red-400">
-            {error}
-          </div>
-        )
-      }
-
-      <div className="h-32" />
-    </div >
+      {/* Error Overlay */}
+      {feedError && (
+        <div className="fixed bottom-12 right-12 obsidian-glass border-red-500/40 bg-red-500/10 rounded-[32px] p-8 text-red-500 font-black text-[11px] tracking-widest uppercase italic animate-in slide-in-from-right-20 duration-500 flex items-center gap-6 shadow-2xl z-[200]">
+          <div className="w-8 h-8 rounded-xl bg-red-500 text-obsidian-950 flex items-center justify-center text-xl shadow-lg shadow-red-500/30 font-bold">!</div>
+          <p>Transmission Integrity Breach: {feedError}</p>
+        </div>
+      )}
+    </div>
   );
 }
+
+export default FeederPanel;

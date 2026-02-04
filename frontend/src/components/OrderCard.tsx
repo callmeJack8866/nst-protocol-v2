@@ -22,13 +22,12 @@ interface OrderCardProps {
 export function OrderCard({ order, onAction, actionLabel }: OrderCardProps) {
     const [isHovered, setIsHovered] = useState(false);
 
-    // Compact number formatting for extremely large amounts (e.g. $1.00Q)
+    // 格式化金额
     const formatAmount = (amount: number) => {
-        if (amount >= 1e18) return `$${(amount / 1e18).toFixed(2)}Q`;
-        if (amount >= 1e15) return `$${(amount / 1e15).toFixed(2)}P`;
         if (amount >= 1e12) return `$${(amount / 1e12).toFixed(2)}T`;
         if (amount >= 1e9) return `$${(amount / 1e9).toFixed(2)}B`;
         if (amount >= 1e6) return `$${(amount / 1e6).toFixed(2)}M`;
+        if (amount >= 1e3) return `$${(amount / 1e3).toFixed(1)}K`;
 
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
@@ -38,128 +37,124 @@ export function OrderCard({ order, onAction, actionLabel }: OrderCardProps) {
     };
 
     const formatDate = (timestamp: number) => {
-        return new Date(timestamp * 1000).toLocaleDateString('zh-CN', {
-            year: 'numeric',
-            month: 'long',
+        return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+            month: 'short',
             day: 'numeric',
+            year: 'numeric',
         });
     };
 
     const getStatusLabel = (status: string) => {
         switch (status) {
-            case 'RFQ_CREATED': return '询价中';
-            case 'QUOTING': return '报价中';
-            case 'LIVE': return '已激活';
-            case 'MATCHED': return '已撮合';
-            case 'SETTLED': return '已结算';
-            case 'CANCELLED': return '已取消';
-            default: return '未知状态';
+            case 'RFQ_CREATED': return 'QUOTING';
+            case 'QUOTING': return 'QUOTING';
+            case 'LIVE': return 'ACTIVE';
+            case 'MATCHED': return 'MATCHED';
+            case 'SETTLED': return 'SETTLED';
+            case 'CANCELLED': return 'CANCELLED';
+            default: return 'UNKNOWN';
         }
     };
 
-    const getStatusColor = (status: string) => {
+    const getStatusStyles = (status: string) => {
         switch (status) {
-            case 'RFQ_CREATED': return 'text-emerald-400 bg-emerald-400/5 border-emerald-400/10';
-            case 'QUOTING': return 'text-amber-400 bg-amber-400/5 border-amber-400/10';
-            case 'LIVE': return 'text-white bg-emerald-500 border-emerald-500/20';
-            default: return 'text-slate-500 bg-white/5 border-white/5';
+            case 'RFQ_CREATED':
+            case 'QUOTING':
+                return 'text-gold-500 bg-gold-500/10 border-gold-500/30';
+            case 'LIVE':
+                return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30';
+            case 'SETTLED':
+                return 'text-gray-500 bg-obsidian-800 border-white/5';
+            case 'CANCELLED':
+                return 'text-red-500 bg-red-500/10 border-red-500/30';
+            default:
+                return 'text-gray-400 bg-white/5 border-white/5';
         }
     };
 
-    /**
-     * 计算 RFQ 剩余有效期 (默认 2 小时)
-     */
     const getRfqRemaining = (): { text: string; isUrgent: boolean; isExpired: boolean } | null => {
         if (!order.createdAt) return null;
         if (order.status !== 'RFQ_CREATED' && order.status !== 'QUOTING') return null;
 
-        const rfqValiditySeconds = 2 * 60 * 60; // 2 小时
+        const rfqValiditySeconds = 2 * 60 * 60;
         const now = Math.floor(Date.now() / 1000);
         const deadline = order.createdAt + rfqValiditySeconds;
         const remaining = deadline - now;
 
-        if (remaining <= 0) {
-            return { text: '已过期', isUrgent: false, isExpired: true };
-        }
+        if (remaining <= 0) return { text: 'EXPIRED', isUrgent: false, isExpired: true };
 
-        const hours = Math.floor(remaining / 3600);
-        const mins = Math.floor((remaining % 3600) / 60);
-        const isUrgent = remaining < 1800; // 30 分钟内为紧急
+        const mins = Math.floor(remaining / 60);
+        const isUrgent = remaining < 1800; // 30 mins
 
-        if (hours > 0) {
-            return { text: `${hours}h ${mins}m`, isUrgent, isExpired: false };
-        }
-        return { text: `${mins}分钟`, isUrgent: true, isExpired: false };
+        return { text: `${mins}M Remaining`, isUrgent, isExpired: false };
     };
 
     return (
         <div
-            className="group relative animate-elite-entry"
+            className="group relative"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
             {/* Background Glow */}
-            <div className={`absolute -inset-x-4 -inset-y-2 bg-emerald-500/5 blur-3xl rounded-[48px] transition-opacity duration-1000 ${isHovered ? 'opacity-100' : 'opacity-0'}`} />
+            <div className={`absolute -inset-2 bg-gold-500/5 blur-[60px] rounded-[40px] transition-opacity duration-1000 ${isHovered ? 'opacity-100' : 'opacity-0'}`} />
 
-            <div className={`relative glass-surface p-10 rounded-[40px] transition-all duration-700 ${isHovered ? 'border-emerald-500/30 -translate-y-1.5' : ''}`}>
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-12">
+            <div className={`relative glass-panel p-8 rounded-[40px] transition-all duration-500 ${isHovered ? 'border-gold-500/30 -translate-y-1' : ''}`}>
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-10">
 
-                    {/* Primary Asset Info */}
-                    <div className="flex items-center space-x-8 min-w-[320px]">
-                        <div className="w-16 h-16 rounded-[24px] bg-slate-950 border border-white/5 flex items-center justify-center text-4xl shadow-inner group-hover:scale-110 transition-transform duration-700">
+                    {/* Left: Asset Identity */}
+                    <div className="flex items-center space-x-6 min-w-[280px]">
+                        <div className={`w-14 h-14 rounded-2xl bg-obsidian-950 border border-white/5 flex items-center justify-center text-2xl transition-all duration-500 ${isHovered ? 'shadow-[0_0_20px_rgba(234,179,8,0.2)] border-gold-500/20' : ''}`}>
                             {order.direction === 'Call' ? '📈' : '📉'}
                         </div>
                         <div>
-                            <div className="flex items-center space-x-4 mb-2.5">
-                                <h3 className="text-2xl font-bold text-white tracking-tight italic">{order.underlyingName}</h3>
-                                <div className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest ${getStatusColor(order.status)} border uppercase`}>
+                            <div className="flex items-center gap-3 mb-1.5">
+                                <h3 className="text-xl font-black text-white tracking-tighter italic">{order.underlyingName}</h3>
+                                <div className={`px-2.5 py-0.5 rounded-lg text-[8px] font-black tracking-[0.2em] border uppercase ${getStatusStyles(order.status)}`}>
                                     {getStatusLabel(order.status)}
                                 </div>
                             </div>
-                            <div className="flex items-center space-x-3 text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">
+                            <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.15em] text-gray-600">
                                 <span>{order.market}</span>
-                                <span className="text-white/10">•</span>
-                                <span className={order.direction === 'Call' ? 'text-emerald-400' : 'text-rose-400'}>{order.direction === 'Call' ? '看涨期权' : '看跌期权'}</span>
-                                <span className="text-white/10">•</span>
-                                <span className="text-white opacity-30">编号 #{order.orderId}</span>
+                                <span className="opacity-20">•</span>
+                                <span className={order.direction === 'Call' ? 'text-emerald-500' : 'text-red-500'}>{order.direction.toUpperCase()}</span>
+                                <span className="opacity-20">•</span>
+                                <span className="opacity-40">#{order.orderId}</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Transactional Metrics Grid */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-12 flex-1 border-x border-white/[0.03] px-12">
-                        <div className="space-y-2">
-                            <p className="text-label">名义本金 Notional</p>
-                            <p className="text-xl font-bold text-white tracking-tight truncate max-w-[140px]" title={String(order.notionalUSDT)}>
-                                {formatAmount(order.notionalUSDT)}
-                            </p>
+                    {/* Center: Metrics Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 flex-1 border-white/5 xl:border-x xl:px-8">
+                        <div className="flex flex-col">
+                            <span className="data-label mb-1.5 opacity-40">Notional</span>
+                            <span className="text-lg font-black text-white tracking-tight">{formatAmount(order.notionalUSDT)}</span>
                         </div>
-                        <div className="space-y-2">
-                            <p className="text-label">费率 Premium</p>
-                            <p className="text-xl font-bold text-emerald-400 italic tracking-tighter">{(order.premiumRate / 100).toFixed(2)}%</p>
+                        <div className="flex flex-col">
+                            <span className="data-label mb-1.5 opacity-40">Premium</span>
+                            <span className="text-lg font-black text-gold-500 italic">{(order.premiumRate / 100).toFixed(2)}%</span>
                         </div>
-                        <div className="space-y-2">
-                            <p className="text-label">到期时间 Expiry</p>
-                            <p className="text-xl font-bold text-slate-300 tracking-tight">{formatDate(order.expiryTimestamp)}</p>
+                        <div className="flex flex-col">
+                            <span className="data-label mb-1.5 opacity-40">Settlement</span>
+                            <span className="text-lg font-black text-gray-500 italic tracking-tighter">{formatDate(order.expiryTimestamp)}</span>
                         </div>
-                        <div className="space-y-2">
-                            <p className="text-label">参考价 Mark</p>
-                            <p className="text-xl font-bold text-slate-500 italic">${order.refPrice || '--'}</p>
+                        <div className="flex flex-col">
+                            <span className="data-label mb-1.5 opacity-40">Mark Price</span>
+                            <span className="text-lg font-black text-gray-700 italic">${order.refPrice || '--'}</span>
                         </div>
                     </div>
 
-                    {/* Action Area */}
-                    <div className="min-w-[180px] flex justify-end">
+                    {/* Right: Actions */}
+                    <div className="min-w-[160px] flex justify-end">
                         {onAction ? (
                             <button
                                 onClick={(e) => { e.stopPropagation(); onAction(order.orderId); }}
-                                className="w-full btn-elite-primary text-[12px] py-4 tracking-widest shadow-xl"
+                                className="w-full btn-gold text-[10px] py-4 tracking-widest uppercase font-black shadow-2xl"
                             >
-                                {actionLabel || '立即执行'}
+                                {actionLabel || 'Execute'}
                             </button>
                         ) : (
                             <div className="w-full flex justify-end">
-                                <div className="w-12 h-12 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center text-slate-600 group-hover:text-emerald-500 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/5 transition-all duration-500">
+                                <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-600 group-hover:text-gold-500 group-hover:border-gold-500/40 group-hover:bg-gold-500/5 transition-all duration-500">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="m9 18 6-6-6-6" /></svg>
                                 </div>
                             </div>
@@ -167,35 +162,40 @@ export function OrderCard({ order, onAction, actionLabel }: OrderCardProps) {
                     </div>
                 </div>
 
-                {/* Footnote Metadata */}
-                <div className="mt-10 pt-8 border-t border-white/[0.03] flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-600">
-                    <div className="flex items-center space-x-8">
-                        <span className="flex items-center gap-2"><span className="opacity-40">对手方:</span> <span className="text-slate-400">{order.sellerType === 'Open Market' ? '全公开市场' : '特定对手方'}</span></span>
-                        <span>•</span>
-                        <span className="flex items-center gap-2"><span className="opacity-40">结算周期:</span> <span className="text-slate-400">实时结算 (T+0)</span></span>
-                        <span>•</span>
-                        <span className="flex items-center gap-2"><span className="opacity-40">校验协议:</span> <span className="text-slate-400">NST-P2P v2.0</span></span>
+                {/* Footer Metadata */}
+                <div className="mt-8 pt-6 border-t border-white/5 flex flex-wrap items-center justify-between gap-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-700">
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                            <span className="opacity-30">COUNTERPARTY:</span>
+                            <span className="text-gray-500">{order.sellerType === 'Open Market' ? 'GLOBAL LIQUIDITY' : 'DIRECT P2P'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="opacity-30">CLEARING:</span>
+                            <span className="text-gray-500">REAL-TIME T+0</span>
+                        </div>
                     </div>
-                    <div className="flex items-center space-x-2 text-emerald-500/40">
-                        {/* RFQ 有效期倒计时 */}
+
+                    <div className="flex items-center gap-4">
                         {(() => {
-                            const rfqRemaining = getRfqRemaining();
-                            if (rfqRemaining) {
+                            const rem = getRfqRemaining();
+                            if (rem) {
                                 return (
-                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mr-3 ${rfqRemaining.isExpired
-                                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/20'
-                                            : rfqRemaining.isUrgent
-                                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 animate-pulse'
-                                                : 'bg-slate-700/50 text-slate-400 border border-white/10'
+                                    <span className={`px-2.5 py-1 rounded-full text-[8px] font-black border tracking-widest ${rem.isExpired
+                                        ? 'bg-red-500/10 text-red-500 border-red-500/10'
+                                        : rem.isUrgent
+                                            ? 'bg-gold-500/10 text-gold-500 border-gold-500/10 animate-pulse'
+                                            : 'bg-obsidian-800 text-gray-500 border-white/5'
                                         }`}>
-                                        ⏱️ 有效期: {rfqRemaining.text}
+                                        VALIDITY: {rem.text}
                                     </span>
                                 );
                             }
                             return null;
                         })()}
-                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                        <span>链上实时验证</span>
+                        <div className="flex items-center gap-2 text-emerald-500/40">
+                            <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse shadow-[0_0_8px_currentColor]" />
+                            <span>ON-CHAIN VERIFIED</span>
+                        </div>
                     </div>
                 </div>
             </div>

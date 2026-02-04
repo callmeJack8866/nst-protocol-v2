@@ -73,7 +73,6 @@ export function BuyerHall() {
     setAcceptError('');
     setIsAccepting(true);
     try {
-      console.log(`[BuyerHall] Attempting to accept quote ${quote.quoteId} for order ${selectedRFQ.orderId}`);
       await acceptQuote(quote.quoteId, quote.premiumAmount, selectedRFQ.notionalUSDT);
       setAcceptSuccess(true);
       setTimeout(() => {
@@ -82,8 +81,7 @@ export function BuyerHall() {
         getAllActiveRFQs().then(data => setRfqs(data));
       }, 2000);
     } catch (err: any) {
-      console.error(`[BuyerHall] Accept failed:`, err);
-      setAcceptError(err.message || '接受报价失败');
+      setAcceptError(err.message || 'Failed to accept quote');
     }
     finally { setIsAccepting(false); }
   };
@@ -99,64 +97,72 @@ export function BuyerHall() {
   });
 
   return (
-    <div className="max-w-[1400px] mx-auto pt-16 pb-20">
+    <div className="max-w-[1400px] mx-auto px-6 py-12">
       {/* Header Section */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-12 mb-24">
-        <div className="space-y-6">
-          <div className="flex items-center space-x-4">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-label text-emerald-500/80">实时行情与撮合终端</span>
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-16">
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.8)]" />
+            <span className="text-[10px] font-black text-gold-500/80 uppercase tracking-[0.3em]">Institutional RFQ Hub</span>
           </div>
-          <h1 className="text-4xl lg:text-5xl font-bold text-white tracking-tight">买方大厅</h1>
-          <p className="text-slate-500 text-xl max-w-2xl font-medium leading-relaxed">
-            浏览全球市场的实时询价订单，寻找最符合您投资策略的场外期权流动性。
+          <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter">BUYER HALL</h1>
+          <p className="text-gray-500 text-lg max-w-2xl font-bold leading-relaxed">
+            Monitor real-time quote requests and secure institutional-grade liquidity for customized OTC options.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-6">
-          <div className="flex items-center space-x-12 px-10 py-6 glass-surface rounded-[32px]">
+          <div className="flex items-center space-x-12 px-8 py-6 glass-panel rounded-3xl">
             <div>
-              <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">全网总流动性</p>
-              <p className="text-2xl font-bold text-white tracking-tight">$---</p>
+              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Global Liquidity</p>
+              <p className="text-2xl font-black text-white tracking-tight">$---</p>
             </div>
-            <div className="w-px h-10 bg-white/10" />
+            <div className="w-px h-8 bg-white/5" />
             <div>
-              <p className="text-[11px] font-bold text-slate-500 uppercase mb-2">活跃询价订单</p>
-              <p className="text-2xl font-bold text-white tracking-tight">{rfqs.length}</p>
+              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Active RFQs</p>
+              <p className="text-2xl font-black text-white tracking-tight">{rfqs.length}</p>
             </div>
           </div>
-          <Link to="/create-rfq" className="btn-elite-primary px-12 h-20 rounded-[28px] text-[14px] tracking-[0.05em] shadow-2xl shadow-emerald-500/20">
-            发起新询价 (RFQ)
+          <Link to="/create-rfq" className="btn-gold px-10 h-16 flex items-center justify-center text-xs tracking-widest">
+            INITIATE NEW RFQ
           </Link>
         </div>
       </div>
 
-      <div className="space-y-20">
+      <div className="space-y-12">
         {/* Filter Toolbar */}
-        <div className="flex flex-col xl:flex-row justify-between items-center gap-10 pb-10 border-b border-white/[0.05]">
-          <div className="relative w-full xl:w-[480px]">
+        <div className="flex flex-col xl:flex-row justify-between items-center gap-8 pb-8 border-b border-white/5">
+          <div className="relative w-full xl:w-[420px]">
             <input
               type="text"
-              placeholder="搜索资产名称、代码或关键字..."
-              className="elite-input w-full pl-14 pr-8 h-16 text-sm"
+              placeholder="Search assets, symbols or nodes..."
+              className="obsidian-input w-full pl-12 pr-6 h-14 text-sm font-bold"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
-            <svg className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6">
-            <div className="flex bg-slate-900 border border-white/[0.08] p-2 rounded-2xl">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex bg-obsidian-900 border border-white/5 p-1.5 rounded-2xl">
               {['ALL', 'CN', 'US', 'CRYPTO'].map(m => (
-                <button key={m} onClick={() => setFilter(m)} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all ${filter === m ? 'bg-white/10 text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-200'}`}>
-                  {m === 'ALL' ? '全部市场' : m}
+                <button
+                  key={m}
+                  onClick={() => setFilter(m)}
+                  className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all tracking-widest ${filter === m ? 'bg-gold-500/10 text-gold-500' : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                  {m === 'ALL' ? 'ALL MARKETS' : m}
                 </button>
               ))}
             </div>
-            <div className="flex bg-slate-900 border border-white/[0.08] p-2 rounded-2xl">
+            <div className="flex bg-obsidian-900 border border-white/5 p-1.5 rounded-2xl">
               {['ALL', 'CALL', 'PUT'].map(d => (
-                <button key={d} onClick={() => setDirectionFilter(d)} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all ${directionFilter === d ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-200'}`}>
-                  {d === 'ALL' ? '全部方向' : d === 'CALL' ? '看涨 CALL' : '看跌 PUT'}
+                <button
+                  key={d}
+                  onClick={() => setDirectionFilter(d)}
+                  className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all tracking-widest ${directionFilter === d ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                  {d}
                 </button>
               ))}
             </div>
@@ -164,18 +170,18 @@ export function BuyerHall() {
         </div>
 
         {/* Market Grid */}
-        <div className="space-y-12 min-h-[500px]">
+        <div className="min-h-[400px]">
           {!isConnected ? (
-            <div className="py-40 rounded-[48px] border-2 border-dashed border-white/[0.05] bg-white/[0.01] text-center flex flex-col items-center">
-              <div className="text-8xl opacity-10 mb-10">🛡️</div>
-              <h3 className="text-2xl font-bold text-slate-600 uppercase tracking-widest mb-4">连接受限</h3>
-              <p className="text-slate-500 text-lg font-medium max-w-sm leading-relaxed">请连接您的 Web3 钱包，以实时观测去中心化节点传输的市场行情数据流。</p>
-              <button onClick={() => connect()} className="mt-12 btn-elite-primary px-10 h-14">授权连接 Authenticate</button>
+            <div className="py-32 glass-panel border-dashed rounded-[40px] text-center flex flex-col items-center">
+              <div className="text-6xl opacity-20 mb-8">🔒</div>
+              <h3 className="text-xl font-black text-gray-500 uppercase tracking-[0.4em] mb-4">Access Restricted</h3>
+              <p className="text-gray-600 font-bold max-w-sm leading-relaxed mb-10">Connect your institutional wallet to view secure P2P market signals.</p>
+              <button onClick={() => connect()} className="btn-gold px-12 h-14 text-[10px] tracking-widest">AUTHENTICATE</button>
             </div>
           ) : loading ? (
-            <div className="py-40 flex flex-col items-center space-y-6">
-              <div className="w-12 h-12 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin" />
-              <p className="text-[12px] font-black text-slate-600 uppercase tracking-[0.3em]">同步节点数据中...</p>
+            <div className="py-32 flex flex-col items-center space-y-6">
+              <div className="w-10 h-10 border-4 border-gold-500/10 border-t-gold-500 rounded-full animate-spin" />
+              <p className="text-[10px] font-black text-gray-700 uppercase tracking-[0.4em]">Syncing Neural Node Data...</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-6">
@@ -193,7 +199,8 @@ export function BuyerHall() {
                     expiryTimestamp: rfq.expiryTimestamp,
                     status: rfq.status,
                     sellerType: 'Open Market',
-                    refPrice: rfq.refPrice
+                    refPrice: rfq.refPrice,
+                    createdAt: rfq.createdAt
                   }}
                   onAction={rfq.buyer.toLowerCase() === account?.toLowerCase() && (rfq.status === 'QUOTING' || rfq.status === 'RFQ_CREATED') ? async (id) => {
                     setSelectedRFQ(rfq);
@@ -204,12 +211,12 @@ export function BuyerHall() {
                       setQuotes(q.filter((item: any) => item.status === 0));
                     } finally { setLoadingQuotes(false); }
                   } : undefined}
-                  actionLabel="查看收到报价"
+                  actionLabel="VIEW OFFERS"
                 />
               ))}
               {filteredRFQs.length === 0 && (
-                <div className="py-40 text-center opacity-40 italic text-slate-500 font-bold uppercase tracking-widest text-[14px]">
-                  当前检索条件下未发现活跃询价信号
+                <div className="py-32 text-center glass-panel border-dashed rounded-[40px]">
+                  <p className="text-[12px] font-black text-gray-700 uppercase tracking-[0.3em] italic">No active signals match your filter criteria</p>
                 </div>
               )}
             </div>
@@ -217,36 +224,36 @@ export function BuyerHall() {
         </div>
       </div>
 
-      <div className="h-32" />
+      <div className="h-24" />
 
       {/* Quotes Modal */}
       {showQuotesModal && selectedRFQ && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-8">
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-3xl transition-all animate-fade-in" onClick={() => setShowQuotesModal(false)} />
-          <div className="w-full max-w-[840px] glass-surface rounded-[56px] p-16 relative z-10 shadow-2xl overflow-hidden animate-elite-entry border-white/10" onClick={(e) => e.stopPropagation()}>
-            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 blur-[140px] -mr-48 -mt-48 pointer-events-none" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-obsidian-950/95 backdrop-blur-3xl animate-in fade-in duration-500" onClick={() => setShowQuotesModal(false)} />
+          <div className="w-full max-w-[800px] glass-panel rounded-[48px] p-12 relative z-10 shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-500 border-white/10" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gold-500/5 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
 
-            <div className="text-center mb-16">
-              <p className="text-[11px] font-black text-emerald-500 uppercase tracking-[0.5em] mb-4">实时报价分析终端</p>
-              <h3 className="text-2xl font-bold text-white tracking-tight">询价单详情 / {selectedRFQ.underlyingCode}</h3>
+            <div className="text-center mb-12">
+              <p className="text-[10px] font-black text-gold-500 uppercase tracking-[0.5em] mb-3">Live Quote Terminal</p>
+              <h3 className="text-2xl font-black text-white tracking-tighter italic">Order Detail / {selectedRFQ.underlyingCode}</h3>
             </div>
 
-            <div className="grid grid-cols-4 gap-10 mb-16 py-10 border-y border-white/[0.08]">
-              <MetricItem label="名义本金" value={`$${Number(formatUnits(selectedRFQ.notionalUSDT, 6)).toLocaleString()}`} />
-              <MetricItem label="期权方向" value={selectedRFQ.direction === 'Call' ? '看涨 CALL' : '看跌 PUT'} gold={selectedRFQ.direction === 'Call'} />
-              <MetricItem label="参考价格" value={`$${selectedRFQ.refPrice}`} />
-              <MetricItem label="目标费率" value={`${(selectedRFQ.premiumRate / 100).toFixed(2)}%`} />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12 py-8 border-y border-white/5">
+              <MetricItem label="Notional" value={`$${Number(formatUnits(selectedRFQ.notionalUSDT, 6)).toLocaleString()}`} />
+              <MetricItem label="Direction" value={selectedRFQ.direction.toUpperCase()} gold />
+              <MetricItem label="Reference" value={`$${selectedRFQ.refPrice}`} />
+              <MetricItem label="Target rate" value={`${(selectedRFQ.premiumRate / 100).toFixed(2)}%`} />
             </div>
 
-            <div className="space-y-6 max-h-[440px] overflow-y-auto pr-4 custom-scroll">
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scroll">
               {loadingQuotes ? (
-                <div className="py-24 flex flex-col items-center space-y-6 opacity-40">
-                  <div className="w-10 h-10 border-4 border-white/5 border-t-white rounded-full animate-spin" />
-                  <p className="text-[12px] font-black uppercase tracking-[0.4em]">正在轮询去中心化节点数据...</p>
+                <div className="py-20 flex flex-col items-center space-y-4 opacity-40">
+                  <div className="w-8 h-8 border-3 border-white/5 border-t-white rounded-full animate-spin" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em]">Polling decentralized nodes...</p>
                 </div>
               ) : quotes.length === 0 ? (
-                <div className="py-24 text-center border-2 border-white/[0.04] rounded-[40px] bg-white/[0.01] border-dashed">
-                  <p className="text-[13px] font-bold text-slate-600 uppercase tracking-widest italic leading-loose">当前暂无做市商节点发起有效报价</p>
+                <div className="py-20 text-center border border-white/5 rounded-3xl bg-transparent border-dashed">
+                  <p className="text-[11px] font-black text-gray-700 uppercase tracking-widest italic">No market markers responded yet</p>
                 </div>
               ) : quotes.map(quote => {
                 const now = Math.floor(Date.now() / 1000);
@@ -254,57 +261,47 @@ export function BuyerHall() {
                 const isExpired = remaining <= 0;
                 const isUrgent = remaining > 0 && remaining < 600;
 
-                // Debug log for button state
-                console.log(`[BuyerHall] Quote ${quote.quoteId} state:`, {
-                  now,
-                  expiresAt: quote.expiresAt,
-                  remaining,
-                  isExpired,
-                  isAccepting,
-                  acceptSuccess
-                });
-
                 const formatRemaining = () => {
-                  if (isExpired) return '已过期';
+                  if (isExpired) return 'EXPIRED';
                   const mins = Math.floor(remaining / 60);
                   const secs = remaining % 60;
-                  if (mins > 0) return `${mins}m ${secs}s`;
-                  return `${secs}s`;
+                  return mins > 0 ? `${mins}M ${secs}S` : `${secs}S`;
                 };
 
                 return (
-                  <div key={quote.quoteId} className="group bg-white/[0.03] border border-white/10 rounded-[32px] p-8 hover:bg-white/[0.06] hover:border-emerald-500/30 transition-all flex items-center justify-between gap-12">
-                    <div className="flex items-center space-x-6">
-                      <div className="w-14 h-14 bg-slate-950 border border-white/10 rounded-[20px] flex items-center justify-center text-3xl shadow-inner">🛡️</div>
+                  <div key={quote.quoteId} className="group bg-obsidian-900/50 border border-white/5 rounded-3xl p-6 hover:bg-obsidian-800 transition-all flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center space-x-5">
+                      <div className="w-12 h-12 bg-obsidian-950 border border-white/5 rounded-2xl flex items-center justify-center text-2xl shadow-inner group-hover:scale-110 transition-transform">🛡️</div>
                       <div>
-                        <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">报价方标识符 (Node ID)</p>
-                        <p className="text-[13px] font-mono font-bold text-white uppercase tracking-tight">{quote.seller.slice(0, 16)}...{quote.seller.slice(-10)}</p>
+                        <p className="text-[9px] font-black text-gray-700 uppercase mb-1">Provider Node</p>
+                        <p className="text-xs font-mono font-bold text-gray-400 truncate w-40 md:w-auto">{quote.seller.slice(0, 16)}...{quote.seller.slice(-10)}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-8">
+                    <div className="flex items-center gap-8 w-full md:w-auto justify-between md:justify-end">
                       <div className="text-center">
-                        <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">有效期</p>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isExpired
-                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/20'
+                        <p className="text-[9px] font-black text-gray-700 uppercase mb-1">Validity</p>
+                        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black border tracking-widest ${isExpired
+                          ? 'bg-red-500/10 text-red-500 border-red-500/10'
                           : isUrgent
-                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/20 animate-pulse'
-                            : 'bg-slate-700/50 text-slate-400 border border-white/10'
+                            ? 'bg-gold-500/10 text-gold-500 border-gold-500/10 animate-pulse'
+                            : 'bg-obsidian-800 text-gray-500 border-white/5'
                           }`}>
-                          ⏱️ {formatRemaining()}
+                          {formatRemaining()}
                         </span>
                       </div>
 
                       <div className="text-right">
-                        <p className="text-[10px] font-black text-slate-600 uppercase mb-1.5">提供的权利金费率</p>
-                        <p className="text-2xl font-bold text-emerald-400 tracking-tight">{(quote.premiumRate / 100).toFixed(2)}%</p>
+                        <p className="text-[9px] font-black text-gray-700 uppercase mb-1">Rate Offer</p>
+                        <p className="text-xl font-black text-emerald-500 tracking-tight italic">{(quote.premiumRate / 100).toFixed(2)}%</p>
                       </div>
+
                       <button
                         onClick={() => handleAccept(quote)}
                         disabled={isAccepting || acceptSuccess || isExpired}
-                        className={`h-14 px-10 rounded-2xl text-[12px] font-bold transition-all ${isAccepting || acceptSuccess || isExpired ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-50' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-900 cursor-pointer'}`}
+                        className={`h-12 px-8 rounded-xl text-[10px] font-black tracking-widest transition-all ${isAccepting || acceptSuccess || isExpired ? 'bg-obsidian-800 text-gray-600 cursor-not-allowed opacity-50' : 'bg-gold-500 hover:bg-gold-400 text-obsidian-950'}`}
                       >
-                        {isExpired ? '已过期' : isAccepting ? '处理中...' : acceptSuccess ? '撮合成功' : '接受并交易'}
+                        {isExpired ? 'EXPIRED' : isAccepting ? 'PROCESSING' : acceptSuccess ? 'SUCCESS' : 'ACCEPT'}
                       </button>
                     </div>
                   </div>
@@ -313,12 +310,12 @@ export function BuyerHall() {
             </div>
 
             {acceptError && (
-              <div className="mt-10 bg-rose-500/10 border border-rose-500/20 p-6 rounded-2xl text-rose-500 text-[12px] font-black text-center uppercase tracking-[0.1em]">
-                执行冲突: {acceptError}
+              <div className="mt-8 bg-red-500/5 border border-red-500/20 p-4 rounded-xl text-red-500 text-[9px] font-black text-center uppercase tracking-widest">
+                Conflict detected: {acceptError}
               </div>
             )}
 
-            <button onClick={() => setShowQuotesModal(false)} className="mt-16 w-full text-[11px] font-black text-slate-700 uppercase tracking-[0.5em] hover:text-white transition-all">关闭终端 TERMINAL</button>
+            <button onClick={() => setShowQuotesModal(false)} className="mt-12 w-full text-[9px] font-black text-gray-700 uppercase tracking-[0.4em] hover:text-white transition-all">TERMINATE SESSION</button>
           </div>
         </div>
       )}
@@ -328,9 +325,9 @@ export function BuyerHall() {
 
 function MetricItem({ label, value, gold }: { label: string, value: string, gold?: boolean }) {
   return (
-    <div className="space-y-3">
-      <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">{label}</p>
-      <p className={`text-xl font-bold tracking-tight ${gold ? 'text-emerald-400' : 'text-white'}`}>{value}</p>
+    <div className="space-y-2">
+      <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest">{label}</p>
+      <p className={`text-lg font-black tracking-tight ${gold ? 'text-gold-500 italic' : 'text-white'}`}>{value}</p>
     </div>
   );
 }

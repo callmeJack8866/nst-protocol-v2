@@ -1,56 +1,71 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+
 import { WalletProvider } from './context/WalletContext';
 import { PerspectiveProvider } from './context/PerspectiveContext';
-import { Header } from './components/Header';
-import { BuyerHall } from './pages/BuyerHall';
-import { SellerHall } from './pages/SellerHall';
+import PerspectiveTransition from './components/PerspectiveTransition';
+import Header from './components/Header';
+import Sidebar from './components/Sidebar';
 import { OrderMarket } from './pages/OrderMarket';
-import { FeederPanel } from './pages/FeederPanel';
-import { MyOrders } from './pages/MyOrders';
+import FeederPanel from './pages/FeederPanel';
+import MyOrders from './pages/MyOrders';
 import CreateBuyerRFQ from './pages/CreateBuyerRFQ';
 import CreateSellerOrder from './pages/CreateSellerOrder';
+import OrderDetail from './pages/OrderDetail';
+import Leaderboard from './pages/Leaderboard';
 import { PointsCenter } from './pages/PointsCenter';
 import { SeatManagement } from './pages/SeatManagement';
 import SubmitQuotePage from './pages/SubmitQuotePage';
 
 function App() {
+  const { t } = useTranslation();
   return (
+
     <WalletProvider>
       <PerspectiveProvider>
+        <PerspectiveTransition />
         <BrowserRouter>
-          <div className="min-h-screen bg-slate-950 flex flex-col">
-            {/* Header stays sticky at the top */}
-            <Header />
+          <div className="flex h-screen bg-[#050505] text-white overflow-hidden relative font-['Outfit']">
+            {/* Background Decorative Layer */}
+            <div className="absolute inset-0 z-0 pointer-events-none opacity-40">
+              <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-gold-500/5 blur-[120px] rounded-full" />
+              <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-gold-500/5 blur-[120px] rounded-full" />
+            </div>
 
-            <div className="flex flex-col flex-1">
-              {/* Sidebar removed as per user request */}
+            {/* Sidebar - Fixed width, full height */}
+            <Sidebar />
 
-              <main className="flex-1 w-full flex flex-col items-center">
-                <div className="w-full max-w-[1600px] px-6 md:px-10 flex-1 flex flex-col">
+            {/* Main Interface Area */}
+            <div className="flex-1 flex flex-col relative z-10 min-w-0 h-full">
+              {/* Header - Horizontal status bar */}
+              <Header />
+
+              {/* Scrollable Content Viewport */}
+              <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                <div className="max-w-[1400px] mx-auto px-6 lg:px-12 py-10 min-h-full">
                   <Routes>
                     <Route path="/" element={<Navigate to="/market" replace />} />
-                    {/* 统一交易大厅 */}
                     <Route path="/market" element={<OrderMarket />} />
-                    {/* 保留原有路由并重定向 */}
-                    <Route path="/buyer" element={<BuyerHall />} />
-                    <Route path="/seller" element={<SellerHall />} />
-                    {/* 其他页面 */}
                     <Route path="/orders" element={<MyOrders />} />
+                    <Route path="/portfolio" element={<MyOrders />} />
                     <Route path="/feeder" element={<FeederPanel />} />
                     <Route path="/points" element={<PointsCenter />} />
+                    <Route path="/rewards" element={<PointsCenter />} />
                     <Route path="/create-rfq" element={<CreateBuyerRFQ />} />
-                    <Route path="/create-order" element={<CreateSellerOrder />} />
+                    <Route path="/create-seller-order" element={<CreateSellerOrder />} />
+                    <Route path="/leaderboard" element={<Leaderboard />} />
+                    <Route path="/order/:orderId" element={<OrderDetail />} />
                     <Route path="/seat" element={<SeatManagement />} />
-                    {/* 卖方对买方RFQ提交报价 */}
                     <Route path="/quote/:orderId" element={<SubmitQuotePage />} />
                   </Routes>
                 </div>
 
-                <footer className="w-full py-12 border-t border-white/[0.03]">
-                  <div className="text-center">
-                    <p className="text-slate-600 text-[10px] font-bold uppercase tracking-[0.3em]">
-                      2024 NST OPTIONS. 场外期权撮合系统 | BSC CHAIN
+                <footer className="w-full py-10 border-t border-white/[0.04] mt-10">
+                  <div className="text-center opacity-30">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em]">
+                      {t('rfq.common.footer_copyright')}
                     </p>
+
                   </div>
                 </footer>
               </main>
