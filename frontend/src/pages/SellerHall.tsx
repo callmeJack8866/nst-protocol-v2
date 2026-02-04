@@ -5,6 +5,12 @@ import { Link } from 'react-router-dom';
 import { formatUnits } from 'ethers';
 import { useTranslation } from 'react-i18next';
 
+// Safe direction conversion: handles both string and number
+const getDirectionStr = (direction: any): string => {
+  if (typeof direction === 'string') return direction;
+  return Number(direction) === 0 ? 'Call' : 'Put';
+};
+
 interface RFQOrder {
   orderId: number;
   buyer: string;
@@ -240,7 +246,7 @@ export function SellerHall() {
               </div>
               <div className="flex flex-col">
                 <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Direction</span>
-                <span className={`text-base font-black ${selectedRFQ.direction === 'Call' ? 'text-emerald-500 italic' : 'text-red-500 italic'}`}>{selectedRFQ.direction.toUpperCase()}</span>
+                <span className={`text-base font-black ${getDirectionStr(selectedRFQ.direction) === 'Call' ? 'text-emerald-500 italic' : 'text-red-500 italic'}`}>{getDirectionStr(selectedRFQ.direction).toUpperCase()}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Reference</span>

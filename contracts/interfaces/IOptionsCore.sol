@@ -231,4 +231,18 @@ interface IOptionsCore {
     function getQuotes(uint256 orderId) external view returns (Quote[] memory);
     function getBuyerOrders(address buyer) external view returns (uint256[] memory);
     function getSellerOrders(address seller) external view returns (uint256[] memory);
+
+    // ==================== 喂价回调 ====================
+    
+    /**
+     * @notice FeedProtocol 喂价完成后自动回调
+     * @param orderId 订单ID
+     * @param feedType 喂价类型 (期初/期末)
+     * @param finalPrice 喂价结果 (18位精度)
+     */
+    function processFeedCallback(
+        uint256 orderId, 
+        FeedType feedType, 
+        uint256 finalPrice
+    ) external;
 }

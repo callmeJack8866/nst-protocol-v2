@@ -270,4 +270,106 @@
     outline: none;
     border-color: var(--accent-primary);
   }
+
+  /* === Elite Toast System === */
+  .elite-toast-container {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    pointer-events: none;
+  }
+
+  .elite-toast-base {
+    pointer-events: auto;
+    min-width: 320px;
+    padding: 1.25rem 1.5rem;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    animation: toast-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    color: white;
+  }
+
+  @keyframes toast-in {
+    from {
+      transform: translateX(100%) scale(0.9);
+      opacity: 0;
+    }
+
+    to {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  .elite-toast-success {
+    composes: elite-toast-base;
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.2);
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.1);
+  }
+
+  .elite-toast-success span:first-child {
+    color: #10b981;
+  }
+
+  .elite-toast-error {
+    composes: elite-toast-base;
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.1);
+  }
+
+  .elite-toast-error span:first-child {
+    color: #ef4444;
+  }
+
+  .elite-toast-warning {
+    composes: elite-toast-base;
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.2);
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.1);
+  }
+
+  .elite-toast-warning span:first-child {
+    color: #f59e0b;
+  }
+
+  .elite-toast-info {
+    composes: elite-toast-base;
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.1);
+  }
+
+  .elite-toast-info span:first-child {
+    color: #3b82f6;
+  }
+
+  /* Spinner & Animations */
+  .elite-spinner {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spinner 0.8s linear infinite;
+  }
+
+  @keyframes spinner {
+    to {
+      transform: rotate(360deg);
+    }
+  }
 }

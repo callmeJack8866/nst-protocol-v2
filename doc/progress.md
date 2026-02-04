@@ -1,16 +1,125 @@
 # NST Finance 前端进展
 
-## [2026-02-04 15:58]
+## [2026-02-04 22:55]
+
 - **Status**: Done
-- **Changes**: 修复视角切换状态持久化 Bug
-  - `PerspectiveContext.tsx`: 添加 localStorage 持久化机制
-    - 初始化时从 `nst-perspective` 键读取保存的状态
-    - 切换视角时自动保存到 localStorage
-  - `index.css`: 添加 CSS 主题覆盖规则（mode-seller 下蓝色 → 紫色）
-    - 18 个自动颜色替换规则
-- **Next Step**: 视角切换完全持久化，可跨页面导航、刷新保持状态
+- **Changes**: 完整重构 VaultManager 和 OptionsCore
+  - VaultManager 添加 `adminSetMarginBalance` 函数（用于测试/迁移场景）
+  - 部署新 VaultManager: `0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454`
+  - 部署新 OptionsCore: `0x0672f9ec88421858Ce4BC88071447BF31A8cEd24`
+  - 配置所有权限：VAULT_OPERATOR_ROLE、FEED_PROTOCOL_ROLE
+  - FeedProtocol 指向新 OptionsCore
+  - 预存 100 USDT 到 VaultManager
+  - 同步前端和 Keeper 配置
+- **Next Step**: 刷新前端测试完整流程
+
+## [2026-02-04 22:35]
+
+- **Status**: Done
+- **Changes**: 修复 settle 函数执行失败
+  - 发现根本原因：旧 VaultManager (`0xF73CD5...`) ABI 不匹配，无法调用
+  - 部署新 VaultManager: `0x3e7eEf51EdFb64D03738801c2d2174E3cB1400F7`
+  - 部署新 OptionsCore: `0x9EF0D757F9168f42628Ca99C622c0ACDd403B1F0`
+  - 授予 OptionsCore VAULT_OPERATOR_ROLE 权限
+  - 更新 FeedProtocol 指向新 OptionsCore
+  - 同步前端和 Keeper 配置
+- **Next Step**: 刷新前端测试完整的订单创建→喂价→结算流程
+
+## [2026-02-04 22:25]
+
+- **Status**: Done
+- **Changes**: 修复 SETTLE 按钮禁用问题
+  - 发现订单 1 状态为 5 (WAITING_FINAL_FEED) 而非 6 (PENDING_SETTLEMENT)
+  - 期末喂价后 FeedProtocol 回调未成功更新订单状态
+  - 使用 `processFinalFeedResult` 手动将订单状态更新为 6 (PENDING_SETTLEMENT)
+- **Next Step**: 刷新前端测试 SETTLE 按钮功能
+
+## [2026-02-04 22:10]
+
+- **Status**: Done
+- **Changes**: 修复创建订单功能
+  - 发现 OptionsCore 使用了错误的 Config 地址（返回空数据）
+  - 重新部署 OptionsCore 到 `0xE3aD42f194804590f64f5A796780Eb566bd4ba9f`（使用正确的 Config）
+  - 授予 OptionsCore 在 VaultManager 中的 VAULT_OPERATOR_ROLE 权限
+  - 更新前端和 Keeper 配置
+- **Next Step**: 刷新前端测试创建订单功能
+
+## [2026-02-04 21:56]
+
+- **Status**: Done
+- **Changes**: 修改喂价次数为 1 次即可完成（测试模式）
+  - 修改 `Tier_5_3` 配置：`totalFeeders` 和 `effectiveFeeds` 从 5/3 改为 1/1
+  - 重新部署 FeedProtocol 到 `0xa4d3d2D56902f91e92caDE54993f45b4376979C7`
+  - 配置跨合约权限和回调地址
+  - 同步 frontend 和 keeper 配置地址
+- **Next Step**: 刷新前端测试完整流程
+
+## [2026-02-04 21:38]
+
+- **Status**: Done
+- **Changes**: 修复 SETTLE 按钮功能
+  - 发现合约中虽有 settle 接口声明但已实现，只是链上部署的旧版本缺失此函数
+  - 重新部署 OptionsCore 到 `0x758e843E2e052Ddb65B92e0a7b8Fa84D1a70e4a2`
+  - 更新 FeedProtocol 指向新 OptionsCore，授予 FEED_PROTOCOL_ROLE
+  - 同步 frontend 和 keeper 配置地址
+- **Next Step**: 刷新前端测试完整的结算流程
+
+## [2026-02-04 21:20]
+
+- **Status**: Done
+- **Changes**: 修复 EXERCISE 按钮自动触发期末喂价请求
+  - 添加 `handleExerciseWithFeed` 函数到 `MyOrders.tsx`
+  - EXERCISE 操作现在会：1. 调用 `earlyExercise` 改变订单状态 2. 自动调用 `requestFeed(orderId, 1, 0)` 创建期末喂价请求
+  - 喂价员刷新页面后可以看到期末喂价任务
+- **Next Step**: 刷新前端测试完整的行权+期末喂价流程
+
+## [2026-02-04 20:50]
+
+- **Status**: Done
+- **Changes**: 实现喂价结果自动回调机制
+  - 修改 `IOptionsCore.sol` 添加 `processFeedCallback` 接口
+  - 修改 `OptionsCore.sol` 添加 `FEED_PROTOCOL_ROLE` 和回调实现
+  - 修改 `FeedProtocol.sol` 添加自动回调 `finalizeFeed()` → `OptionsCore.processFeedCallback()`
+  - 部署新合约：
+    - OptionsCore: `0x46c6E8d8C979Aab21B0DA03a872F9DBc8EcC1DFb`
+    - FeedProtocol: `0x5D89Bf9daae4B361315AE7d2dADf6091342B9858`
+  - 配置互调权限：`FEED_PROTOCOL_ROLE` 授权完成
+  - 更新 `frontend/src/contracts/config.ts` 和 `scripts/keeper/utils.ts`
+- **Next Step**: 刷新前端测试喂价自动回调
+
+## [2026-02-04 20:35]
+
+- **Status**: Done
+- **Changes**: 完成喂价结果自动化处理修复
+  - **根因**：
+    1. Keeper 脚本使用过时的合约地址（2026-01-28 版本）
+    2. FeedProtocol 喂价完成后不会自动调用 OptionsCore
+  - **修复内容**：
+    - 同步 `scripts/keeper/utils.ts` 合约地址
+    - 创建 `processOrder.ts` 处理期初喂价 → LIVE
+    - 创建 `forceFinalFeed.ts` 处理期末喂价 → PENDING_SETTLEMENT
+  - **处理结果**：
+    - 订单 #1: MATCHED → LIVE (TX: `0x4e71fa88...`)
+    - 订单 #1: LIVE → PENDING_SETTLEMENT (TX: `0x00d0f352...`)
+- **Next Step**: 前端刷新即可看到订单状态变为"待结算"
+
+## [2026-02-04 20:25]
+
+## [2026-02-04 20:10]
+
+- **Status**: Done
+- **Changes**: 优化全局弹窗与通知系统 (UI/UX)
+  - `Toast.tsx`: 完成通知组件基础设施建设
+  - `index.css`: 添加 "Elite Obsidian" 风格 Toast 样式（透明玻璃+光晕效果）
+  - `App.tsx`: 全局挂载 `ToastProvider`
+  - `MyOrders.tsx`: 替换所有原生 `alert()` 为专业的 `showToast` 调用
+  - `FeederPanel.tsx`: 将静默失败/控制台错误替换为实时的 `showToast` 反馈
+- **Next Step**: 核心交互体验已对标 Obsidian 视觉标准，应用现具备专业的工业级反馈。
+
+## [2026-02-04 15:58]
 
 ## [2026-02-04 15:42]
+
 - **Status**: Done  
 - **Changes**: 完成全应用 UI 审计与翻译优化
 
@@ -23,6 +132,7 @@
 - **Next Step**: 翻译全覆盖完成，可进行最终验收测试
 
 ## [2026-02-04 15:25]
+
 - **Status**: Done
 - **Changes**: 修复 FeederPanel 和 PointsCenter 页面内容区中文翻译缺失
   - `i18n.ts`: 扩充 feeder/points 命名空间翻译键（各新增约 40 个键）
@@ -30,8 +140,8 @@
   - `PointsCenter.tsx`: 替换头部、积分区、分发中心等区域硬编码文本为 t() 调用
 - **Next Step**: 所有核心页面翻译完成，可进行最终验收
 
-
 ## [2026-02-04 15:20]
+
 - **Status**: Done
 - **Changes**: 完成功能差距修复阶段二 (P1) — 订单状态增强
   - `MyOrders.tsx`: 添加 30s 自动轮询刷新机制
@@ -41,15 +151,14 @@
     - 订单数据每 30s 自动刷新
 - **Next Step**: 功能差距修复全部完成，可进行用户验收测试
 
-
 - **Changes**: 完成功能差距修复阶段一 (P0)
   - `Leaderboard.tsx`: 添加真实喂价员数据加载（getFeederInfo）、示例数据提示横幅、中英双语 i18n 翻译
   - `UserProfile.tsx`: 确认已有真实数据集成（买方/卖方订单统计、积分、喂价员状态）
   - `i18n.ts`: 新增 leaderboard、profile 命名空间翻译
 - **Next Step**: 可实施阶段二
 
-
 ## [2026-02-04 22:35]
+
 - **Status**: Done
 - **Changes**: 完成四大页面的国际化翻译。
 
@@ -58,13 +167,15 @@
 
 - 实现了排行榜、订单详情页及全局路由清理。
 - 通过生产环境 build (npm run build)。
-1.  **index.css**: 全面升级为 Obsidian Lume 标准。提升了文本对比度，引入了 `border-top` 高光边缘，并建立了基于 CSS 变量的角色主题逻辑。
-2.  **OrderMarket.tsx**: 重构为买卖双大厅模式。
-    -   买方模式 (Blue Theme): 侧重收益与 RFQ 竞价。
-    -   卖方模式 (Purple Theme): 侧重保证金安全。
-    -   角色切换现在是全站色调同步的沉浸式体验。
-3.  **MyOrders.tsx**: 色彩心理暗示同步完成。修正了 `withdrawExcessMargin` 等合约调用的传参类型，解决了 TypeScript 构建错误。
-4.  **Build Verification**: 执行 `npm run build` 成功。
+
+1. **index.css**: 全面升级为 Obsidian Lume 标准。提升了文本对比度，引入了 `border-top` 高光边缘，并建立了基于 CSS 变量的角色主题逻辑。
+2. **OrderMarket.tsx**: 重构为买卖双大厅模式。
+    - 买方模式 (Blue Theme): 侧重收益与 RFQ 竞价。
+    - 卖方模式 (Purple Theme): 侧重保证金安全。
+    - 角色切换现在是全站色调同步的沉浸式体验。
+3. **MyOrders.tsx**: 色彩心理暗示同步完成。修正了 `withdrawExcessMargin` 等合约调用的传参类型，解决了 TypeScript 构建错误。
+4. **Build Verification**: 执行 `npm run build` 成功。
 
 ## [Next Step]
+
 - 开启 Phase 7: 深度性能监控与移动端极端分辨率适配。

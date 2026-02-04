@@ -86,9 +86,15 @@ export function BuyerHall() {
     finally { setIsAccepting(false); }
   };
 
+  // Safe direction conversion: handles both string and number
+  const getDirectionStr = (direction: any): string => {
+    if (typeof direction === 'string') return direction;
+    return Number(direction) === 0 ? 'Call' : 'Put';
+  };
+
   const filteredRFQs = rfqs.filter((rfq) => {
     if (filter !== 'ALL' && !rfq.market.toUpperCase().includes(filter) && !rfq.country.toUpperCase().includes(filter)) return false;
-    if (directionFilter !== 'ALL' && rfq.direction.toUpperCase() !== directionFilter) return false;
+    if (directionFilter !== 'ALL' && getDirectionStr(rfq.direction).toUpperCase() !== directionFilter) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return rfq.underlyingName.toLowerCase().includes(q) || rfq.underlyingCode.toLowerCase().includes(q);
@@ -240,7 +246,7 @@ export function BuyerHall() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12 py-8 border-y border-white/5">
               <MetricItem label="Notional" value={`$${Number(formatUnits(selectedRFQ.notionalUSDT, 6)).toLocaleString()}`} />
-              <MetricItem label="Direction" value={selectedRFQ.direction.toUpperCase()} gold />
+              <MetricItem label="Direction" value={getDirectionStr(selectedRFQ.direction).toUpperCase()} gold />
               <MetricItem label="Reference" value={`$${selectedRFQ.refPrice}`} />
               <MetricItem label="Target rate" value={`${(selectedRFQ.premiumRate / 100).toFixed(2)}%`} />
             </div>

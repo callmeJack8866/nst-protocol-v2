@@ -1,0 +1,156 @@
+/**
+ * feedResultProcessor.ts
+ * 
+ * 喂价结果处理器 Keeper
+ * 监听 FeedProtocol.FeedFinalized 事件，并调用 OptionsCore.processInitialFeedResult / processFinalFeedResult
+ * 将已完成喂价的订单状态从 MATCHED → LIVE 或 LIVE → PENDING_SETTLEMENT
+ */
+
+import { ethers, Log } from 'ethers';
+import { getProvider, getAdminWallet, sleep, getContracts, FeedProtocolAddress, OptionsCoreAddress, USDT_ADDRESS } from './utils';
+
+// 最小 ABI
+const FEED_PROTOCOL_ABI = [
+    "event FeedFinalized(uint256 indexed requestId, uint256 finalPrice, uint256 timestamp)",
+    "function feedRequests(uint256 requestId) view returns (uint256 requestId, uint256 orderId, uint8 feedType, uint8 tier, uint256 deadline, uint256 createdAt, uint256 totalFeeders, uint256 submittedCount, uint256 finalPrice, bool finalized)"
+];
+
+const OPTIONS_CORE_ABI = [
+    "function processInitialFeedResult(uint256 orderId, uint256 initialPrice) external",
+    "function processFinalFeedResult(uint256 orderId, uint256 finalPrice) external",
+    "function orders(uint256 orderId) view returns (uint256 orderId, address buyer, address seller, uint8 status)"
+];
+
+// FeedType 枚举 (from NSTTypes.sol)
+const FEED_TYPE = {
+    Initial: 0,
+    Final: 1,
+    Arbitration: 2
+};
+
+// OrderStatus 枚举
+const ORDER_STATUS = {
+    MATCHED: 2,
+    LIVE: 4
+};
+
+const POLL_INTERVAL_MS = 10_000; // 10秒轮询一次
+
+async function processHistoricalEvents() {
+    const provider = getProvider();
+    const wallet = getAdminWallet();
+
+    const feedProtocol = new ethers.Contract(FeedProtocolAddress, FEED_PROTOCOL_ABI, provider);
+    const optionsCore = new ethers.Contract(OptionsCoreAddress, OPTIONS_CORE_ABI, wallet);
+
+    // 获取最近 1000 个区块的事件
+    const currentBlock = await provider.getBlockNumber();
+    const fromBlock = Math.max(0, currentBlock - 1000);
+
+    console.log(`[FeedResultProcessor] Scanning events from block ${fromBlock} to ${currentBlock}...`);
+
+    const filter = feedProtocol.filters.FeedFinalized();
+    const events = await feedProtocol.queryFilter(filter, fromBlock, currentBlock);
+
+    console.log(`[FeedResultProcessor] Found ${events.length} FeedFinalized events`);
+
+    for (const event of events) {
+        try {
+            const log = event as ethers.EventLog;
+            const requestId = log.args[0];
+            const finalPrice = log.args[1];
+
+            await processEvent(feedProtocol, optionsCore, requestId, finalPrice);
+        } catch (err) {
+            console.error(`[FeedResultProcessor] Error processing event:`, err);
+        }
+    }
+}
+
+async function processEvent(
+    feedProtocol: ethers.Contract,
+    optionsCore: ethers.Contract,
+    requestId: bigint,
+    finalPrice: bigint
+) {
+    console.log(`[FeedResultProcessor] Processing request ${requestId} with price ${finalPrice}`);
+
+    // 获取 FeedRequest 详情
+    const feedRequest = await feedProtocol.feedRequests(requestId);
+    const orderId = feedRequest[1]; // orderId is at index 1
+    const feedType = Number(feedRequest[2]); // feedType is at index 2
+
+    console.log(`[FeedResultProcessor] Order ${orderId}, FeedType: ${feedType}`);
+
+    // 检查订单当前状态
+    const order = await optionsCore.orders(orderId);
+    const currentStatus = Number(order[3]); // status is at index 3
+
+    console.log(`[FeedResultProcessor] Order ${orderId} current status: ${currentStatus}`);
+
+    try {
+        if (feedType === FEED_TYPE.Initial && currentStatus === ORDER_STATUS.MATCHED) {
+            console.log(`[FeedResultProcessor] Processing INITIAL feed for order ${orderId}...`);
+            const tx = await optionsCore.processInitialFeedResult(orderId, finalPrice);
+            await tx.wait();
+            console.log(`[FeedResultProcessor] ✅ Order ${orderId} updated to LIVE. TX: ${tx.hash}`);
+        } else if (feedType === FEED_TYPE.Final && currentStatus === ORDER_STATUS.LIVE) {
+            console.log(`[FeedResultProcessor] Processing FINAL feed for order ${orderId}...`);
+            const tx = await optionsCore.processFinalFeedResult(orderId, finalPrice);
+            await tx.wait();
+            console.log(`[FeedResultProcessor] ✅ Order ${orderId} updated to PENDING_SETTLEMENT. TX: ${tx.hash}`);
+        } else {
+            console.log(`[FeedResultProcessor] Skipping: FeedType=${feedType}, Status=${currentStatus}`);
+        }
+    } catch (err: any) {
+        if (err.message?.includes('order not matched') || err.message?.includes('order not in valid state')) {
+            console.log(`[FeedResultProcessor] Order ${orderId} already processed, skipping.`);
+        } else {
+            throw err;
+        }
+    }
+}
+
+async function startEventListener() {
+    const provider = getProvider();
+    const wallet = getAdminWallet();
+
+    const feedProtocol = new ethers.Contract(FeedProtocolAddress, FEED_PROTOCOL_ABI, provider);
+    const optionsCore = new ethers.Contract(OptionsCoreAddress, OPTIONS_CORE_ABI, wallet);
+
+    console.log('[FeedResultProcessor] Starting real-time event listener...');
+
+    feedProtocol.on('FeedFinalized', async (requestId, finalPrice, timestamp) => {
+        console.log(`[FeedResultProcessor] New FeedFinalized event: Request ${requestId}, Price: ${finalPrice}`);
+
+        try {
+            await processEvent(feedProtocol, optionsCore, requestId, finalPrice);
+        } catch (err) {
+            console.error(`[FeedResultProcessor] Error processing event:`, err);
+        }
+    });
+}
+
+export async function runFeedResultProcessor() {
+    console.log('[FeedResultProcessor] Starting...');
+    console.log(`[FeedResultProcessor] FeedProtocol: ${FeedProtocolAddress}`);
+    console.log(`[FeedResultProcessor] OptionsCore: ${OptionsCoreAddress}`);
+
+    // 先处理历史事件
+    await processHistoricalEvents();
+
+    // 启动实时监听
+    await startEventListener();
+
+    // 保持运行
+    while (true) {
+        await sleep(POLL_INTERVAL_MS);
+    }
+}
+
+// 如果直接运行此脚本
+if (require.main === module) {
+    runFeedResultProcessor()
+        .then(() => console.log('[FeedResultProcessor] Completed'))
+        .catch(console.error);
+}

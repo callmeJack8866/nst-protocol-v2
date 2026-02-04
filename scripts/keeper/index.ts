@@ -22,6 +22,7 @@ import { runSettleKeeper } from './settleKeeper';
 import { runInitialFeedKeeper } from './initialFeedKeeper';
 import { runExerciseFeedKeeper } from './exerciseFeedKeeper';
 import { runLimitUpKeeper } from './limitUpKeeper';
+import { runFeedResultProcessor } from './feedResultProcessor';
 import { log } from './utils';
 
 const SCAN_INTERVAL_MS = 60 * 1000; // 每 60 秒扫描一次
@@ -45,11 +46,22 @@ async function runAllKeepers(): Promise<void> {
     log('MAIN', '========== Keeper Scan Cycle Complete ==========\n');
 }
 
+// 启动事件监听器（非轮询，实时监听）
+async function startEventListeners(): Promise<void> {
+    log('MAIN', 'Starting event listeners...');
+    runFeedResultProcessor().catch((err) => {
+        log('MAIN', 'FeedResultProcessor error', { error: err.message });
+    });
+}
+
 async function main(): Promise<void> {
     log('MAIN', 'NST Options Keeper Service Starting...');
     log('MAIN', `Scan interval: ${SCAN_INTERVAL_MS / 1000} seconds`);
 
-    // 首次立即执行
+    // 启动实时事件监听器（喂价结果处理）
+    startEventListeners();
+
+    // 首次立即执行轮询任务
     await runAllKeepers();
 
     // 定时循环执行

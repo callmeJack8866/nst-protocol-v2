@@ -19,6 +19,9 @@ import "./Config.sol";
 contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
+    // ==================== 角色定义 ====================
+    bytes32 public constant FEED_PROTOCOL_ROLE = keccak256("FEED_PROTOCOL_ROLE");
+
     // ==================== 状态变量 ====================
     Config public config;
     VaultManager public vaultManager;
@@ -842,6 +845,46 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         order.settledAt = block.timestamp;
 
         emit OrderStatusChanged(orderId, oldStatus, OrderStatus.PENDING_SETTLEMENT, "final feed completed", block.timestamp);
+    }
+
+    /**
+     * @notice FeedProtocol 喂价完成后自动回调（由 FeedProtocol 调用）
+     * @param orderId 订单ID
+     * @param feedType 喂价类型 (期初/期末)
+     * @param finalPrice 喂价结果 (18位精度)
+     */
+    function processFeedCallback(
+        uint256 orderId, 
+        FeedType feedType, 
+        uint256 finalPrice
+    ) external override validOrder(orderId) onlyRole(FEED_PROTOCOL_ROLE) {
+        Order storage order = orders[orderId];
+        require(finalPrice > 0, "OptionsCore: invalid price");
+
+        if (feedType == FeedType.Initial) {
+            // 期初喂价: MATCHED -> LIVE
+            require(order.status == OrderStatus.MATCHED, "OptionsCore: order not matched");
+            
+            OrderStatus oldStatus = order.status;
+            order.status = OrderStatus.LIVE;
+            order.refPrice = _uintToString(finalPrice / 1e18);
+            order.lastFeedPrice = finalPrice;
+
+            emit OrderStatusChanged(orderId, oldStatus, OrderStatus.LIVE, "initial feed callback", block.timestamp);
+        } else if (feedType == FeedType.Final) {
+            // 期末喂价: LIVE/WAITING_FINAL_FEED -> PENDING_SETTLEMENT
+            require(
+                order.status == OrderStatus.LIVE || order.status == OrderStatus.WAITING_FINAL_FEED, 
+                "OptionsCore: order not in valid state"
+            );
+            
+            OrderStatus oldStatus = order.status;
+            order.status = OrderStatus.PENDING_SETTLEMENT;
+            order.lastFeedPrice = finalPrice;
+            order.settledAt = block.timestamp;
+
+            emit OrderStatusChanged(orderId, oldStatus, OrderStatus.PENDING_SETTLEMENT, "final feed callback", block.timestamp);
+        }
     }
 
     /**

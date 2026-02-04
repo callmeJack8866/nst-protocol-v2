@@ -975,6 +975,29 @@ const _abi = [
         type: "uint256",
       },
       {
+        internalType: "enum FeedType",
+        name: "feedType",
+        type: "uint8",
+      },
+      {
+        internalType: "uint256",
+        name: "finalPrice",
+        type: "uint256",
+      },
+    ],
+    name: "processFeedCallback",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "orderId",
+        type: "uint256",
+      },
+      {
         internalType: "uint256",
         name: "dividendPerShare",
         type: "uint256",

@@ -9,11 +9,12 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 // 合约地址配置 (BSC Testnet) - 与 frontend/src/contracts/config.ts 同步
-// Updated: 2026-01-28
+// Updated: 2026-02-04 - 支持自动回调的新部署
 const CONTRACT_ADDRESSES = {
-    OptionsCore: '0x58D4d685C0A398bA3a533bB96b8A52B7aDCA2570',
-    FeedProtocol: '0xebbc49E8867E1a736d3abDc9Cb89Aa7F5ee3F505',
-    Config: '0x514D9Fe758e125632ef5Ba240A06707C432A6e0d',
+    OptionsCore: '0x0672f9ec88421858Ce4BC88071447BF31A8cEd24',
+    FeedProtocol: '0xa4d3d2D56902f91e92caDE54993f45b4376979C7',
+    Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
+    USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
 };
 
 // OptionsCore ABI (仅 Keeper 需要的函数)
@@ -89,3 +90,26 @@ export async function safeExecute(
         return false;
     }
 }
+
+// Sleep 函数
+export function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// 导出合约地址
+export const OptionsCoreAddress = CONTRACT_ADDRESSES.OptionsCore;
+export const FeedProtocolAddress = CONTRACT_ADDRESSES.FeedProtocol;
+export const USDT_ADDRESS = process.env.USDT_ADDRESS || '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd';
+
+// 管理员钱包 (与 Signer 相同但语义更清晰)
+export function getAdminWallet(): ethers.Wallet {
+    return getSigner();
+}
+
+// 获取所有合约实例
+export function getContracts() {
+    return {
+        optionsCore: getOptionsCore(),
+    };
+}
+

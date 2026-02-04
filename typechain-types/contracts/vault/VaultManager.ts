@@ -28,6 +28,7 @@ export interface VaultManagerInterface extends Interface {
     nameOrSignature:
       | "DEFAULT_ADMIN_ROLE"
       | "VAULT_OPERATOR_ROLE"
+      | "adminSetMarginBalance"
       | "allocateProfitToSubPools"
       | "batchDistributeNodeRewards"
       | "collectFee"
@@ -87,6 +88,10 @@ export interface VaultManagerInterface extends Interface {
   encodeFunctionData(
     functionFragment: "VAULT_OPERATOR_ROLE",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "adminSetMarginBalance",
+    values: [AddressLike, AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "allocateProfitToSubPools",
@@ -227,6 +232,10 @@ export interface VaultManagerInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "VAULT_OPERATOR_ROLE",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "adminSetMarginBalance",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -608,6 +617,12 @@ export interface VaultManager extends BaseContract {
 
   VAULT_OPERATOR_ROLE: TypedContractMethod<[], [string], "view">;
 
+  adminSetMarginBalance: TypedContractMethod<
+    [_user: AddressLike, _token: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   allocateProfitToSubPools: TypedContractMethod<
     [
       _token: AddressLike,
@@ -814,6 +829,13 @@ export interface VaultManager extends BaseContract {
   getFunction(
     nameOrSignature: "VAULT_OPERATOR_ROLE"
   ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "adminSetMarginBalance"
+  ): TypedContractMethod<
+    [_user: AddressLike, _token: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "allocateProfitToSubPools"
   ): TypedContractMethod<

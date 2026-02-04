@@ -4,16 +4,16 @@
  * Upgrade: Added exerciseDelay & feedRule support to createSellerOrder
  */
 
-// BSC Testnet (ChainID: 97) - 2026-02-02 使用 18 位 Mock USDT
+// BSC Testnet (ChainID: 97) - 2026-02-04 支持自动回调的新部署
 export const BSC_TESTNET_ADDRESSES = {
     USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
     Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
-    VaultManager: '0xa81cCaE9b7aBfb2a24982A8FcA1A8Dd54dD49E54',
-    OptionsCore: '0xC03f94273008525950c51052F6AB026823Cb4015',
-    FeedProtocol: '0xb618341Ce5a762891f0Ffddee7cFc2a4b29D7F36',
+    VaultManager: '0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454',
+    OptionsCore: '0x0672f9ec88421858Ce4BC88071447BF31A8cEd24',
+    FeedProtocol: '0xa4d3d2D56902f91e92caDE54993f45b4376979C7',
     SeatManager: '0xB364f37b3fD3e1f373907478e532449b4bA09343',
     PointsManager: '0x22074e05314c3A20cdD40C8D127E8306dc919dEC',
-    VolumeBasedFeed: '0xb618341Ce5a762891f0Ffddee7cFc2a4b29D7F36',
+    VolumeBasedFeed: '0xa4d3d2D56902f91e92caDE54993f45b4376979C7',
     FeederSelector: '',
 };
 

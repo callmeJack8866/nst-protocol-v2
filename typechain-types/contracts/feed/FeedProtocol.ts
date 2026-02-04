@@ -137,6 +137,7 @@ export interface FeedProtocolInterface extends Interface {
       | "hasRole"
       | "hasSubmitted"
       | "nextRequestId"
+      | "optionsCore"
       | "orderFeedRequests"
       | "pause"
       | "paused"
@@ -148,6 +149,7 @@ export interface FeedProtocolInterface extends Interface {
       | "revokeRole"
       | "setConfig"
       | "setFeederSelector"
+      | "setOptionsCore"
       | "setTierConfig"
       | "submitFeed"
       | "supportsInterface"
@@ -160,6 +162,7 @@ export interface FeedProtocolInterface extends Interface {
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "CallbackFailed"
       | "FeedFinalized"
       | "FeedRejected"
       | "FeedRequested"
@@ -167,6 +170,7 @@ export interface FeedProtocolInterface extends Interface {
       | "FeederBlacklisted"
       | "FeederDeactivated"
       | "FeederRegistered"
+      | "OptionsCoreUpdated"
       | "Paused"
       | "RewardDistributed"
       | "RoleAdminChanged"
@@ -293,6 +297,10 @@ export interface FeedProtocolInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "optionsCore",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "orderFeedRequests",
     values: [BigNumberish, BigNumberish]
   ): string;
@@ -328,6 +336,10 @@ export interface FeedProtocolInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "setFeederSelector",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setOptionsCore",
     values: [AddressLike]
   ): string;
   encodeFunctionData(
@@ -461,6 +473,10 @@ export interface FeedProtocolInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "optionsCore",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "orderFeedRequests",
     data: BytesLike
   ): Result;
@@ -490,6 +506,10 @@ export interface FeedProtocolInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "setOptionsCore",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "setTierConfig",
     data: BytesLike
   ): Result;
@@ -512,6 +532,28 @@ export interface FeedProtocolInterface extends Interface {
     functionFragment: "withdrawStake",
     data: BytesLike
   ): Result;
+}
+
+export namespace CallbackFailedEvent {
+  export type InputTuple = [
+    requestId: BigNumberish,
+    orderId: BigNumberish,
+    reason: string
+  ];
+  export type OutputTuple = [
+    requestId: bigint,
+    orderId: bigint,
+    reason: string
+  ];
+  export interface OutputObject {
+    requestId: bigint;
+    orderId: bigint;
+    reason: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace FeedFinalizedEvent {
@@ -682,6 +724,28 @@ export namespace FeederRegisteredEvent {
   export interface OutputObject {
     feeder: string;
     stakedAmount: bigint;
+    timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace OptionsCoreUpdatedEvent {
+  export type InputTuple = [
+    oldAddress: AddressLike,
+    newAddress: AddressLike,
+    timestamp: BigNumberish
+  ];
+  export type OutputTuple = [
+    oldAddress: string,
+    newAddress: string,
+    timestamp: bigint
+  ];
+  export interface OutputObject {
+    oldAddress: string;
+    newAddress: string;
     timestamp: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
@@ -998,6 +1062,8 @@ export interface FeedProtocol extends BaseContract {
 
   nextRequestId: TypedContractMethod<[], [bigint], "view">;
 
+  optionsCore: TypedContractMethod<[], [string], "view">;
+
   orderFeedRequests: TypedContractMethod<
     [arg0: BigNumberish, arg1: BigNumberish],
     [bigint],
@@ -1055,6 +1121,12 @@ export interface FeedProtocol extends BaseContract {
 
   setFeederSelector: TypedContractMethod<
     [_feederSelector: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
+  setOptionsCore: TypedContractMethod<
+    [_optionsCore: AddressLike],
     [void],
     "nonpayable"
   >;
@@ -1287,6 +1359,9 @@ export interface FeedProtocol extends BaseContract {
     nameOrSignature: "nextRequestId"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
+    nameOrSignature: "optionsCore"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
     nameOrSignature: "orderFeedRequests"
   ): TypedContractMethod<
     [arg0: BigNumberish, arg1: BigNumberish],
@@ -1351,6 +1426,9 @@ export interface FeedProtocol extends BaseContract {
     nameOrSignature: "setFeederSelector"
   ): TypedContractMethod<[_feederSelector: AddressLike], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "setOptionsCore"
+  ): TypedContractMethod<[_optionsCore: AddressLike], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "setTierConfig"
   ): TypedContractMethod<
     [
@@ -1403,6 +1481,13 @@ export interface FeedProtocol extends BaseContract {
   ): TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
 
   getEvent(
+    key: "CallbackFailed"
+  ): TypedContractEvent<
+    CallbackFailedEvent.InputTuple,
+    CallbackFailedEvent.OutputTuple,
+    CallbackFailedEvent.OutputObject
+  >;
+  getEvent(
     key: "FeedFinalized"
   ): TypedContractEvent<
     FeedFinalizedEvent.InputTuple,
@@ -1452,6 +1537,13 @@ export interface FeedProtocol extends BaseContract {
     FeederRegisteredEvent.OutputObject
   >;
   getEvent(
+    key: "OptionsCoreUpdated"
+  ): TypedContractEvent<
+    OptionsCoreUpdatedEvent.InputTuple,
+    OptionsCoreUpdatedEvent.OutputTuple,
+    OptionsCoreUpdatedEvent.OutputObject
+  >;
+  getEvent(
     key: "Paused"
   ): TypedContractEvent<
     PausedEvent.InputTuple,
@@ -1495,6 +1587,17 @@ export interface FeedProtocol extends BaseContract {
   >;
 
   filters: {
+    "CallbackFailed(uint256,uint256,string)": TypedContractEvent<
+      CallbackFailedEvent.InputTuple,
+      CallbackFailedEvent.OutputTuple,
+      CallbackFailedEvent.OutputObject
+    >;
+    CallbackFailed: TypedContractEvent<
+      CallbackFailedEvent.InputTuple,
+      CallbackFailedEvent.OutputTuple,
+      CallbackFailedEvent.OutputObject
+    >;
+
     "FeedFinalized(uint256,uint256,uint256)": TypedContractEvent<
       FeedFinalizedEvent.InputTuple,
       FeedFinalizedEvent.OutputTuple,
@@ -1570,6 +1673,17 @@ export interface FeedProtocol extends BaseContract {
       FeederRegisteredEvent.InputTuple,
       FeederRegisteredEvent.OutputTuple,
       FeederRegisteredEvent.OutputObject
+    >;
+
+    "OptionsCoreUpdated(address,address,uint256)": TypedContractEvent<
+      OptionsCoreUpdatedEvent.InputTuple,
+      OptionsCoreUpdatedEvent.OutputTuple,
+      OptionsCoreUpdatedEvent.OutputObject
+    >;
+    OptionsCoreUpdated: TypedContractEvent<
+      OptionsCoreUpdatedEvent.InputTuple,
+      OptionsCoreUpdatedEvent.OutputTuple,
+      OptionsCoreUpdatedEvent.OutputObject
     >;
 
     "Paused(address)": TypedContractEvent<

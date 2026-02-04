@@ -182,6 +182,7 @@ export interface OptionsCoreInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "DEFAULT_ADMIN_ROLE"
+      | "FEED_PROTOCOL_ROLE"
       | "acceptQuote"
       | "acceptSellerOrder"
       | "addMargin"
@@ -208,6 +209,7 @@ export interface OptionsCoreInterface extends Interface {
       | "orders"
       | "pause"
       | "paused"
+      | "processFeedCallback"
       | "processFinalFeedResult"
       | "processInitialFeedResult"
       | "quotes"
@@ -249,6 +251,10 @@ export interface OptionsCoreInterface extends Interface {
 
   encodeFunctionData(
     functionFragment: "DEFAULT_ADMIN_ROLE",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "FEED_PROTOCOL_ROLE",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -385,6 +391,10 @@ export interface OptionsCoreInterface extends Interface {
   encodeFunctionData(functionFragment: "pause", values?: undefined): string;
   encodeFunctionData(functionFragment: "paused", values?: undefined): string;
   encodeFunctionData(
+    functionFragment: "processFeedCallback",
+    values: [BigNumberish, BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "processFinalFeedResult",
     values: [BigNumberish, BigNumberish]
   ): string;
@@ -463,6 +473,10 @@ export interface OptionsCoreInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "FEED_PROTOCOL_ROLE",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "acceptQuote",
     data: BytesLike
   ): Result;
@@ -536,6 +550,10 @@ export interface OptionsCoreInterface extends Interface {
   decodeFunctionResult(functionFragment: "orders", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "pause", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "paused", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "processFeedCallback",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "processFinalFeedResult",
     data: BytesLike
@@ -990,6 +1008,8 @@ export interface OptionsCore extends BaseContract {
 
   DEFAULT_ADMIN_ROLE: TypedContractMethod<[], [string], "view">;
 
+  FEED_PROTOCOL_ROLE: TypedContractMethod<[], [string], "view">;
+
   acceptQuote: TypedContractMethod<
     [quoteId: BigNumberish],
     [void],
@@ -1250,6 +1270,12 @@ export interface OptionsCore extends BaseContract {
 
   paused: TypedContractMethod<[], [boolean], "view">;
 
+  processFeedCallback: TypedContractMethod<
+    [orderId: BigNumberish, feedType: BigNumberish, finalPrice: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   processFinalFeedResult: TypedContractMethod<
     [orderId: BigNumberish, finalPrice: BigNumberish],
     [void],
@@ -1387,6 +1413,9 @@ export interface OptionsCore extends BaseContract {
 
   getFunction(
     nameOrSignature: "DEFAULT_ADMIN_ROLE"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "FEED_PROTOCOL_ROLE"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "acceptQuote"
@@ -1642,6 +1671,13 @@ export interface OptionsCore extends BaseContract {
   getFunction(
     nameOrSignature: "paused"
   ): TypedContractMethod<[], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "processFeedCallback"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, feedType: BigNumberish, finalPrice: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "processFinalFeedResult"
   ): TypedContractMethod<

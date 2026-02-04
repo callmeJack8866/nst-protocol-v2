@@ -444,4 +444,33 @@ contract VaultManager is AccessControl, ReentrancyGuard, Pausable {
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
     }
+
+    /**
+     * @notice 管理员直接设置用户保证金余额（用于迁移/测试场景）
+     * @dev 仅限 DEFAULT_ADMIN_ROLE，需要合约中有足够的 token 余额
+     * @param _user 用户地址
+     * @param _token 代币地址
+     * @param _amount 设置的余额金额
+     */
+    function adminSetMarginBalance(
+        address _user,
+        address _token,
+        uint256 _amount
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 currentBalance = userMarginBalance[_user][_token];
+        
+        if (_amount > currentBalance) {
+            // 增加余额
+            uint256 diff = _amount - currentBalance;
+            marginPoolBalance[_token] += diff;
+        } else if (_amount < currentBalance) {
+            // 减少余额
+            uint256 diff = currentBalance - _amount;
+            marginPoolBalance[_token] -= diff;
+        }
+        
+        userMarginBalance[_user][_token] = _amount;
+        
+        emit MarginDeposited(_user, _token, _amount, block.timestamp);
+    }
 }

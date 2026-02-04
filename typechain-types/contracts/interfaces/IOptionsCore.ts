@@ -193,6 +193,7 @@ export interface IOptionsCoreInterface extends Interface {
       | "getQuotes"
       | "getSellerOrders"
       | "initiateArbitration"
+      | "processFeedCallback"
       | "recordDividend"
       | "requestFeed"
       | "resolveArbitration"
@@ -302,6 +303,10 @@ export interface IOptionsCoreInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "processFeedCallback",
+    values: [BigNumberish, BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "recordDividend",
     values: [BigNumberish, BigNumberish]
   ): string;
@@ -367,6 +372,10 @@ export interface IOptionsCoreInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "initiateArbitration",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "processFeedCallback",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -808,6 +817,12 @@ export interface IOptionsCore extends BaseContract {
     "payable"
   >;
 
+  processFeedCallback: TypedContractMethod<
+    [orderId: BigNumberish, feedType: BigNumberish, finalPrice: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   recordDividend: TypedContractMethod<
     [orderId: BigNumberish, dividendPerShare: BigNumberish],
     [void],
@@ -945,6 +960,13 @@ export interface IOptionsCore extends BaseContract {
   getFunction(
     nameOrSignature: "initiateArbitration"
   ): TypedContractMethod<[orderId: BigNumberish], [void], "payable">;
+  getFunction(
+    nameOrSignature: "processFeedCallback"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, feedType: BigNumberish, finalPrice: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "recordDividend"
   ): TypedContractMethod<

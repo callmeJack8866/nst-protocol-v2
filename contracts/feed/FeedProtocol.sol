@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../libraries/NSTTypes.sol";
 import "../interfaces/IFeedProtocol.sol";
+import "../interfaces/IOptionsCore.sol";
 import "../core/Config.sol";
 
 /**
@@ -26,6 +27,9 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
     // ==================== 状态变量 ====================
     Config public config;
     IERC20 public usdt;
+    
+    // OptionsCore 引用（用于自动回调）
+    IOptionsCore public optionsCore;
     
     // FeederSelector for VRF random selection
     address public feederSelector;
@@ -97,6 +101,18 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
         uint256 timestamp
     );
 
+    event OptionsCoreUpdated(
+        address indexed oldAddress,
+        address indexed newAddress,
+        uint256 timestamp
+    );
+
+    event CallbackFailed(
+        uint256 indexed requestId,
+        uint256 indexed orderId,
+        string reason
+    );
+
     // ==================== 构造函数 ====================
     constructor(
         address _config,
@@ -115,10 +131,10 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
 
     function _initTierConfigs() internal {
         // 使用 6 位小数精度匹配 USDT (1e6 = 1 USDT)
-        // 5-3档：3U
+        // 5-3档：3U (测试模式: 1人即可完成)
         tierConfigs[FeedTier.Tier_5_3] = FeedTierConfig({
-            totalFeeders: 5,
-            effectiveFeeds: 3,
+            totalFeeders: 1,       // 测试模式: 1人即可完成
+            effectiveFeeds: 1,     // 测试模式: 1人即可完成
             platformFee: 0.3e6,     // 10% = 0.3U
             feederReward: 2.7e6,    // 90% = 2.7U
             totalFee: 3e6
@@ -141,6 +157,16 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
             feederReward: 7.2e6,
             totalFee: 8e6
         });
+    }
+
+    /**
+     * @notice 设置 OptionsCore 地址（用于自动回调）
+     * @param _optionsCore OptionsCore 合约地址
+     */
+    function setOptionsCore(address _optionsCore) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address oldAddress = address(optionsCore);
+        optionsCore = IOptionsCore(_optionsCore);
+        emit OptionsCoreUpdated(oldAddress, _optionsCore, block.timestamp);
     }
 
     /**
@@ -448,6 +474,16 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
         _distributeRewards(requestId, submissions);
 
         emit FeedFinalized(requestId, finalPrice, block.timestamp);
+
+        // 自动回调 OptionsCore 更新订单状态
+        if (address(optionsCore) != address(0)) {
+            try optionsCore.processFeedCallback(request.orderId, request.feedType, finalPrice) {
+                // 回调成功
+            } catch {
+                // 回调失败时不 revert 整个交易，只记录事件
+                emit CallbackFailed(requestId, request.orderId, "OptionsCore callback failed");
+            }
+        }
 
         return finalPrice;
     }

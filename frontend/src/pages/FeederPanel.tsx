@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
 import { useWallet, useFeedProtocol, useOptions } from '../hooks';
+import { useToast } from '../components/Toast';
 import { formatUnits } from 'ethers';
 import { useTranslation } from 'react-i18next';
 import type { FeedRequest, Feeder } from '../hooks/useFeedAndPoints';
@@ -43,6 +44,7 @@ const getRankProgress = (completedFeeds: number): { current: number; next: numbe
 export function FeederPanel() {
   const { isConnected, account, connect } = useWallet();
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const {
 
     isLoading: feedLoading,
@@ -94,12 +96,14 @@ export function FeederPanel() {
     if (!finalPrice) return;
     try {
       await submitFeed(Number(selectedRequest.requestId), finalPrice);
+      showToast('success', t('feeder.feed_submitted') || 'Feed submitted successfully');
       setShowFeedModal(false);
       setPriceInput('');
       setSelectedRequest(null);
       setVolumeFeedMode('confirm');
       setRefreshKey(k => k + 1);
-    } catch (e) {
+    } catch (e: any) {
+      showToast('error', e?.message || 'Failed to submit feed');
       console.error('Failed to submit feed:', e);
     }
   };
@@ -108,11 +112,13 @@ export function FeederPanel() {
     if (!selectedRequest || !rejectReason) return;
     try {
       await rejectFeed(Number(selectedRequest.requestId), rejectReason);
+      showToast('success', t('feeder.feed_rejected') || 'Feed rejected successfully');
       setShowFeedModal(false);
       setRejectReason('');
       setSelectedRequest(null);
       setRefreshKey(k => k + 1);
-    } catch (e) {
+    } catch (e: any) {
+      showToast('error', e?.message || 'Failed to reject feed');
       console.error('Failed to reject feed:', e);
     }
   };
@@ -120,9 +126,11 @@ export function FeederPanel() {
   const handleRegister = async () => {
     try {
       await registerFeeder(stakeAmount);
+      showToast('success', t('feeder.register_success') || 'Registered as feeder successfully');
       setShowRegisterModal(false);
       setRefreshKey(k => k + 1);
-    } catch (e) {
+    } catch (e: any) {
+      showToast('error', e?.message || 'Failed to register as feeder');
       console.error('Failed to register as feeder:', e);
     }
   };

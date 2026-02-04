@@ -1,1 +1,10 @@
+console.log("Next request ID:", nextReqId.toString());const nextReqId = await feedProtocol.nextRequestId();orderReqs2 feed requests:", orderReqs);const orderReqs = await feedconsole.log("Order 
+// 获取订单 2 关联的喂价请求 IDs
+console.log(req)
+rereq
+const req = await feedProtocol.feedRequests(1);
+req1
+const req1 = await feedProtocol.feconsole.log("Request 1:", req1);
+// 查看喂价请求 1 的状态
+const feedProtocol = await ethers.getContractAt("FeedProtocol", "0xebbc49E8867E1a736d3abDc9Cb89Aa7F5ee3F505");
 .exit

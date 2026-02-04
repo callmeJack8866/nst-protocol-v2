@@ -22,6 +22,12 @@ interface OrderCardProps {
 export function OrderCard({ order, onAction, actionLabel }: OrderCardProps) {
     const [isHovered, setIsHovered] = useState(false);
 
+    // Safe direction conversion: handles both string and number
+    const getDirectionStr = (direction: any): string => {
+        if (typeof direction === 'string') return direction;
+        return Number(direction) === 0 ? 'Call' : 'Put';
+    };
+
     // 格式化金额
     const formatAmount = (amount: number) => {
         if (amount >= 1e12) return `$${(amount / 1e12).toFixed(2)}T`;
@@ -104,7 +110,7 @@ export function OrderCard({ order, onAction, actionLabel }: OrderCardProps) {
                     {/* Left: Asset Identity */}
                     <div className="flex items-center space-x-6 min-w-[280px]">
                         <div className={`w-14 h-14 rounded-2xl bg-obsidian-950 border border-white/5 flex items-center justify-center text-2xl transition-all duration-500 ${isHovered ? 'shadow-[0_0_20px_rgba(234,179,8,0.2)] border-gold-500/20' : ''}`}>
-                            {order.direction === 'Call' ? '📈' : '📉'}
+                            {getDirectionStr(order.direction) === 'Call' ? '📈' : '📉'}
                         </div>
                         <div>
                             <div className="flex items-center gap-3 mb-1.5">
@@ -116,7 +122,7 @@ export function OrderCard({ order, onAction, actionLabel }: OrderCardProps) {
                             <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.15em] text-gray-600">
                                 <span>{order.market}</span>
                                 <span className="opacity-20">•</span>
-                                <span className={order.direction === 'Call' ? 'text-emerald-500' : 'text-red-500'}>{order.direction.toUpperCase()}</span>
+                                <span className={getDirectionStr(order.direction) === 'Call' ? 'text-emerald-500' : 'text-red-500'}>{getDirectionStr(order.direction).toUpperCase()}</span>
                                 <span className="opacity-20">•</span>
                                 <span className="opacity-40">#{order.orderId}</span>
                             </div>
