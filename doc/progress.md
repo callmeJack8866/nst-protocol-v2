@@ -1,5 +1,60 @@
 # NST Finance 前端进展
 
+## [2026-02-05 21:54]
+- **Status**: Done
+- **Changes**: 添加席位管理侧边栏入口
+  - 在 `Sidebar.tsx` Gov 分组添加 `/seat` 入口（盾牌图标）
+  - 中文翻译：`nav.seat_management` → "席位管理"
+  - 英文翻译：`nav.seat_management` → "Seat Management"
+- **Next Step**: 全部功能开发完成，刷新页面验证
+
+## [2026-02-05 21:52]
+- **Status**: Done
+- **Changes**: 实现仲裁确认弹窗和动态保证金喂价
+  - 添加仲裁弹窗状态（arbitrationModalOpen, arbitrationOrderId）
+  - 实现 `openArbitrationModal` 和 `handleArbitrationConfirm` 函数
+  - 仲裁弹窗显示 30U 费用提示和规则说明
+  - 添加 `⚡ DYNAMIC FEED` 按钮调用 `requestFeed(orderId, 1, 0)`
+  - 添加动态喂价加载状态（dynamicFeedLoading）
+- **Next Step**: 刷新页面测试仲裁弹窗和动态喂价功能
+
+## [2026-02-05 21:50]
+- **Status**: Done
+- **Changes**: 实现保证金追加/提取输入弹窗
+  - 在 `MyOrders.tsx` 添加弹窗状态变量（marginModalOpen, marginModalType, marginAmount, selectedOrderId）
+  - 实现 `openMarginModal` 和 `handleMarginSubmit` 处理函数
+  - 修改 ADD MARGIN / WITHDRAW 按钮调用弹窗（替代硬编码 "100"）
+  - 添加美观的弹窗 UI（Obsidian Glass 风格，金额输入 + 确认取消）
+- **Next Step**: 刷新页面测试保证金操作，验证喂价员界面
+
+## [2026-02-05 21:40]
+- **Status**: Done
+- **Changes**: 修复 FeedType 枚举不匹配问题（根本原因）
+  - **根因**：合约中 `FeedType.Final = 2`（枚举包含 Dynamic=1），但前端和 Keeper 使用 `1` 表示 Final
+  - 修改 `frontend/src/pages/MyOrders.tsx` 第228行：`feedType=1` → `feedType=2`
+  - 修改 `scripts/keeper/feedResultProcessor.ts`：添加 `Dynamic=1`，修正 `Final=2`
+  - 手动更新订单 3 到 PENDING_SETTLEMENT 并设置卖方保证金
+- **Next Step**: 刷新前端，新创建的订单期末喂价后将自动更新状态
+
+## [2026-02-05 21:25]
+- **Status**: Done
+- **Changes**: 修复 feedResultProcessor 状态检查逻辑
+  - **根因发现**：Keeper 脚本中期末喂价处理仅检查 `LIVE (4)` 状态，但实际订单可能处于 `WAITING_FINAL_FEED (5)` 状态
+  - 修改 `scripts/keeper/feedResultProcessor.ts`：
+    - 扩展 ORDER_STATUS 枚举，添加 `WAITING_INITIAL_FEED`、`WAITING_FINAL_FEED`、`PENDING_SETTLEMENT`
+    - 修改状态检查：`FeedType.Final` 现在同时接受 `LIVE (4)` 或 `WAITING_FINAL_FEED (5)`
+    - 修改状态检查：`FeedType.Initial` 现在同时接受 `MATCHED (2)` 或 `WAITING_INITIAL_FEED (3)`
+- **Next Step**: 重启 Keeper 服务并测试完整流程
+
+## [2026-02-05 21:20]
+- **Status**: Done
+- **Changes**: 成功修复 settle 功能
+  - 手动将订单 1 和 2 状态更新到 PENDING_SETTLEMENT
+  - 使用 `adminSetMarginBalance` 设置卖方保证金余额 (17.1 USDT)
+  - 订单 1 settle 成功，状态变为 SETTLED (8)
+  - **根因确认**：期末喂价回调虽然配置正确，但未自动触发状态更新；且新 VaultManager 缺少卖方保证金记录
+- **Next Step**: 刷新前端验证结果，需要进一步修复回调自动触发问题
+
 ## [2026-02-04 22:55]
 
 - **Status**: Done

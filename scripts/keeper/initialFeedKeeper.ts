@@ -100,14 +100,12 @@ export async function runInitialFeedKeeper(): Promise<void> {
                 action: 'Cancelling order, refunding buyer, penalizing seller',
             });
 
-            // 调用合约取消订单
-            // 注意：合约需要有 cancelOrderDueToFeedTimeout 或类似函数
-            // 这里暂时使用 cancelRFQ，实际可能需要专门的超时取消函数
+            // 调用合约超时取消函数（含违约金扣除逻辑）
             const success = await safeExecute(
                 moduleName,
                 candidate.orderId,
                 'cancelOrderDueToFeedTimeout',
-                optionsCore.cancelRFQ(candidate.orderId)
+                optionsCore.cancelOrderDueToFeedTimeout(candidate.orderId)
             );
 
             if (success) {

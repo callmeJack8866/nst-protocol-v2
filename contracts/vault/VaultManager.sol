@@ -172,6 +172,70 @@ contract VaultManager is AccessControl, ReentrancyGuard, Pausable {
         emit FeeCollected(_token, _amount, _feeType, block.timestamp);
     }
 
+    // ==================== 退款操作 (§15.2) ====================
+
+    /**
+     * @notice 退还期权费给买方
+     * @param _buyer 买方地址
+     * @param _amount 期权费金额
+     * @dev 用于初始喂价超时等场景
+     */
+    function refundPremium(
+        address _buyer,
+        uint256 _amount
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(_buyer != address(0), "VaultManager: invalid buyer address");
+        require(_amount > 0, "VaultManager: amount must be greater than 0");
+        
+        address token = config.usdtAddress();
+        require(IERC20(token).balanceOf(address(this)) >= _amount, "VaultManager: insufficient balance");
+        
+        IERC20(token).safeTransfer(_buyer, _amount);
+        
+        emit MarginTransferred(address(this), _buyer, token, _amount, "premium_refund", block.timestamp);
+    }
+
+    /**
+     * @notice 退还保证金给卖方
+     * @param _seller 卖方地址
+     * @param _amount 保证金金额
+     * @dev 用于超时取消等场景
+     */
+    function refundMargin(
+        address _seller,
+        uint256 _amount
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(_seller != address(0), "VaultManager: invalid seller address");
+        require(_amount > 0, "VaultManager: amount must be greater than 0");
+        
+        address token = config.usdtAddress();
+        require(marginPoolBalance[token] >= _amount, "VaultManager: insufficient margin pool");
+        
+        marginPoolBalance[token] -= _amount;
+        IERC20(token).safeTransfer(_seller, _amount);
+        
+        emit MarginTransferred(address(this), _seller, token, _amount, "margin_refund", block.timestamp);
+    }
+
+    /**
+     * @notice 将违约金转入国库（利润池）
+     * @param _amount 违约金金额
+     * @dev 用于卖方违约场景
+     */
+    function transferToTreasury(
+        uint256 _amount
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(_amount > 0, "VaultManager: amount must be greater than 0");
+        
+        address token = config.usdtAddress();
+        require(marginPoolBalance[token] >= _amount, "VaultManager: insufficient margin pool");
+        
+        marginPoolBalance[token] -= _amount;
+        profitPoolBalance[token] += _amount;
+        
+        emit ProfitDistributed(token, _amount, "penalty_to_treasury", block.timestamp);
+    }
+
     /**
      * @notice 分配利润到各池子
      * @param _token 代币地址

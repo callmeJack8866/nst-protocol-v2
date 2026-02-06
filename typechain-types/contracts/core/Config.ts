@@ -32,6 +32,7 @@ export interface ConfigInterface extends Interface {
       | "OPERATOR_ROLE"
       | "arbitrationFee"
       | "closingFeedDeadline"
+      | "closingFeedPenaltyRate"
       | "creationFee"
       | "cryptoMarginCallDeadline"
       | "daoShare"
@@ -46,6 +47,7 @@ export interface ConfigInterface extends Interface {
       | "feedProtocolAddress"
       | "foundationShare"
       | "getArbitrationWindow"
+      | "getDiscountedFee"
       | "getFeedFee"
       | "getMarginCallDeadline"
       | "getRoleAdmin"
@@ -53,6 +55,7 @@ export interface ConfigInterface extends Interface {
       | "growthNodeShare"
       | "hasRole"
       | "initialFeedDeadline"
+      | "initialFeedPenaltyRate"
       | "lpPoolShare"
       | "maxConsecutiveDays"
       | "maxExerciseDelay"
@@ -63,6 +66,8 @@ export interface ConfigInterface extends Interface {
       | "minMarginRate"
       | "nodeRewardShare"
       | "nstDiscount"
+      | "nstDiscountEnabled"
+      | "nstDiscountRate"
       | "nstTokenAddress"
       | "optionsCoreAddress"
       | "pause"
@@ -80,6 +85,8 @@ export interface ConfigInterface extends Interface {
       | "setFeedProtocolAddress"
       | "setMinFeederStake"
       | "setMinMarginRate"
+      | "setNstDiscountEnabled"
+      | "setNstDiscountRate"
       | "setOptionsCoreAddress"
       | "setPointsManagerAddress"
       | "setQuoteValidityPeriod"
@@ -129,6 +136,10 @@ export interface ConfigInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "closingFeedDeadline",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "closingFeedPenaltyRate",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -185,6 +196,10 @@ export interface ConfigInterface extends Interface {
     values: [boolean]
   ): string;
   encodeFunctionData(
+    functionFragment: "getDiscountedFee",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "getFeedFee",
     values: [BigNumberish]
   ): string;
@@ -210,6 +225,10 @@ export interface ConfigInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "initialFeedDeadline",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "initialFeedPenaltyRate",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -250,6 +269,14 @@ export interface ConfigInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "nstDiscount",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "nstDiscountEnabled",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "nstDiscountRate",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -312,6 +339,14 @@ export interface ConfigInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "setMinMarginRate",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setNstDiscountEnabled",
+    values: [boolean]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setNstDiscountRate",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
@@ -402,6 +437,10 @@ export interface ConfigInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "closingFeedPenaltyRate",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "creationFee",
     data: BytesLike
   ): Result;
@@ -454,6 +493,10 @@ export interface ConfigInterface extends Interface {
     functionFragment: "getArbitrationWindow",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "getDiscountedFee",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "getFeedFee", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getMarginCallDeadline",
@@ -471,6 +514,10 @@ export interface ConfigInterface extends Interface {
   decodeFunctionResult(functionFragment: "hasRole", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "initialFeedDeadline",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "initialFeedPenaltyRate",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -511,6 +558,14 @@ export interface ConfigInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "nstDiscount",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "nstDiscountEnabled",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "nstDiscountRate",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -570,6 +625,14 @@ export interface ConfigInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "setMinMarginRate",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setNstDiscountEnabled",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setNstDiscountRate",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -826,6 +889,8 @@ export interface Config extends BaseContract {
 
   closingFeedDeadline: TypedContractMethod<[], [bigint], "view">;
 
+  closingFeedPenaltyRate: TypedContractMethod<[], [bigint], "view">;
+
   creationFee: TypedContractMethod<[], [bigint], "view">;
 
   cryptoMarginCallDeadline: TypedContractMethod<[], [bigint], "view">;
@@ -858,6 +923,12 @@ export interface Config extends BaseContract {
     "view"
   >;
 
+  getDiscountedFee: TypedContractMethod<
+    [originalFee: BigNumberish],
+    [bigint],
+    "view"
+  >;
+
   getFeedFee: TypedContractMethod<[tier: BigNumberish], [bigint], "view">;
 
   getMarginCallDeadline: TypedContractMethod<
@@ -884,6 +955,8 @@ export interface Config extends BaseContract {
 
   initialFeedDeadline: TypedContractMethod<[], [bigint], "view">;
 
+  initialFeedPenaltyRate: TypedContractMethod<[], [bigint], "view">;
+
   lpPoolShare: TypedContractMethod<[], [bigint], "view">;
 
   maxConsecutiveDays: TypedContractMethod<[], [bigint], "view">;
@@ -903,6 +976,10 @@ export interface Config extends BaseContract {
   nodeRewardShare: TypedContractMethod<[], [bigint], "view">;
 
   nstDiscount: TypedContractMethod<[], [bigint], "view">;
+
+  nstDiscountEnabled: TypedContractMethod<[], [boolean], "view">;
+
+  nstDiscountRate: TypedContractMethod<[], [bigint], "view">;
 
   nstTokenAddress: TypedContractMethod<[], [string], "view">;
 
@@ -962,6 +1039,18 @@ export interface Config extends BaseContract {
 
   setMinMarginRate: TypedContractMethod<
     [_value: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  setNstDiscountEnabled: TypedContractMethod<
+    [_enabled: boolean],
+    [void],
+    "nonpayable"
+  >;
+
+  setNstDiscountRate: TypedContractMethod<
+    [_rate: BigNumberish],
     [void],
     "nonpayable"
   >;
@@ -1059,6 +1148,9 @@ export interface Config extends BaseContract {
     nameOrSignature: "closingFeedDeadline"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
+    nameOrSignature: "closingFeedPenaltyRate"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
     nameOrSignature: "creationFee"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
@@ -1101,6 +1193,9 @@ export interface Config extends BaseContract {
     nameOrSignature: "getArbitrationWindow"
   ): TypedContractMethod<[isSettlement: boolean], [bigint], "view">;
   getFunction(
+    nameOrSignature: "getDiscountedFee"
+  ): TypedContractMethod<[originalFee: BigNumberish], [bigint], "view">;
+  getFunction(
     nameOrSignature: "getFeedFee"
   ): TypedContractMethod<[tier: BigNumberish], [bigint], "view">;
   getFunction(
@@ -1128,6 +1223,9 @@ export interface Config extends BaseContract {
   >;
   getFunction(
     nameOrSignature: "initialFeedDeadline"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "initialFeedPenaltyRate"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "lpPoolShare"
@@ -1158,6 +1256,12 @@ export interface Config extends BaseContract {
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "nstDiscount"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "nstDiscountEnabled"
+  ): TypedContractMethod<[], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "nstDiscountRate"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "nstTokenAddress"
@@ -1218,6 +1322,12 @@ export interface Config extends BaseContract {
   getFunction(
     nameOrSignature: "setMinMarginRate"
   ): TypedContractMethod<[_value: BigNumberish], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "setNstDiscountEnabled"
+  ): TypedContractMethod<[_enabled: boolean], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "setNstDiscountRate"
+  ): TypedContractMethod<[_rate: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "setOptionsCoreAddress"
   ): TypedContractMethod<[_address: AddressLike], [void], "nonpayable">;

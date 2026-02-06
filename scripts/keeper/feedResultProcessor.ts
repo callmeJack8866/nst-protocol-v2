@@ -24,14 +24,18 @@ const OPTIONS_CORE_ABI = [
 // FeedType 枚举 (from NSTTypes.sol)
 const FEED_TYPE = {
     Initial: 0,
-    Final: 1,
-    Arbitration: 2
+    Dynamic: 1,
+    Final: 2,
+    Arbitration: 3
 };
 
 // OrderStatus 枚举
 const ORDER_STATUS = {
     MATCHED: 2,
-    LIVE: 4
+    WAITING_INITIAL_FEED: 3,
+    LIVE: 4,
+    WAITING_FINAL_FEED: 5,
+    PENDING_SETTLEMENT: 6
 };
 
 const POLL_INTERVAL_MS = 10_000; // 10秒轮询一次
@@ -89,12 +93,12 @@ async function processEvent(
     console.log(`[FeedResultProcessor] Order ${orderId} current status: ${currentStatus}`);
 
     try {
-        if (feedType === FEED_TYPE.Initial && currentStatus === ORDER_STATUS.MATCHED) {
+        if (feedType === FEED_TYPE.Initial && (currentStatus === ORDER_STATUS.MATCHED || currentStatus === ORDER_STATUS.WAITING_INITIAL_FEED)) {
             console.log(`[FeedResultProcessor] Processing INITIAL feed for order ${orderId}...`);
             const tx = await optionsCore.processInitialFeedResult(orderId, finalPrice);
             await tx.wait();
             console.log(`[FeedResultProcessor] ✅ Order ${orderId} updated to LIVE. TX: ${tx.hash}`);
-        } else if (feedType === FEED_TYPE.Final && currentStatus === ORDER_STATUS.LIVE) {
+        } else if (feedType === FEED_TYPE.Final && (currentStatus === ORDER_STATUS.LIVE || currentStatus === ORDER_STATUS.WAITING_FINAL_FEED)) {
             console.log(`[FeedResultProcessor] Processing FINAL feed for order ${orderId}...`);
             const tx = await optionsCore.processFinalFeedResult(orderId, finalPrice);
             await tx.wait();
@@ -111,24 +115,48 @@ async function processEvent(
     }
 }
 
-async function startEventListener() {
+// 使用轮询模式替代事件监听器（BSC RPC 不支持长时间过滤器）
+async function pollForNewEvents() {
     const provider = getProvider();
     const wallet = getAdminWallet();
 
     const feedProtocol = new ethers.Contract(FeedProtocolAddress, FEED_PROTOCOL_ABI, provider);
     const optionsCore = new ethers.Contract(OptionsCoreAddress, OPTIONS_CORE_ABI, wallet);
 
-    console.log('[FeedResultProcessor] Starting real-time event listener...');
+    let lastProcessedBlock = await provider.getBlockNumber();
+    console.log(`[FeedResultProcessor] Starting polling from block ${lastProcessedBlock}...`);
 
-    feedProtocol.on('FeedFinalized', async (requestId, finalPrice, timestamp) => {
-        console.log(`[FeedResultProcessor] New FeedFinalized event: Request ${requestId}, Price: ${finalPrice}`);
-
+    while (true) {
         try {
-            await processEvent(feedProtocol, optionsCore, requestId, finalPrice);
-        } catch (err) {
-            console.error(`[FeedResultProcessor] Error processing event:`, err);
+            const currentBlock = await provider.getBlockNumber();
+
+            if (currentBlock > lastProcessedBlock) {
+                const filter = feedProtocol.filters.FeedFinalized();
+                const events = await feedProtocol.queryFilter(filter, lastProcessedBlock + 1, currentBlock);
+
+                if (events.length > 0) {
+                    console.log(`[FeedResultProcessor] Found ${events.length} new FeedFinalized events`);
+
+                    for (const event of events) {
+                        try {
+                            const log = event as ethers.EventLog;
+                            const requestId = log.args[0];
+                            const finalPrice = log.args[1];
+                            await processEvent(feedProtocol, optionsCore, requestId, finalPrice);
+                        } catch (err) {
+                            console.error(`[FeedResultProcessor] Error processing event:`, err);
+                        }
+                    }
+                }
+
+                lastProcessedBlock = currentBlock;
+            }
+        } catch (err: any) {
+            console.error(`[FeedResultProcessor] Polling error:`, err.message?.slice(0, 200));
         }
-    });
+
+        await sleep(POLL_INTERVAL_MS);
+    }
 }
 
 export async function runFeedResultProcessor() {
@@ -139,13 +167,8 @@ export async function runFeedResultProcessor() {
     // 先处理历史事件
     await processHistoricalEvents();
 
-    // 启动实时监听
-    await startEventListener();
-
-    // 保持运行
-    while (true) {
-        await sleep(POLL_INTERVAL_MS);
-    }
+    // 启动轮询模式（替代事件监听，兼容 BSC RPC）
+    await pollForNewEvents();
 }
 
 // 如果直接运行此脚本

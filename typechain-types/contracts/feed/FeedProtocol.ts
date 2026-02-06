@@ -89,6 +89,37 @@ export declare namespace FeedProtocol {
     isBlacklisted: boolean;
   };
 
+  export type MaliciousReportStruct = {
+    reportId: BigNumberish;
+    reporter: AddressLike;
+    reportedFeeder: AddressLike;
+    requestId: BigNumberish;
+    evidence: string;
+    reportedAt: BigNumberish;
+    processed: boolean;
+    confirmed: boolean;
+  };
+
+  export type MaliciousReportStructOutput = [
+    reportId: bigint,
+    reporter: string,
+    reportedFeeder: string,
+    requestId: bigint,
+    evidence: string,
+    reportedAt: bigint,
+    processed: boolean,
+    confirmed: boolean
+  ] & {
+    reportId: bigint;
+    reporter: string;
+    reportedFeeder: string;
+    requestId: bigint;
+    evidence: string;
+    reportedAt: bigint;
+    processed: boolean;
+    confirmed: boolean;
+  };
+
   export type FeedSubmissionStruct = {
     feeder: AddressLike;
     price: BigNumberish;
@@ -126,6 +157,7 @@ export interface FeedProtocolInterface extends Interface {
       | "getFeedRequest"
       | "getFeeder"
       | "getFeederCount"
+      | "getMaliciousReport"
       | "getOrderFeedRequests"
       | "getPendingRequests"
       | "getRoleAdmin"
@@ -136,14 +168,18 @@ export interface FeedProtocolInterface extends Interface {
       | "grantSeniorFeederRole"
       | "hasRole"
       | "hasSubmitted"
+      | "maliciousReports"
+      | "nextReportId"
       | "nextRequestId"
       | "optionsCore"
       | "orderFeedRequests"
       | "pause"
       | "paused"
+      | "processMaliciousReport"
       | "registerFeeder"
       | "rejectFeed"
       | "renounceRole"
+      | "reportMaliciousFeed"
       | "requestFeedPublic"
       | "requestSubmissions"
       | "revokeRole"
@@ -170,6 +206,8 @@ export interface FeedProtocolInterface extends Interface {
       | "FeederBlacklisted"
       | "FeederDeactivated"
       | "FeederRegistered"
+      | "MaliciousFeedReported"
+      | "MaliciousReportProcessed"
       | "OptionsCoreUpdated"
       | "Paused"
       | "RewardDistributed"
@@ -253,6 +291,10 @@ export interface FeedProtocolInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "getMaliciousReport",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "getOrderFeedRequests",
     values: [BigNumberish]
   ): string;
@@ -293,6 +335,14 @@ export interface FeedProtocolInterface extends Interface {
     values: [BigNumberish, AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "maliciousReports",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "nextReportId",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "nextRequestId",
     values?: undefined
   ): string;
@@ -307,6 +357,10 @@ export interface FeedProtocolInterface extends Interface {
   encodeFunctionData(functionFragment: "pause", values?: undefined): string;
   encodeFunctionData(functionFragment: "paused", values?: undefined): string;
   encodeFunctionData(
+    functionFragment: "processMaliciousReport",
+    values: [BigNumberish, boolean, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "registerFeeder",
     values: [BigNumberish]
   ): string;
@@ -317,6 +371,10 @@ export interface FeedProtocolInterface extends Interface {
   encodeFunctionData(
     functionFragment: "renounceRole",
     values: [BytesLike, AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "reportMaliciousFeed",
+    values: [AddressLike, BigNumberish, string]
   ): string;
   encodeFunctionData(
     functionFragment: "requestFeedPublic",
@@ -435,6 +493,10 @@ export interface FeedProtocolInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "getMaliciousReport",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "getOrderFeedRequests",
     data: BytesLike
   ): Result;
@@ -469,6 +531,14 @@ export interface FeedProtocolInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "maliciousReports",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "nextReportId",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "nextRequestId",
     data: BytesLike
   ): Result;
@@ -483,12 +553,20 @@ export interface FeedProtocolInterface extends Interface {
   decodeFunctionResult(functionFragment: "pause", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "paused", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "processMaliciousReport",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "registerFeeder",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "rejectFeed", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "renounceRole",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "reportMaliciousFeed",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -724,6 +802,59 @@ export namespace FeederRegisteredEvent {
   export interface OutputObject {
     feeder: string;
     stakedAmount: bigint;
+    timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace MaliciousFeedReportedEvent {
+  export type InputTuple = [
+    reportId: BigNumberish,
+    reporter: AddressLike,
+    feeder: AddressLike,
+    requestId: BigNumberish,
+    timestamp: BigNumberish
+  ];
+  export type OutputTuple = [
+    reportId: bigint,
+    reporter: string,
+    feeder: string,
+    requestId: bigint,
+    timestamp: bigint
+  ];
+  export interface OutputObject {
+    reportId: bigint;
+    reporter: string;
+    feeder: string;
+    requestId: bigint;
+    timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace MaliciousReportProcessedEvent {
+  export type InputTuple = [
+    reportId: BigNumberish,
+    confirmed: boolean,
+    slashedAmount: BigNumberish,
+    timestamp: BigNumberish
+  ];
+  export type OutputTuple = [
+    reportId: bigint,
+    confirmed: boolean,
+    slashedAmount: bigint,
+    timestamp: bigint
+  ];
+  export interface OutputObject {
+    reportId: bigint;
+    confirmed: boolean;
+    slashedAmount: bigint;
     timestamp: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
@@ -1008,6 +1139,12 @@ export interface FeedProtocol extends BaseContract {
 
   getFeederCount: TypedContractMethod<[], [bigint], "view">;
 
+  getMaliciousReport: TypedContractMethod<
+    [reportId: BigNumberish],
+    [FeedProtocol.MaliciousReportStructOutput],
+    "view"
+  >;
+
   getOrderFeedRequests: TypedContractMethod<
     [orderId: BigNumberish],
     [bigint[]],
@@ -1060,6 +1197,25 @@ export interface FeedProtocol extends BaseContract {
     "view"
   >;
 
+  maliciousReports: TypedContractMethod<
+    [arg0: BigNumberish],
+    [
+      [bigint, string, string, bigint, string, bigint, boolean, boolean] & {
+        reportId: bigint;
+        reporter: string;
+        reportedFeeder: string;
+        requestId: bigint;
+        evidence: string;
+        reportedAt: bigint;
+        processed: boolean;
+        confirmed: boolean;
+      }
+    ],
+    "view"
+  >;
+
+  nextReportId: TypedContractMethod<[], [bigint], "view">;
+
   nextRequestId: TypedContractMethod<[], [bigint], "view">;
 
   optionsCore: TypedContractMethod<[], [string], "view">;
@@ -1073,6 +1229,12 @@ export interface FeedProtocol extends BaseContract {
   pause: TypedContractMethod<[], [void], "nonpayable">;
 
   paused: TypedContractMethod<[], [boolean], "view">;
+
+  processMaliciousReport: TypedContractMethod<
+    [reportId: BigNumberish, confirmed: boolean, slashPercent: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
 
   registerFeeder: TypedContractMethod<
     [stakeAmount: BigNumberish],
@@ -1089,6 +1251,12 @@ export interface FeedProtocol extends BaseContract {
   renounceRole: TypedContractMethod<
     [role: BytesLike, callerConfirmation: AddressLike],
     [void],
+    "nonpayable"
+  >;
+
+  reportMaliciousFeed: TypedContractMethod<
+    [feeder: AddressLike, requestId: BigNumberish, evidence: string],
+    [bigint],
     "nonpayable"
   >;
 
@@ -1310,6 +1478,13 @@ export interface FeedProtocol extends BaseContract {
     nameOrSignature: "getFeederCount"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
+    nameOrSignature: "getMaliciousReport"
+  ): TypedContractMethod<
+    [reportId: BigNumberish],
+    [FeedProtocol.MaliciousReportStructOutput],
+    "view"
+  >;
+  getFunction(
     nameOrSignature: "getOrderFeedRequests"
   ): TypedContractMethod<[orderId: BigNumberish], [bigint[]], "view">;
   getFunction(
@@ -1356,6 +1531,27 @@ export interface FeedProtocol extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "maliciousReports"
+  ): TypedContractMethod<
+    [arg0: BigNumberish],
+    [
+      [bigint, string, string, bigint, string, bigint, boolean, boolean] & {
+        reportId: bigint;
+        reporter: string;
+        reportedFeeder: string;
+        requestId: bigint;
+        evidence: string;
+        reportedAt: bigint;
+        processed: boolean;
+        confirmed: boolean;
+      }
+    ],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "nextReportId"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
     nameOrSignature: "nextRequestId"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
@@ -1375,6 +1571,13 @@ export interface FeedProtocol extends BaseContract {
     nameOrSignature: "paused"
   ): TypedContractMethod<[], [boolean], "view">;
   getFunction(
+    nameOrSignature: "processMaliciousReport"
+  ): TypedContractMethod<
+    [reportId: BigNumberish, confirmed: boolean, slashPercent: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "registerFeeder"
   ): TypedContractMethod<[stakeAmount: BigNumberish], [void], "nonpayable">;
   getFunction(
@@ -1389,6 +1592,13 @@ export interface FeedProtocol extends BaseContract {
   ): TypedContractMethod<
     [role: BytesLike, callerConfirmation: AddressLike],
     [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "reportMaliciousFeed"
+  ): TypedContractMethod<
+    [feeder: AddressLike, requestId: BigNumberish, evidence: string],
+    [bigint],
     "nonpayable"
   >;
   getFunction(
@@ -1537,6 +1747,20 @@ export interface FeedProtocol extends BaseContract {
     FeederRegisteredEvent.OutputObject
   >;
   getEvent(
+    key: "MaliciousFeedReported"
+  ): TypedContractEvent<
+    MaliciousFeedReportedEvent.InputTuple,
+    MaliciousFeedReportedEvent.OutputTuple,
+    MaliciousFeedReportedEvent.OutputObject
+  >;
+  getEvent(
+    key: "MaliciousReportProcessed"
+  ): TypedContractEvent<
+    MaliciousReportProcessedEvent.InputTuple,
+    MaliciousReportProcessedEvent.OutputTuple,
+    MaliciousReportProcessedEvent.OutputObject
+  >;
+  getEvent(
     key: "OptionsCoreUpdated"
   ): TypedContractEvent<
     OptionsCoreUpdatedEvent.InputTuple,
@@ -1673,6 +1897,28 @@ export interface FeedProtocol extends BaseContract {
       FeederRegisteredEvent.InputTuple,
       FeederRegisteredEvent.OutputTuple,
       FeederRegisteredEvent.OutputObject
+    >;
+
+    "MaliciousFeedReported(uint256,address,address,uint256,uint256)": TypedContractEvent<
+      MaliciousFeedReportedEvent.InputTuple,
+      MaliciousFeedReportedEvent.OutputTuple,
+      MaliciousFeedReportedEvent.OutputObject
+    >;
+    MaliciousFeedReported: TypedContractEvent<
+      MaliciousFeedReportedEvent.InputTuple,
+      MaliciousFeedReportedEvent.OutputTuple,
+      MaliciousFeedReportedEvent.OutputObject
+    >;
+
+    "MaliciousReportProcessed(uint256,bool,uint256,uint256)": TypedContractEvent<
+      MaliciousReportProcessedEvent.InputTuple,
+      MaliciousReportProcessedEvent.OutputTuple,
+      MaliciousReportProcessedEvent.OutputObject
+    >;
+    MaliciousReportProcessed: TypedContractEvent<
+      MaliciousReportProcessedEvent.InputTuple,
+      MaliciousReportProcessedEvent.OutputTuple,
+      MaliciousReportProcessedEvent.OutputObject
     >;
 
     "OptionsCoreUpdated(address,address,uint256)": TypedContractEvent<

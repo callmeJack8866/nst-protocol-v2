@@ -641,6 +641,116 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
 
     // ==================== 管理功能 ====================
 
+    // ==================== 恶意喂价处理 (P2) ====================
+
+    /// @notice 恶意喂价举报
+    struct MaliciousReport {
+        uint256 reportId;
+        address reporter;           // 举报人
+        address reportedFeeder;     // 被举报喂价员
+        uint256 requestId;          // 相关喂价请求
+        string evidence;            // 证据说明
+        uint256 reportedAt;
+        bool processed;
+        bool confirmed;             // 是否确认恶意
+    }
+    
+    mapping(uint256 => MaliciousReport) public maliciousReports;
+    uint256 public nextReportId = 1;
+    
+    event MaliciousFeedReported(
+        uint256 indexed reportId,
+        address indexed reporter,
+        address indexed feeder,
+        uint256 requestId,
+        uint256 timestamp
+    );
+    
+    event MaliciousReportProcessed(
+        uint256 indexed reportId,
+        bool confirmed,
+        uint256 slashedAmount,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice 举报恶意喂价
+     * @param feeder 被举报的喂价员
+     * @param requestId 相关喂价请求ID
+     * @param evidence 证据说明
+     */
+    function reportMaliciousFeed(
+        address feeder,
+        uint256 requestId,
+        string calldata evidence
+    ) external nonReentrant whenNotPaused returns (uint256 reportId) {
+        require(feeders[feeder].feederAddress != address(0), "FeedProtocol: invalid feeder");
+        require(bytes(evidence).length > 0, "FeedProtocol: evidence required");
+
+        reportId = nextReportId++;
+        maliciousReports[reportId] = MaliciousReport({
+            reportId: reportId,
+            reporter: msg.sender,
+            reportedFeeder: feeder,
+            requestId: requestId,
+            evidence: evidence,
+            reportedAt: block.timestamp,
+            processed: false,
+            confirmed: false
+        });
+
+        emit MaliciousFeedReported(reportId, msg.sender, feeder, requestId, block.timestamp);
+        return reportId;
+    }
+
+    /**
+     * @notice 处理恶意举报（管理员）
+     * @param reportId 举报ID
+     * @param confirmed 是否确认恶意
+     * @param slashPercent 罚没比例（基点，5000 = 50%）
+     */
+    function processMaliciousReport(
+        uint256 reportId,
+        bool confirmed,
+        uint256 slashPercent
+    ) external onlyOperator nonReentrant {
+        MaliciousReport storage report = maliciousReports[reportId];
+        require(!report.processed, "FeedProtocol: already processed");
+        require(slashPercent <= 10000, "FeedProtocol: invalid slash percent");
+
+        report.processed = true;
+        report.confirmed = confirmed;
+
+        uint256 slashedAmount = 0;
+
+        if (confirmed) {
+            Feeder storage feeder = feeders[report.reportedFeeder];
+            
+            // 计算罚没金额
+            slashedAmount = (feeder.stakedAmount * slashPercent) / 10000;
+            
+            if (slashedAmount > 0) {
+                feeder.stakedAmount -= slashedAmount;
+                // 罚没的押金可转入国库或奖励举报人（此处转入合约作为平台收入）
+            }
+
+            // 加入黑名单
+            feeder.isBlacklisted = true;
+            feeder.isActive = false;
+            
+            emit FeederBlacklisted(report.reportedFeeder, "malicious feed confirmed", block.timestamp);
+        }
+
+        emit MaliciousReportProcessed(reportId, confirmed, slashedAmount, block.timestamp);
+    }
+
+    /**
+     * @notice 获取举报详情
+     */
+    function getMaliciousReport(uint256 reportId) external view returns (MaliciousReport memory) {
+        return maliciousReports[reportId];
+    }
+
     function grantProtocolRole(address protocol) external onlyRole(DEFAULT_ADMIN_ROLE) {
         grantRole(PROTOCOL_ROLE, protocol);
     }

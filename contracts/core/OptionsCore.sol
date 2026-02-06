@@ -681,6 +681,162 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         emit OrderStatusChanged(orderId, oldStatus, OrderStatus.LIQUIDATED, "force liquidated", block.timestamp);
     }
 
+    // ==================== 超时处理函数 ====================
+
+    /**
+     * @notice 初始喂价超时取消订单 (§8.2, §15.2)
+     * @param orderId 订单ID
+     * @dev 由 Keeper 服务调用，处理成交后10分钟内未发起初始喂价的订单
+     * 
+     * 处理规则：
+     * - 买方期权费：全额退回
+     * - 卖方保证金：扣除违约金（5%进入国库），剩余退回
+     * - 建仓手续费：不退还（已进入生态利润池）
+     */
+    function cancelOrderDueToFeedTimeout(uint256 orderId) external 
+        validOrder(orderId) 
+        nonReentrant 
+        whenNotPaused 
+    {
+        Order storage order = orders[orderId];
+        
+        // 验证订单状态：必须是 MATCHED 或 WAITING_INITIAL_FEED
+        require(
+            order.status == OrderStatus.MATCHED || order.status == OrderStatus.WAITING_INITIAL_FEED,
+            "OptionsCore: order not awaiting initial feed"
+        );
+        
+        // 验证超时条件：成交时间 + 10分钟
+        require(order.matchedAt > 0, "OptionsCore: order not matched yet");
+        require(
+            block.timestamp > order.matchedAt + config.initialFeedDeadline(),
+            "OptionsCore: initial feed deadline not reached"
+        );
+
+        OrderStatus oldStatus = order.status;
+        order.status = OrderStatus.CANCELLED;
+        order.settledAt = block.timestamp;
+
+        // 计算违约金 (卖方保证金的 5%)
+        uint256 penaltyRate = config.initialFeedPenaltyRate();
+        uint256 penaltyAmount = (order.currentMargin * penaltyRate) / 10000;
+        uint256 sellerRefund = order.currentMargin - penaltyAmount;
+
+        // 1. 退还买方期权费
+        vaultManager.refundPremium(order.buyer, order.premiumAmount);
+
+        // 2. 退还卖方保证金（扣除违约金）
+        if (sellerRefund > 0) {
+            vaultManager.refundMargin(order.seller, sellerRefund);
+        }
+
+        // 3. 违约金进入国库
+        if (penaltyAmount > 0) {
+            vaultManager.transferToTreasury(penaltyAmount);
+        }
+
+        // 更新订单保证金状态
+        order.currentMargin = 0;
+
+        emit OrderCancelled(orderId, "initial feed timeout", block.timestamp);
+        emit OrderStatusChanged(orderId, oldStatus, OrderStatus.CANCELLED, "initial feed timeout", block.timestamp);
+        
+        // 发出违约金扣除事件
+        emit MarginChanged(
+            orderId, 
+            order.seller, 
+            order.currentMargin + penaltyAmount + sellerRefund, 
+            0, 
+            "penalty_deducted", 
+            block.timestamp
+        );
+    }
+
+    /**
+     * @notice 触发追保 (P0 追保机制)
+     * @param orderId 订单ID
+     * @param isCrypto 是否为加密货币/外汇（决定追保时限: 2h vs 12h）
+     * @dev 由 Keeper 服务或 FeedProtocol 调用，当动态喂价显示保证金不足时触发
+     * 
+     * 追保规则 (§9.3):
+     * - 加密货币/外汇: 2小时内补足
+     * - 其他标的: 12小时内补足
+     */
+    function triggerMarginCall(uint256 orderId, bool isCrypto) external 
+        validOrder(orderId) 
+        nonReentrant 
+        whenNotPaused 
+    {
+        Order storage order = orders[orderId];
+        require(order.status == OrderStatus.LIVE, "OptionsCore: order not live");
+        require(order.marginCallDeadline == 0, "OptionsCore: margin call already triggered");
+
+        // 检查是否确实需要追保（当前保证金 < 最低要求）
+        uint256 minRequired = (order.initialMargin * order.minMarginRate) / 10000;
+        require(order.currentMargin < minRequired, "OptionsCore: margin sufficient");
+
+        // 设置追保截止时间
+        uint256 deadline = block.timestamp + config.getMarginCallDeadline(isCrypto);
+        order.marginCallDeadline = deadline;
+
+        emit MarginCallTriggered(
+            orderId,
+            order.seller,
+            order.currentMargin,
+            minRequired,
+            deadline
+        );
+    }
+
+    /**
+     * @notice 追保超时强制清算 (P0 追保机制)
+     * @param orderId 订单ID
+     * @dev 由 Keeper 服务调用，处理追保超时的订单
+     * 
+     * 处理规则：
+     * - 买方获得全部卖方保证金
+     * - 订单状态变为 LIQUIDATED
+     */
+    function forceLiquidateMarginCall(uint256 orderId) external 
+        validOrder(orderId) 
+        nonReentrant 
+        whenNotPaused 
+    {
+        Order storage order = orders[orderId];
+        require(order.status == OrderStatus.LIVE, "OptionsCore: order not live");
+        require(order.marginCallDeadline > 0, "OptionsCore: no margin call active");
+        require(block.timestamp > order.marginCallDeadline, "OptionsCore: deadline not reached");
+
+        // 检查保证金仍然不足
+        uint256 minRequired = (order.initialMargin * order.minMarginRate) / 10000;
+        require(order.currentMargin < minRequired, "OptionsCore: margin was restored");
+
+        OrderStatus oldStatus = order.status;
+        order.status = OrderStatus.LIQUIDATED;
+        order.settledAt = block.timestamp;
+
+        // 买方获得全部保证金
+        uint256 buyerPayout = order.currentMargin;
+        if (buyerPayout > 0) {
+            vaultManager.refundPremium(order.buyer, buyerPayout);
+        }
+
+        order.currentMargin = 0;
+        order.marginCallDeadline = 0;
+
+        emit OrderLiquidated(orderId, order.buyer, buyerPayout, block.timestamp);
+        emit OrderStatusChanged(orderId, oldStatus, OrderStatus.LIQUIDATED, "margin call timeout", block.timestamp);
+    }
+
+    /// @notice 追保触发事件
+    event MarginCallTriggered(
+        uint256 indexed orderId,
+        address indexed seller,
+        uint256 currentMargin,
+        uint256 requiredMargin,
+        uint256 deadline
+    );
+
     /**
      * @notice 解决仲裁 (§15.4)
      * @param orderId 订单ID

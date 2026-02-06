@@ -52,6 +52,8 @@ export interface VaultManagerInterface extends Interface {
       | "pause"
       | "paused"
       | "profitPoolBalance"
+      | "refundMargin"
+      | "refundPremium"
       | "renounceRole"
       | "revokeRole"
       | "setConfig"
@@ -59,6 +61,7 @@ export interface VaultManagerInterface extends Interface {
       | "transferMargin"
       | "transferReward"
       | "transferToFeedProtocol"
+      | "transferToTreasury"
       | "unpause"
       | "userMarginBalance"
       | "withdrawFromDonationPool"
@@ -177,6 +180,14 @@ export interface VaultManagerInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "refundMargin",
+    values: [AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "refundPremium",
+    values: [AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "renounceRole",
     values: [BytesLike, AddressLike]
   ): string;
@@ -203,6 +214,10 @@ export interface VaultManagerInterface extends Interface {
   encodeFunctionData(
     functionFragment: "transferToFeedProtocol",
     values: [AddressLike, BigNumberish, AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "transferToTreasury",
+    values: [BigNumberish]
   ): string;
   encodeFunctionData(functionFragment: "unpause", values?: undefined): string;
   encodeFunctionData(
@@ -313,6 +328,14 @@ export interface VaultManagerInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "refundMargin",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "refundPremium",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "renounceRole",
     data: BytesLike
   ): Result;
@@ -332,6 +355,10 @@ export interface VaultManagerInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "transferToFeedProtocol",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "transferToTreasury",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "unpause", data: BytesLike): Result;
@@ -743,6 +770,18 @@ export interface VaultManager extends BaseContract {
 
   profitPoolBalance: TypedContractMethod<[arg0: AddressLike], [bigint], "view">;
 
+  refundMargin: TypedContractMethod<
+    [_seller: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  refundPremium: TypedContractMethod<
+    [_buyer: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   renounceRole: TypedContractMethod<
     [role: BytesLike, callerConfirmation: AddressLike],
     [void],
@@ -783,6 +822,12 @@ export interface VaultManager extends BaseContract {
 
   transferToFeedProtocol: TypedContractMethod<
     [_token: AddressLike, _amount: BigNumberish, _feedProtocol: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
+  transferToTreasury: TypedContractMethod<
+    [_amount: BigNumberish],
     [void],
     "nonpayable"
   >;
@@ -960,6 +1005,20 @@ export interface VaultManager extends BaseContract {
     nameOrSignature: "profitPoolBalance"
   ): TypedContractMethod<[arg0: AddressLike], [bigint], "view">;
   getFunction(
+    nameOrSignature: "refundMargin"
+  ): TypedContractMethod<
+    [_seller: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "refundPremium"
+  ): TypedContractMethod<
+    [_buyer: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "renounceRole"
   ): TypedContractMethod<
     [role: BytesLike, callerConfirmation: AddressLike],
@@ -1006,6 +1065,9 @@ export interface VaultManager extends BaseContract {
     [void],
     "nonpayable"
   >;
+  getFunction(
+    nameOrSignature: "transferToTreasury"
+  ): TypedContractMethod<[_amount: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "unpause"
   ): TypedContractMethod<[], [void], "nonpayable">;

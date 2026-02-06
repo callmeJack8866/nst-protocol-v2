@@ -187,12 +187,14 @@ export interface OptionsCoreInterface extends Interface {
       | "acceptSellerOrder"
       | "addMargin"
       | "buyerOrders"
+      | "cancelOrderDueToFeedTimeout"
       | "cancelRFQ"
       | "config"
       | "createBuyerRFQ"
       | "createSellerOrder"
       | "earlyExercise"
       | "forceLiquidate"
+      | "forceLiquidateMarginCall"
       | "getBuyerOrders"
       | "getOrder"
       | "getOrdersByCountry"
@@ -224,6 +226,7 @@ export interface OptionsCoreInterface extends Interface {
       | "settle"
       | "submitQuote"
       | "supportsInterface"
+      | "triggerMarginCall"
       | "unpause"
       | "usdt"
       | "vaultManager"
@@ -234,6 +237,7 @@ export interface OptionsCoreInterface extends Interface {
     nameOrSignatureOrTopic:
       | "ArbitrationResolved"
       | "DividendRecorded"
+      | "MarginCallTriggered"
       | "MarginChanged"
       | "OrderCancelled"
       | "OrderCreated"
@@ -272,6 +276,10 @@ export interface OptionsCoreInterface extends Interface {
   encodeFunctionData(
     functionFragment: "buyerOrders",
     values: [AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "cancelOrderDueToFeedTimeout",
+    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "cancelRFQ",
@@ -330,6 +338,10 @@ export interface OptionsCoreInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "forceLiquidate",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "forceLiquidateMarginCall",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
@@ -457,6 +469,10 @@ export interface OptionsCoreInterface extends Interface {
     functionFragment: "supportsInterface",
     values: [BytesLike]
   ): string;
+  encodeFunctionData(
+    functionFragment: "triggerMarginCall",
+    values: [BigNumberish, boolean]
+  ): string;
   encodeFunctionData(functionFragment: "unpause", values?: undefined): string;
   encodeFunctionData(functionFragment: "usdt", values?: undefined): string;
   encodeFunctionData(
@@ -489,6 +505,10 @@ export interface OptionsCoreInterface extends Interface {
     functionFragment: "buyerOrders",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "cancelOrderDueToFeedTimeout",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "cancelRFQ", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "config", data: BytesLike): Result;
   decodeFunctionResult(
@@ -505,6 +525,10 @@ export interface OptionsCoreInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "forceLiquidate",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "forceLiquidateMarginCall",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -598,6 +622,10 @@ export interface OptionsCoreInterface extends Interface {
     functionFragment: "supportsInterface",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "triggerMarginCall",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "unpause", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "usdt", data: BytesLike): Result;
   decodeFunctionResult(
@@ -665,6 +693,34 @@ export namespace DividendRecordedEvent {
     dividendPerShare: bigint;
     totalDividend: bigint;
     timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace MarginCallTriggeredEvent {
+  export type InputTuple = [
+    orderId: BigNumberish,
+    seller: AddressLike,
+    currentMargin: BigNumberish,
+    requiredMargin: BigNumberish,
+    deadline: BigNumberish
+  ];
+  export type OutputTuple = [
+    orderId: bigint,
+    seller: string,
+    currentMargin: bigint,
+    requiredMargin: bigint,
+    deadline: bigint
+  ];
+  export interface OutputObject {
+    orderId: bigint;
+    seller: string;
+    currentMargin: bigint;
+    requiredMargin: bigint;
+    deadline: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -1034,6 +1090,12 @@ export interface OptionsCore extends BaseContract {
     "view"
   >;
 
+  cancelOrderDueToFeedTimeout: TypedContractMethod<
+    [orderId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   cancelRFQ: TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
 
   config: TypedContractMethod<[], [string], "view">;
@@ -1095,6 +1157,12 @@ export interface OptionsCore extends BaseContract {
   >;
 
   forceLiquidate: TypedContractMethod<
+    [orderId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  forceLiquidateMarginCall: TypedContractMethod<
     [orderId: BigNumberish],
     [void],
     "nonpayable"
@@ -1395,6 +1463,12 @@ export interface OptionsCore extends BaseContract {
     "view"
   >;
 
+  triggerMarginCall: TypedContractMethod<
+    [orderId: BigNumberish, isCrypto: boolean],
+    [void],
+    "nonpayable"
+  >;
+
   unpause: TypedContractMethod<[], [void], "nonpayable">;
 
   usdt: TypedContractMethod<[], [string], "view">;
@@ -1437,6 +1511,9 @@ export interface OptionsCore extends BaseContract {
     [bigint],
     "view"
   >;
+  getFunction(
+    nameOrSignature: "cancelOrderDueToFeedTimeout"
+  ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "cancelRFQ"
   ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
@@ -1500,6 +1577,9 @@ export interface OptionsCore extends BaseContract {
   ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "forceLiquidate"
+  ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "forceLiquidateMarginCall"
   ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "getBuyerOrders"
@@ -1804,6 +1884,13 @@ export interface OptionsCore extends BaseContract {
     nameOrSignature: "supportsInterface"
   ): TypedContractMethod<[interfaceId: BytesLike], [boolean], "view">;
   getFunction(
+    nameOrSignature: "triggerMarginCall"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, isCrypto: boolean],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "unpause"
   ): TypedContractMethod<[], [void], "nonpayable">;
   getFunction(
@@ -1833,6 +1920,13 @@ export interface OptionsCore extends BaseContract {
     DividendRecordedEvent.InputTuple,
     DividendRecordedEvent.OutputTuple,
     DividendRecordedEvent.OutputObject
+  >;
+  getEvent(
+    key: "MarginCallTriggered"
+  ): TypedContractEvent<
+    MarginCallTriggeredEvent.InputTuple,
+    MarginCallTriggeredEvent.OutputTuple,
+    MarginCallTriggeredEvent.OutputObject
   >;
   getEvent(
     key: "MarginChanged"
@@ -1947,6 +2041,17 @@ export interface OptionsCore extends BaseContract {
       DividendRecordedEvent.InputTuple,
       DividendRecordedEvent.OutputTuple,
       DividendRecordedEvent.OutputObject
+    >;
+
+    "MarginCallTriggered(uint256,address,uint256,uint256,uint256)": TypedContractEvent<
+      MarginCallTriggeredEvent.InputTuple,
+      MarginCallTriggeredEvent.OutputTuple,
+      MarginCallTriggeredEvent.OutputObject
+    >;
+    MarginCallTriggered: TypedContractEvent<
+      MarginCallTriggeredEvent.InputTuple,
+      MarginCallTriggeredEvent.OutputTuple,
+      MarginCallTriggeredEvent.OutputObject
     >;
 
     "MarginChanged(uint256,address,uint256,uint256,string,uint256)": TypedContractEvent<

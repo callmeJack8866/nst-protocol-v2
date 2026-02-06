@@ -56,6 +56,10 @@ contract Config is AccessControl, Pausable {
     // ==================== 积分参数 ====================
     uint256 public pointsMultiplier = 100;                   // 积分倍率：1U = 100分
 
+    // ==================== 违约金参数 ====================
+    uint256 public initialFeedPenaltyRate = 500;             // 初始喂价超时违约金：5% (基点)
+    uint256 public closingFeedPenaltyRate = 500;             // 平仓喂价超时违约金：5% (基点)
+
     // ==================== 资金池分配比例 (基点 100 = 1%) ====================
     uint256 public nodeRewardShare = 500;                    // 节点奖励：5%
     uint256 public tokenBuybackShare = 1000;                 // 代币回购：10%
@@ -64,6 +68,11 @@ contract Config is AccessControl, Pausable {
     uint256 public foundationShare = 2500;                   // 基金会：25%
     uint256 public daoShare = 1000;                          // DAO：10%
     uint256 public growthNodeShare = 1000;                   // 成长节点：10%
+
+    // ==================== NST 代币折扣 (P1) ====================
+    uint256 public nstDiscountRate = 8000;                   // NST支付折扣：80% (8000基点 = 80%)
+    bool public nstDiscountEnabled = true;                   // 启用NST折扣
+
 
     // ==================== 合约地址 ====================
     address public usdtAddress;
@@ -271,5 +280,38 @@ contract Config is AccessControl, Pausable {
      */
     function getArbitrationWindow(bool isSettlement) external view returns (uint256) {
         return isSettlement ? settlementArbitrationWindow : defaultArbitrationWindow;
+    }
+
+    // ==================== NST 折扣函数 (P1) ====================
+
+    /**
+     * @notice 计算 NST 折扣后的费用
+     * @param originalFee 原始费用
+     * @return 折扣后的费用（使用 NST 支付时为 80%）
+     */
+    function getDiscountedFee(uint256 originalFee) external view returns (uint256) {
+        if (!nstDiscountEnabled) {
+            return originalFee;
+        }
+        // nstDiscountRate = 8000 表示 80%
+        return (originalFee * nstDiscountRate) / 10000;
+    }
+
+    /**
+     * @notice 设置 NST 折扣率
+     * @param _rate 折扣率（基点，8000 = 80%）
+     */
+    function setNstDiscountRate(uint256 _rate) external onlyDAO {
+        require(_rate > 0 && _rate <= 10000, "Config: invalid discount rate");
+        uint256 oldValue = nstDiscountRate;
+        nstDiscountRate = _rate;
+        emit ParameterUpdated("nstDiscountRate", oldValue, _rate, block.timestamp);
+    }
+
+    /**
+     * @notice 启用/禁用 NST 折扣
+     */
+    function setNstDiscountEnabled(bool _enabled) external onlyDAO {
+        nstDiscountEnabled = _enabled;
     }
 }
