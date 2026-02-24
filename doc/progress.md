@@ -1,5 +1,121 @@
 # NST Finance 前端进展
 
+## [2026-02-06 21:15]
+- **Status**: Done
+- **Changes**: 完成按钮显示和仲裁按钮样式修复
+  - `zh.json`: 添加缺失翻译键(exercise/settle/add_margin/withdraw/dynamic_feed/arbitration/exercise_ready)
+  - `MyOrders.tsx`: 仲裁按钮从感叹号改为红色中文"仲裁"文字
+
+
+## [2026-02-06 21:10]
+- **Status**: Done
+- **Changes**: 修复Settle错误和按钮国际化
+  - `MyOrders.tsx`: EXERCISE/SETTLE/ADD MARGIN/WITHDRAW/DYNAMIC FEED 按钮国际化
+  - `MyOrders.tsx`: canSettle添加lastFeedPrice>0检查，防止无喂价时RPC错误
+  - 根本原因：合约L535要求lastFeedPrice>0，前端之前只检查状态
+
+
+## [2026-02-06 20:40]
+- **Status**: Done
+- **Changes**: 买方/卖方页面国际化对齐
+  - `CreateSellerOrder.tsx`: 添加useTranslation和STEP_LABELS国际化
+  - `BuyerHall.tsx`: 添加useTranslation导入和t函数
+  - 与SellerHall国际化支持对齐
+
+
+## [2026-02-06 20:30]
+- **Status**: Done
+- **Changes**: 卖方流程缺口实施
+  - `SubmitQuotePage.tsx`: 新增`exerciseDelay`状态变量和T+1~T+5选择器UI
+  - `MyOrders.tsx`: 新增`getFinalFeedCountdown`函数(WAITING_FINAL_FEED 10分钟倒计时)
+  - `MyOrders.tsx`: 添加平仓喂价倒计时UI组件(🔔橙色徽章)
+  - 合约接口: submitQuote参数新增exerciseDelay字段
+
+## [2026-02-06 20:22]
+- **Status**: Done
+- **Changes**: P2前端功能增强
+  - 新增 `statusFilter` 状态变量：支持6种筛选类型
+  - 新增 `filterOrdersByStatus` 函数：按状态过滤订单
+  - 添加状态筛选标签页UI：全部/询价/待喂价/持仓/结算/历史
+  - 每个标签页显示对应订单数量
+  - 标签页样式：胶囊型按钮，选中高亮
+
+## [2026-02-06 20:20]
+- **Status**: Done
+- **Changes**: P1功能增强实施
+  - 新增 `calculateSettlementPnL` 函数：真实盈亏计算（看涨/看跌期权结算逻辑）
+  - SETTLED状态：绿色徽章+勾选图标+盈亏详情显示
+  - PENDING_SETTLEMENT状态：增加盈亏预览
+  - ARBITRATION状态：紫色徽章+天平图标+等待重新喂价提示
+  - LIQUIDATED状态：红色徽章+骷髅图标+强平原因提示
+- **Next Step**: 测试各状态订单显示效果
+
+## [2026-02-06 20:16]
+- **Status**: Done
+- **Changes**: P0功能缺口实施
+  - 新增 `getArbitrationCountdown` 函数：仲裁窗口24小时倒计时
+  - 新增 `getInitialFeedCountdown` 函数：初始喂价10分钟时限倒计时
+  - PENDING_SETTLEMENT状态显示仲裁窗口倒计时徽章
+  - MATCHED状态显示初始喂价倒计时徽章
+  - 确认动态喂价按钮已存在(卖方LIVE状态)
+- **Next Step**: P1功能（结算详情页、仲裁结果展示）
+
+## [2026-02-06 19:58]
+- **Status**: Done
+- **Changes**: 前端精度统一修复 (6位→18位小数)
+  - `useContracts.ts`: addMargin, withdrawExcessMargin, arbitrationFee (3处)
+  - `CreateSellerOrder.tsx`: notionalUSDT, marginAmount (2处)
+  - `CreateBuyerRFQ.tsx`: notionalUSDT (1处)
+  - `useSeatManager.ts`: deposit, addDeposit, withdrawDeposit (3处)
+  - 共修复9处parseUnits调用
+- **Next Step**: 测试验证所有金额操作
+
+## [2026-02-06 19:55]
+- **Status**: Done
+- **Changes**: 保证金计算精度修复
+  - 发现精度不一致：transformers.ts 用 18 位小数，useContracts.ts 用 6 位小数
+  - 修复 `getMarginHealthPercent` 函数：统一使用 18 位小数
+  - 添加自动检测逻辑：区分原始 bigint 和已转换 number 格式
+  - 修复 minMarginRate 处理：自动识别 basis points vs 百分比格式
+- **Next Step**: 测试验证保证金健康度显示
+
+## [2026-02-06 19:52]
+- **Status**: Done
+- **Changes**: 保证金功能增强
+  - 新增4个辅助函数：`getMarginHealthPercent`、`getMarginHealthStatus`、`getMarginCallCountdown`、`needsMarginCallWarning`
+  - 卖方LIVE订单卡片新增保证金健康度指示器（绿/黄/红三色）
+  - 新增追保倒计时警告徽章（红色脉冲动画）
+  - 健康度阈值：≥120%=健康(绿)、80-120%=警告(黄)、<80%=危险(红)
+- **Next Step**: 刷新页面验证保证金健康度显示效果
+
+## [2026-02-06 19:45]
+- **Status**: Done
+- **Changes**: 新增喂价价格显示功能
+  - `MyOrders.tsx`：订单卡片新增"喂价"字段，显示 lastFeedPrice（青色）
+  - `OrderMarket.tsx`：展开详情区块"结算信息"改为"喂价信息"，首行显示最新喂价
+  - `UserProfile.tsx`：展开详情区块"结算信息"改为"喂价信息"，首行显示最新喂价
+  - 喂价价格使用青色高亮显示 `text-cyan-400`
+- **Next Step**: 刷新页面验证喂价价格显示效果
+
+## [2026-02-06 19:41]
+- **Status**: Done
+- **Changes**: 订单大厅 & 账户最近订单UI重构 - 表格行布局
+  - 重构 `OrderMarket.tsx`：将卡片网格布局改为表格行布局
+  - 重构 `UserProfile.tsx`：将最近订单从简单列表改为表格行+展开详情布局
+  - 添加展开/收起交互和动画效果
+  - 展开区显示5个信息块：标的信息、交易参数、风险结构、订单配置、结算信息
+  - 买方订单显示蓝色主题，卖方订单显示紫色主题
+- **Next Step**: 刷新页面验证表格行布局效果
+
+## [2026-02-06 18:58]
+- **Status**: Done
+- **Changes**: 修复卖方订单预览组件布局
+  - 将预览组件从主表单容器内部移至外部，与买方RFQ页面布局一致
+  - 添加React Fragment (`<>...</>`) 包裹表单容器和预览组件，修复JSX语法错误
+  - 清理了意外产生的重复代码（文件从964行清理到734行）
+  - 文件修改：`CreateSellerOrder.tsx`
+- **Next Step**: 布局修复完成，可继续其他开发任务
+
 ## [2026-02-05 21:54]
 - **Status**: Done
 - **Changes**: 添加席位管理侧边栏入口

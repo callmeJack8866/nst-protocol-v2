@@ -4,6 +4,7 @@ import { useWalletContext } from '../context/WalletContext';
 import { OrderCard } from '../components/OrderCard';
 import { Link } from 'react-router-dom';
 import { formatUnits } from 'ethers';
+import { useTranslation } from 'react-i18next';
 
 interface RFQOrder {
   orderId: number;
@@ -39,6 +40,7 @@ interface Quote {
 }
 
 export function BuyerHall() {
+  const { t } = useTranslation();
   const { account, connect } = useWalletContext();
   const { getAllActiveRFQs, getQuotesForOrder, acceptQuote, isConnected } = useOptions();
   const [filter, setFilter] = useState('ALL');

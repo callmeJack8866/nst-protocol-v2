@@ -16,6 +16,8 @@ import Leaderboard from './pages/Leaderboard';
 import { PointsCenter } from './pages/PointsCenter';
 import { SeatManagement } from './pages/SeatManagement';
 import SubmitQuotePage from './pages/SubmitQuotePage';
+import { UserProfile } from './pages/UserProfile';
+import { SellerHall } from './pages/SellerHall';
 import { ToastProvider } from './components/Toast';
 
 function App() {
@@ -59,6 +61,8 @@ function App() {
                       <Route path="/order/:orderId" element={<OrderDetail />} />
                       <Route path="/seat" element={<SeatManagement />} />
                       <Route path="/quote/:orderId" element={<SubmitQuotePage />} />
+                      <Route path="/profile" element={<UserProfile />} />
+                      <Route path="/seller-hall" element={<SellerHall />} />
                     </Routes>
                   </div>
 

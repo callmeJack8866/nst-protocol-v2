@@ -46,6 +46,10 @@ export function MyOrders() {
     // 动态喂价加载状态
     const [dynamicFeedLoading, setDynamicFeedLoading] = useState<number | null>(null);
 
+    // 状态筛选标签页
+    type StatusFilter = 'all' | 'rfq' | 'pending_feed' | 'live' | 'settlement' | 'history';
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
     // 30秒自动刷新订单状态
 
     useEffect(() => {
@@ -78,7 +82,34 @@ export function MyOrders() {
         fetchOrders();
     }, [isConnected, account, refreshKey, getBuyerOrders, getOrder, getSellerOrders]);
 
-    const activeOrders = viewMode === 'buyer' ? buyerOrders : sellerOrders;
+    const allOrders = viewMode === 'buyer' ? buyerOrders : sellerOrders;
+
+    // 订单状态过滤函数
+    const filterOrdersByStatus = (orders: any[], filter: StatusFilter): any[] => {
+        if (filter === 'all') return orders;
+
+        return orders.filter(order => {
+            const status = typeof order.status === 'number' ? order.status :
+                typeof order.status === 'bigint' ? Number(order.status) : -1;
+
+            switch (filter) {
+                case 'rfq': // 询价订单: RFQ_CREATED, QUOTING
+                    return status === 0 || status === 1;
+                case 'pending_feed': // 待喂价: MATCHED, WAITING_INITIAL_FEED
+                    return status === 2 || status === 3;
+                case 'live': // 持仓订单: LIVE, WAITING_FINAL_FEED
+                    return status === 4 || status === 5;
+                case 'settlement': // 结算/仲裁: PENDING_SETTLEMENT, ARBITRATION
+                    return status === 6 || status === 7;
+                case 'history': // 历史订单: SETTLED, LIQUIDATED, CANCELLED
+                    return status === 8 || status === 9 || status === 10;
+                default:
+                    return true;
+            }
+        });
+    };
+
+    const activeOrders = filterOrdersByStatus(allOrders, statusFilter);
 
     const formatAmount = (val: any) => {
         // Handle both BigInt and Number types safely
@@ -126,21 +157,57 @@ export function MyOrders() {
         return 0;
     };
 
-    // Simple P&L calculation based on premium rate (mock for now)
+    /**
+     * 计算真实结算盈亏
+     * 看涨(Call): 盈亏 = (现价 - 行权价) * 名义本金 / 行权价
+     * 看跌(Put): 盈亏 = (行权价 - 现价) * 名义本金 / 行权价
+     * 买方盈利上限 = min(盈利, 卖方保证金)
+     */
+    const calculateSettlementPnL = (order: any): { pnl: number; buyerProfit: number; sellerProfit: number; status: 'profit' | 'loss' | 'neutral' } => {
+        const notional = Number(formatUnits(BigInt(order.notionalUSDT || 0), 18));
+        const strikePrice = Number(formatUnits(BigInt(order.strikePrice || 0), 18));
+        const lastFeedPrice = Number(formatUnits(BigInt(order.lastFeedPrice || 0), 18));
+        const currentMargin = Number(formatUnits(BigInt(order.currentMargin || 0), 18));
+        const premium = Number(formatUnits(BigInt(order.premiumAmount || 0), 18));
+
+        // 0 = Call, 1 = Put
+        const direction = Number(order.direction || 0);
+
+        if (strikePrice === 0 || lastFeedPrice === 0) {
+            return { pnl: 0, buyerProfit: 0, sellerProfit: 0, status: 'neutral' };
+        }
+
+        let rawPnL = 0;
+        if (direction === 0) { // Call
+            rawPnL = ((lastFeedPrice - strikePrice) / strikePrice) * notional;
+        } else { // Put
+            rawPnL = ((strikePrice - lastFeedPrice) / strikePrice) * notional;
+        }
+
+        // 买方盈利上限为卖方保证金
+        const buyerProfit = rawPnL > 0 ? Math.min(rawPnL, currentMargin) : 0;
+        // 卖方盈利 = 期权费 - 赔付
+        const sellerProfit = premium - buyerProfit;
+
+        return {
+            pnl: rawPnL,
+            buyerProfit,
+            sellerProfit,
+            status: rawPnL > 0 ? 'profit' : rawPnL < 0 ? 'loss' : 'neutral'
+        };
+    };
+
+    // P&L display based on real calculation
     const calculatePnL = (order: any) => {
-        const premium = getPremiumNum(order);
-        // Mock P&L: random between -10% to +20% of premium
-        const pnlRatio = viewMode === 'buyer'
-            ? 0.15 // Buyers generally profit from price movement
-            : -0.05; // Sellers profit from premium decay
-        const pnl = premium * pnlRatio;
+        const settlement = calculateSettlementPnL(order);
+        const pnl = viewMode === 'buyer' ? settlement.buyerProfit : settlement.sellerProfit;
         return pnl >= 0 ? `+$${pnl.toFixed(2)}` : `-$${Math.abs(pnl).toFixed(2)}`;
     };
 
     const getPnLColor = (order: any) => {
-        const premium = getPremiumNum(order);
-        const pnlRatio = viewMode === 'buyer' ? 0.15 : -0.05;
-        return (premium * pnlRatio) >= 0 ? 'text-emerald-500' : 'text-red-500';
+        const settlement = calculateSettlementPnL(order);
+        const pnl = viewMode === 'buyer' ? settlement.buyerProfit : settlement.sellerProfit;
+        return pnl >= 0 ? 'text-emerald-500' : 'text-red-500';
     };
 
     // Order status constants matching contract enum
@@ -248,11 +315,188 @@ export function MyOrders() {
         const tPlusXMet = isExerciseDelayMet(order);
         return isLive && tPlusXMet;
     };
-    const canSettle = (order: any) => getStatusNum(order) === ORDER_STATUS.PENDING_SETTLEMENT;
+    const canSettle = (order: any) => {
+        const isPendingSettlement = getStatusNum(order) === ORDER_STATUS.PENDING_SETTLEMENT;
+        const hasFeedPrice = Number(order.lastFeedPrice || 0) > 0;
+        return isPendingSettlement && hasFeedPrice;
+    };
     const canArbitrate = (order: any) => getStatusNum(order) === ORDER_STATUS.PENDING_SETTLEMENT;
     const canAddMargin = (order: any) => getStatusNum(order) === ORDER_STATUS.LIVE;
     const canWithdraw = (order: any) => getStatusNum(order) === ORDER_STATUS.LIVE;
     const canInitiateFeed = (order: any) => getStatusNum(order) === ORDER_STATUS.MATCHED;
+
+    // ==================== 保证金健康度计算 ====================
+
+    /**
+     * 计算保证金健康度百分比
+     * 健康度 = currentMargin / requiredMargin * 100
+     * requiredMargin = notionalUSDT * minMarginRate / 10000
+     * 
+     * 注意：订单数据可能来自两种格式：
+     * 1. 原始 bigint (合约直接返回)
+     * 2. 已转换的 number (通过 transformers.ts 转换，使用18位小数)
+     */
+    const getMarginHealthPercent = (order: any): number => {
+        // 获取名义金额
+        let notional: number;
+        if (typeof order.notionalUSDT === 'bigint') {
+            notional = Number(formatUnits(order.notionalUSDT, 18));
+        } else {
+            notional = Number(order.notionalUSDT || 0);
+        }
+
+        // 获取当前保证金
+        let currentMargin: number;
+        if (typeof order.currentMargin === 'bigint') {
+            currentMargin = Number(formatUnits(order.currentMargin, 18));
+        } else {
+            currentMargin = Number(order.currentMargin || 0);
+        }
+
+        // 获取最低保证金率 (basis points, 1000 = 10%)
+        // 如果已经是百分比格式（<100），则认为是已转换的
+        let minMarginRate = Number(order.minMarginRate || 1000);
+        if (minMarginRate < 100) {
+            // 已经是百分比格式 (e.g., 10 = 10%)
+            minMarginRate = minMarginRate * 100; // 转为 basis points
+        }
+
+        if (notional === 0 || minMarginRate === 0) return 100;
+
+        // requiredMargin = notional * rate / 10000
+        const requiredMargin = notional * minMarginRate / 10000;
+        if (requiredMargin === 0) return 100;
+
+        return Math.min(200, (currentMargin / requiredMargin) * 100);
+    };
+
+    /**
+     * 获取保证金健康状态：healthy (>120%), warning (80-120%), danger (<80%)
+     */
+    const getMarginHealthStatus = (order: any): 'healthy' | 'warning' | 'danger' => {
+        const health = getMarginHealthPercent(order);
+        if (health >= 120) return 'healthy';
+        if (health >= 80) return 'warning';
+        return 'danger';
+    };
+
+    /**
+     * 获取追保倒计时字符串
+     */
+    const getMarginCallCountdown = (order: any): string | null => {
+        const deadline = Number(order.marginCallDeadline || 0);
+        if (deadline === 0) return null;
+
+        const now = Math.floor(Date.now() / 1000);
+        const remaining = deadline - now;
+
+        if (remaining <= 0) return '已逾期';
+
+        const hours = Math.floor(remaining / 3600);
+        const mins = Math.floor((remaining % 3600) / 60);
+
+        if (hours > 0) return `${hours}h ${mins}m`;
+        return `${mins}m`;
+    };
+
+    /**
+     * 检查是否需要追保警告
+     */
+    const needsMarginCallWarning = (order: any): boolean => {
+        const status = getMarginHealthStatus(order);
+        const deadline = Number(order.marginCallDeadline || 0);
+        return status !== 'healthy' || deadline > 0;
+    };
+
+    // ==================== 倒计时显示函数 ====================
+
+    /**
+     * 获取仲裁窗口倒计时
+     * @param order 订单对象
+     * @returns 倒计时字符串 或 null（窗口已过期或不适用）
+     */
+    const getArbitrationCountdown = (order: any): string | null => {
+        if (getStatusNum(order) !== ORDER_STATUS.PENDING_SETTLEMENT) {
+            return null;
+        }
+
+        const settledAt = Number(order.settledAt || 0);
+        const arbitrationWindow = Number(order.arbitrationWindow || 24 * 3600); // 默认24小时
+
+        if (settledAt === 0) return null;
+
+        const deadline = settledAt + arbitrationWindow;
+        const now = Math.floor(Date.now() / 1000);
+
+        if (now >= deadline) {
+            return '已过期';
+        }
+
+        const remaining = deadline - now;
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+
+        return `${hours}h ${minutes}m`;
+    };
+
+    /**
+     * 获取初始喂价倒计时 (10分钟时限)
+     * @param order 订单对象
+     * @returns 倒计时字符串 或 null（不适用）
+     */
+    const getInitialFeedCountdown = (order: any): string | null => {
+        if (getStatusNum(order) !== ORDER_STATUS.MATCHED) {
+            return null;
+        }
+
+        const matchedAt = Number(order.matchedAt || 0);
+        const FEED_DEADLINE = 10 * 60; // 10分钟
+
+        if (matchedAt === 0) return null;
+
+        const deadline = matchedAt + FEED_DEADLINE;
+        const now = Math.floor(Date.now() / 1000);
+
+        if (now >= deadline) {
+            return '已超时';
+        }
+
+        const remaining = deadline - now;
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    };
+
+    /**
+     * 获取平仓喂价倒计时 (10分钟时限) - 卖方专用
+     * @param order 订单对象
+     * @returns 倒计时字符串 或 null（不适用）
+     */
+    const getFinalFeedCountdown = (order: any): string | null => {
+        if (getStatusNum(order) !== ORDER_STATUS.WAITING_FINAL_FEED) {
+            return null;
+        }
+
+        // 使用 exerciseRequestedAt 或 finalFeedRequestedAt 作为起始时间
+        const requestedAt = Number(order.exerciseRequestedAt || order.finalFeedRequestedAt || 0);
+        const FEED_DEADLINE = 10 * 60; // 10分钟
+
+        if (requestedAt === 0) return null;
+
+        const deadline = requestedAt + FEED_DEADLINE;
+        const now = Math.floor(Date.now() / 1000);
+
+        if (now >= deadline) {
+            return '已超时';
+        }
+
+        const remaining = deadline - now;
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    };
 
     // Handle initiating initial feed for MATCHED orders
     const handleInitiateFeed = async (orderId: number) => {
@@ -447,7 +691,28 @@ export function MyOrders() {
                     <button onClick={() => setRefreshKey(k => k + 1)} className="text-[10px] font-black text-white/40 hover:text-white uppercase tracking-widest transition-all">{t('portfolio.reload_stream')}</button>
                 </div>
 
-
+                {/* 状态筛选标签页 */}
+                <div className="flex flex-wrap gap-2">
+                    {[
+                        { key: 'all' as StatusFilter, label: '全部', count: allOrders.length },
+                        { key: 'rfq' as StatusFilter, label: '询价', count: filterOrdersByStatus(allOrders, 'rfq').length },
+                        { key: 'pending_feed' as StatusFilter, label: '待喂价', count: filterOrdersByStatus(allOrders, 'pending_feed').length },
+                        { key: 'live' as StatusFilter, label: '持仓', count: filterOrdersByStatus(allOrders, 'live').length },
+                        { key: 'settlement' as StatusFilter, label: '结算/仲裁', count: filterOrdersByStatus(allOrders, 'settlement').length },
+                        { key: 'history' as StatusFilter, label: '历史', count: filterOrdersByStatus(allOrders, 'history').length },
+                    ].map(tab => (
+                        <button
+                            key={tab.key}
+                            onClick={() => setStatusFilter(tab.key)}
+                            className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider transition-all ${statusFilter === tab.key
+                                ? 'bg-white/10 text-white border border-white/20'
+                                : 'bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 hover:text-white/60'
+                                }`}
+                        >
+                            {tab.label} {tab.count > 0 && <span className="ml-1 opacity-50">({tab.count})</span>}
+                        </button>
+                    ))}
+                </div>
                 <div className="grid grid-cols-1 gap-6">
                     {loading ? (
                         <div className="h-64 obsidian-glass animate-pulse bg-white/5 border-dashed" />
@@ -469,7 +734,7 @@ export function MyOrders() {
                                         <h4 className="text-3xl font-black text-white italic tracking-tighter">{order.underlyingName}</h4>
                                         <span className={`text-xl font-black italic ${getDirectionStr(order.direction) === 'Call' ? 'text-emerald-500' : 'text-red-500'}`}>{getDirectionStr(order.direction).toUpperCase()}</span>
                                     </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-8 pt-4">
                                         <div className="flex flex-col gap-1">
                                             <span className="section-label">{t('portfolio.notional')}</span>
                                             <span className="text-sm font-black text-white italic tracking-tight">{formatAmount(order.notionalUSDT)}</span>
@@ -483,6 +748,14 @@ export function MyOrders() {
                                             <span className={`text-sm font-black italic tracking-tight ${getPnLColor(order)}`}>{calculatePnL(order)}</span>
                                         </div>
                                         <div className="flex flex-col gap-1">
+                                            <span className="section-label">{t('portfolio.feed_price') || '喂价'}</span>
+                                            <span className="text-sm font-black text-cyan-400 italic tracking-tight">
+                                                {order.lastFeedPrice && Number(order.lastFeedPrice) > 0
+                                                    ? `$${Number(formatUnits(order.lastFeedPrice, 18)).toLocaleString()}`
+                                                    : '--'}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
                                             <span className="section-label">{t('portfolio.expires_in')}</span>
                                             <span className="text-sm font-black text-amber-400 italic tracking-tight">{getExpiryCountdown(order.expiryTimestamp || 0)}</span>
                                         </div>
@@ -494,10 +767,120 @@ export function MyOrders() {
                                     <span className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider ${getStatusNum(order) === ORDER_STATUS.LIVE ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
                                         getStatusNum(order) === ORDER_STATUS.PENDING_SETTLEMENT ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                                             getStatusNum(order) === ORDER_STATUS.MATCHED ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                                                'bg-white/10 text-white/60 border border-white/10'
+                                                getStatusNum(order) === ORDER_STATUS.ARBITRATION ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                                                    getStatusNum(order) === ORDER_STATUS.LIQUIDATED ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                                        getStatusNum(order) === ORDER_STATUS.SETTLED ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                                            'bg-white/10 text-white/60 border border-white/10'
                                         }`}>
+                                        {getStatusNum(order) === ORDER_STATUS.ARBITRATION && '⚖️ '}
+                                        {getStatusNum(order) === ORDER_STATUS.LIQUIDATED && '💀 '}
+                                        {getStatusNum(order) === ORDER_STATUS.SETTLED && '✓ '}
                                         {getStatusLabel(order)}
                                     </span>
+
+                                    {/* 结算详情 - SETTLED/PENDING_SETTLEMENT状态 */}
+                                    {(getStatusNum(order) === ORDER_STATUS.SETTLED || getStatusNum(order) === ORDER_STATUS.PENDING_SETTLEMENT) && (
+                                        <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 border border-white/10">
+                                            <span className="text-[9px] font-black text-white/40 uppercase">
+                                                {viewMode === 'buyer' ? '买方盈亏' : '卖方盈亏'}:
+                                            </span>
+                                            <span className={`text-[10px] font-black ${getPnLColor(order)}`}>
+                                                {calculatePnL(order)}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* 强平原因提示 - LIQUIDATED状态 */}
+                                    {getStatusNum(order) === ORDER_STATUS.LIQUIDATED && (
+                                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/30">
+                                            <span className="text-[9px] font-black text-red-400 uppercase">
+                                                保证金不足强平
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* 仲裁中提示 - ARBITRATION状态 */}
+                                    {getStatusNum(order) === ORDER_STATUS.ARBITRATION && (
+                                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-purple-500/10 border border-purple-500/30 animate-pulse">
+                                            <span className="text-[9px] font-black text-purple-400 uppercase">
+                                                等待高级喂价员重新喂价
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* 仲裁窗口倒计时 - PENDING_SETTLEMENT状态 */}
+                                    {getArbitrationCountdown(order) && (
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${getArbitrationCountdown(order) === '已过期'
+                                            ? 'bg-red-500/10 border border-red-500/30'
+                                            : 'bg-amber-500/10 border border-amber-500/30'
+                                            }`}>
+                                            <span className="text-amber-400">⏱️</span>
+                                            <span className={`text-[9px] font-black uppercase ${getArbitrationCountdown(order) === '已过期' ? 'text-red-400' : 'text-amber-400'
+                                                }`}>
+                                                仲裁窗口 {getArbitrationCountdown(order)}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* 初始喂价倒计时 - MATCHED状态 (10分钟时限) */}
+                                    {getInitialFeedCountdown(order) && (
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${getInitialFeedCountdown(order) === '已超时'
+                                            ? 'bg-red-500/10 border border-red-500/30 animate-pulse'
+                                            : 'bg-cyan-500/10 border border-cyan-500/30'
+                                            }`}>
+                                            <span className="text-cyan-400">📡</span>
+                                            <span className={`text-[9px] font-black uppercase ${getInitialFeedCountdown(order) === '已超时' ? 'text-red-400' : 'text-cyan-400'
+                                                }`}>
+                                                喂价时限 {getInitialFeedCountdown(order)}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* 平仓喂价倒计时 - WAITING_FINAL_FEED状态 (卖方10分钟时限) */}
+                                    {getFinalFeedCountdown(order) && (
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${getFinalFeedCountdown(order) === '已超时'
+                                            ? 'bg-red-500/10 border border-red-500/30 animate-pulse'
+                                            : 'bg-orange-500/10 border border-orange-500/30'
+                                            }`}>
+                                            <span className="text-orange-400">🔔</span>
+                                            <span className={`text-[9px] font-black uppercase ${getFinalFeedCountdown(order) === '已超时' ? 'text-red-400' : 'text-orange-400'
+                                                }`}>
+                                                平仓喂价 {getFinalFeedCountdown(order)}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {/* 卖方保证金健康度指示器 */}
+                                    {viewMode === 'seller' && getStatusNum(order) === ORDER_STATUS.LIVE && (
+                                        <div className="flex items-center gap-3">
+                                            {/* 健康度条 */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[9px] font-black text-white/40 uppercase tracking-wider">保证金</span>
+                                                <div className="w-20 h-2 bg-white/5 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-500 ${getMarginHealthStatus(order) === 'healthy' ? 'bg-emerald-500' :
+                                                            getMarginHealthStatus(order) === 'warning' ? 'bg-amber-500' : 'bg-red-500'
+                                                            }`}
+                                                        style={{ width: `${Math.min(100, getMarginHealthPercent(order))}%` }}
+                                                    />
+                                                </div>
+                                                <span className={`text-[10px] font-black ${getMarginHealthStatus(order) === 'healthy' ? 'text-emerald-400' :
+                                                    getMarginHealthStatus(order) === 'warning' ? 'text-amber-400' : 'text-red-400'
+                                                    }`}>
+                                                    {getMarginHealthPercent(order).toFixed(0)}%
+                                                </span>
+                                            </div>
+
+                                            {/* 追保倒计时警告 */}
+                                            {getMarginCallCountdown(order) && (
+                                                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/30 animate-pulse">
+                                                    <span className="text-red-500">⚠️</span>
+                                                    <span className="text-[9px] font-black text-red-400 uppercase">
+                                                        追保 {getMarginCallCountdown(order)}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* Initiate Feed button for MATCHED orders */}
                                     {canInitiateFeed(order) && (
@@ -520,19 +903,25 @@ export function MyOrders() {
                                                         ? `${getTplusXCountdown(order)}`
                                                         : t('portfolio.hint.need_live_status'))
                                                     : t('portfolio.hint.exercise_enabled') || '可提前行权'}
-                                                className={`btn-buyer min-w-[140px] ${!canExercise(order) || feedLoading ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                className={`min-w-[100px] h-11 px-4 rounded-xl font-bold text-sm transition-all ${!canExercise(order) || feedLoading
+                                                    ? 'bg-gray-700/30 text-gray-500 border border-gray-600/30 cursor-not-allowed'
+                                                    : 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/60 hover:bg-emerald-500/30 hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-500/20'
+                                                    }`}
                                             >
                                                 {getStatusNum(order) === ORDER_STATUS.LIVE && !isExerciseDelayMet(order)
                                                     ? `⏳ ${getTplusXCountdown(order)}`
-                                                    : 'EXERCISE'}
+                                                    : '行权'}
                                             </button>
                                             <button
                                                 onClick={() => handleAction(() => settleOrder(order.orderId), 'Settle')}
                                                 disabled={!canSettle(order)}
                                                 title={!canSettle(order) ? t('portfolio.hint.need_pending_settlement') : ''}
-                                                className={`btn-elite-secondary min-w-[140px] h-12 ${!canSettle(order) ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                className={`min-w-[100px] h-11 px-4 rounded-xl font-bold text-sm transition-all ${!canSettle(order)
+                                                    ? 'bg-gray-700/30 text-gray-500 border border-gray-600/30 cursor-not-allowed'
+                                                    : 'bg-blue-500/20 text-blue-400 border-2 border-blue-500/60 hover:bg-blue-500/30 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-500/20'
+                                                    }`}
                                             >
-                                                SETTLE
+                                                结算
                                             </button>
                                         </>
                                     ) : (
@@ -543,7 +932,7 @@ export function MyOrders() {
                                                 title={!canAddMargin(order) ? t('portfolio.hint.need_live_status') : ''}
                                                 className={`btn-seller min-w-[140px] ${!canAddMargin(order) ? 'opacity-30 cursor-not-allowed' : ''}`}
                                             >
-                                                ADD MARGIN
+                                                追加保证金
                                             </button>
                                             <button
                                                 onClick={() => openMarginModal(order.orderId, 'withdraw')}
@@ -551,7 +940,7 @@ export function MyOrders() {
                                                 title={!canWithdraw(order) ? t('portfolio.hint.need_live_status') : ''}
                                                 className={`btn-elite-secondary min-w-[140px] h-12 ${!canWithdraw(order) ? 'opacity-30 cursor-not-allowed' : ''}`}
                                             >
-                                                WITHDRAW
+                                                提取
                                             </button>
                                             <button
                                                 onClick={() => handleDynamicFeed(order.orderId)}
@@ -559,7 +948,7 @@ export function MyOrders() {
                                                 title={!canAddMargin(order) ? t('portfolio.hint.need_live_status') : ''}
                                                 className={`btn-elite-secondary min-w-[140px] h-12 ${!canAddMargin(order) ? 'opacity-30 cursor-not-allowed' : 'border-cyan-500/30 text-cyan-400 hover:border-cyan-500/50'}`}
                                             >
-                                                {dynamicFeedLoading === order.orderId ? '...' : '⚡ DYNAMIC FEED'}
+                                                {dynamicFeedLoading === order.orderId ? '...' : '⚡ 动态喂价'}
                                             </button>
                                         </>
                                     )}
@@ -567,9 +956,12 @@ export function MyOrders() {
                                         onClick={() => openArbitrationModal(order.orderId)}
                                         disabled={!canArbitrate(order)}
                                         title={!canArbitrate(order) ? t('portfolio.hint.need_pending_settlement') : ''}
-                                        className={`btn-elite-secondary w-12 h-12 !p-0 ${!canArbitrate(order) ? 'opacity-10 cursor-not-allowed' : 'opacity-40 hover:opacity-100 hover:border-red-500/50'}`}
+                                        className={`min-w-[100px] h-11 px-4 rounded-xl font-bold text-sm transition-all ${!canArbitrate(order)
+                                                ? 'bg-gray-700/30 text-gray-500 border border-gray-600/30 cursor-not-allowed'
+                                                : 'bg-red-500/20 text-red-400 border-2 border-red-500/60 hover:bg-red-500/30 hover:border-red-400 hover:shadow-lg hover:shadow-red-500/20'
+                                            }`}
                                     >
-                                        ⚠️
+                                        仲裁
                                     </button>
                                 </div>
                             </div>

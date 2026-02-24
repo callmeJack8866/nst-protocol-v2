@@ -473,7 +473,7 @@ export function useOptions() {
         setLoading(true);
         setError(null);
         try {
-            const amount = parseUnits(amountUSDT, 6); // USDT 6位小数
+            const amount = parseUnits(amountUSDT, 18); // USDT 18位小数 (BSC)
             const optionsCoreAddr = getOptionsCoreAddress();
 
             // Check and approve USDT
@@ -509,7 +509,7 @@ export function useOptions() {
         setLoading(true);
         setError(null);
         try {
-            const amount = parseUnits(amountUSDT, 6); // USDT 6位小数
+            const amount = parseUnits(amountUSDT, 18); // USDT 18位小数 (BSC)
 
             // Call withdrawExcessMargin
             const tx = await optionsCore.withdrawExcessMargin(orderId, amount);
@@ -587,7 +587,7 @@ export function useOptions() {
         setError(null);
         try {
             // 仲裁费 30 USDT (6位小数)
-            const arbitrationFee = parseUnits('30', 6);
+            const arbitrationFee = parseUnits('30', 18); // 仲裁费30U (18位)
             const optionsCoreAddr = getOptionsCoreAddress();
 
             // Check and approve USDT for arbitration fee
