@@ -52,7 +52,7 @@ export function useUSDT() {
 
 // Options Core Operations Hook
 export function useOptions() {
-    const { account, chainId, optionsCore, usdt, isConnected } = useWalletContext();
+    const { account, chainId, optionsCore, optionsSettlement, usdt, isConnected } = useWalletContext();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -466,7 +466,7 @@ export function useOptions() {
      * @param amountUSDT 追加金额 (USDT, 6位小数)
      */
     const addMargin = useCallback(async (orderId: number, amountUSDT: string) => {
-        if (!optionsCore || !usdt) {
+        if (!optionsCore || !optionsSettlement || !usdt) {
             throw new Error('Contracts not initialized. Please connect your wallet first.');
         }
 
@@ -484,7 +484,7 @@ export function useOptions() {
             }
 
             // Call addMargin
-            const tx = await optionsCore.addMargin(orderId, amount);
+            const tx = await optionsSettlement.addMargin(orderId, amount);
             const receipt = await tx.wait();
             return receipt;
         } catch (err) {
@@ -502,7 +502,7 @@ export function useOptions() {
      * @param amountUSDT 提取金额 (USDT, 6位小数)
      */
     const withdrawExcessMargin = useCallback(async (orderId: number, amountUSDT: string) => {
-        if (!optionsCore) {
+        if (!optionsCore || !optionsSettlement) {
             throw new Error('Contract not initialized. Please connect your wallet first.');
         }
 
@@ -512,7 +512,7 @@ export function useOptions() {
             const amount = parseUnits(amountUSDT, 18); // USDT 18位小数 (BSC)
 
             // Call withdrawExcessMargin
-            const tx = await optionsCore.withdrawExcessMargin(orderId, amount);
+            const tx = await optionsSettlement.withdrawExcessMargin(orderId, amount);
             const receipt = await tx.wait();
             return receipt;
         } catch (err) {
@@ -529,14 +529,14 @@ export function useOptions() {
      * @param orderId 订单 ID
      */
     const earlyExercise = useCallback(async (orderId: number) => {
-        if (!optionsCore) {
+        if (!optionsCore || !optionsSettlement) {
             throw new Error('Contract not initialized. Please connect your wallet first.');
         }
 
         setLoading(true);
         setError(null);
         try {
-            const tx = await optionsCore.earlyExercise(orderId);
+            const tx = await optionsSettlement.earlyExercise(orderId);
             const receipt = await tx.wait();
             return receipt;
         } catch (err) {
@@ -554,14 +554,14 @@ export function useOptions() {
      * @param finalPrice 最终价格 (由喂价提供)
      */
     const settleOrder = useCallback(async (orderId: number) => {
-        if (!optionsCore) {
+        if (!optionsCore || !optionsSettlement) {
             throw new Error('Contract not initialized. Please connect your wallet first.');
         }
 
         setLoading(true);
         setError(null);
         try {
-            const tx = await optionsCore.settle(orderId);
+            const tx = await optionsSettlement.settle(orderId);
             const receipt = await tx.wait();
             return receipt;
         } catch (err) {
@@ -579,7 +579,7 @@ export function useOptions() {
      * @description 仅在 PENDING_SETTLEMENT 状态可发起，收取 30 USDT 仲裁费
      */
     const initiateArbitration = useCallback(async (orderId: number) => {
-        if (!optionsCore || !usdt) {
+        if (!optionsCore || !optionsSettlement || !usdt) {
             throw new Error('Contract not initialized. Please connect your wallet first.');
         }
 
@@ -598,7 +598,7 @@ export function useOptions() {
             }
 
             // Call initiateArbitration
-            const tx = await optionsCore.initiateArbitration(orderId);
+            const tx = await optionsSettlement.initiateArbitration(orderId);
             const receipt = await tx.wait();
             return receipt;
         } catch (err) {

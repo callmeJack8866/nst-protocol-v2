@@ -1,63 +1,60 @@
 /**
  * grant-vault-operator.ts
  * 
- * 授予新 OptionsCore 在 VaultManager 中的 VAULT_OPERATOR_ROLE
+ * 在 VaultManager 上授予 VAULT_OPERATOR_ROLE 给 OptionsSettlement 合约
+ * 用法: npx hardhat run scripts/grant-vault-operator.ts --network bscTestnet
  */
-
 import { ethers } from "hardhat";
 
 async function main() {
     const [deployer] = await ethers.getSigners();
-    console.log("Configuring with account:", deployer.address);
+    console.log("Executing with:", deployer.address);
 
-    const OPTIONS_CORE_ADDRESS = "0xE3aD42f194804590f64f5A796780Eb566bd4ba9f";
-    const VAULT_MANAGER_ADDRESS = "0xF73CD5f50E7F0ce0A6FE8b08C8d1e671b9A5Bb59";
+    const VAULT_MANAGER = "0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454";
+    const OPTIONS_SETTLEMENT = "0x8DF881593368FD8be3F40722fcb9f555593a8257";
+    const OPTIONS_CORE = "0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a";
 
-    // 使用简化的 ABI
-    const VAULT_ABI = [
-        "function grantRole(bytes32 role, address account) external",
-        "function hasRole(bytes32 role, address account) view returns (bool)",
-        "function grantOperatorRole(address _operator) external",
-        "function VAULT_OPERATOR_ROLE() view returns (bytes32)"
+    const vaultABI = [
+        'function grantOperatorRole(address _operator) external',
+        'function hasRole(bytes32 role, address account) view returns (bool)',
+        'function VAULT_OPERATOR_ROLE() view returns (bytes32)',
     ];
 
-    const vm = new ethers.Contract(VAULT_MANAGER_ADDRESS, VAULT_ABI, deployer);
+    const vault = new ethers.Contract(VAULT_MANAGER, vaultABI, deployer);
+    const ROLE = await vault.VAULT_OPERATOR_ROLE();
 
-    console.log("\n=== Checking VaultManager ===");
+    // 1. 检查现有权限
+    const hasSettlement = await vault.hasRole(ROLE, OPTIONS_SETTLEMENT);
+    const hasCore = await vault.hasRole(ROLE, OPTIONS_CORE);
+    console.log(`OptionsSettlement has VAULT_OPERATOR_ROLE: ${hasSettlement}`);
+    console.log(`OptionsCore has VAULT_OPERATOR_ROLE: ${hasCore}`);
 
-    try {
-        // 尝试获取 VAULT_OPERATOR_ROLE
-        const VAULT_OPERATOR_ROLE = await vm.VAULT_OPERATOR_ROLE();
-        console.log("VAULT_OPERATOR_ROLE:", VAULT_OPERATOR_ROLE);
-
-        const hasRole = await vm.hasRole(VAULT_OPERATOR_ROLE, OPTIONS_CORE_ADDRESS);
-        console.log("OptionsCore has role:", hasRole);
-
-        if (!hasRole) {
-            console.log("\n=== Granting VAULT_OPERATOR_ROLE ===");
-            const tx = await vm.grantRole(VAULT_OPERATOR_ROLE, OPTIONS_CORE_ADDRESS);
-            await tx.wait();
-            console.log("✓ Granted via grantRole!");
-        }
-    } catch (e: any) {
-        console.log("grantRole failed, trying grantOperatorRole...");
-        try {
-            const tx = await vm.grantOperatorRole(OPTIONS_CORE_ADDRESS);
-            await tx.wait();
-            console.log("✓ Granted via grantOperatorRole!");
-        } catch (e2: any) {
-            console.log("Both methods failed:");
-            console.log("Error 1:", e.message?.slice(0, 200));
-            console.log("Error 2:", e2.message?.slice(0, 200));
-        }
+    // 2. 授予 OptionsSettlement
+    if (!hasSettlement) {
+        console.log("\n>>> Granting VAULT_OPERATOR_ROLE to OptionsSettlement...");
+        const tx1 = await vault.grantOperatorRole(OPTIONS_SETTLEMENT);
+        await tx1.wait();
+        console.log("✅ OptionsSettlement granted");
+    } else {
+        console.log("✅ OptionsSettlement already has role");
     }
 
-    console.log("\n=== Done ===");
+    // 3. 授予 OptionsCore (如果没有)
+    if (!hasCore) {
+        console.log("\n>>> Granting VAULT_OPERATOR_ROLE to OptionsCore...");
+        const tx2 = await vault.grantOperatorRole(OPTIONS_CORE);
+        await tx2.wait();
+        console.log("✅ OptionsCore granted");
+    } else {
+        console.log("✅ OptionsCore already has role");
+    }
+
+    // 4. 验证
+    const verify1 = await vault.hasRole(ROLE, OPTIONS_SETTLEMENT);
+    const verify2 = await vault.hasRole(ROLE, OPTIONS_CORE);
+    console.log("\n=== 验证 ===");
+    console.log(`OptionsSettlement: ${verify1 ? "✅" : "❌"}`);
+    console.log(`OptionsCore: ${verify2 ? "✅" : "❌"}`);
 }
 
-main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
+main().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });

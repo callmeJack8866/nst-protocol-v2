@@ -115,6 +115,7 @@ struct Order {
     uint256 initialMargin;      // 初始保证金
     uint256 currentMargin;      // 当前保证金
     uint256 minMarginRate;      // 最低保证金率（基点）
+    uint256 maxPremiumRate;     // 最高期权费率限制（基点，0=不限）
     
     // 平仓规则
     LiquidationRule liquidationRule;

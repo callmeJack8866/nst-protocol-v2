@@ -3,7 +3,7 @@
  * 扫描 PENDING_SETTLEMENT 状态订单，超过仲裁窗口后自动结算
  */
 
-import { getOptionsCore, log, safeExecute, OrderStatus } from './utils';
+import { getOptionsCore, getOptionsSettlement, log, safeExecute, OrderStatus } from './utils';
 
 export async function runSettleKeeper(): Promise<void> {
     const moduleName = 'SETTLE_KEEPER';
@@ -11,6 +11,7 @@ export async function runSettleKeeper(): Promise<void> {
 
     try {
         const optionsCore = getOptionsCore();
+        const optionsSettlement = getOptionsSettlement();
         const nextOrderId = await optionsCore.nextOrderId();
         const totalOrders = Number(nextOrderId);
 
@@ -46,7 +47,7 @@ export async function runSettleKeeper(): Promise<void> {
                         moduleName,
                         orderId,
                         'settle',
-                        optionsCore.settle(orderId)
+                        optionsSettlement.settle(orderId)
                     );
 
                     if (success) {

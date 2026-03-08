@@ -19,123 +19,55 @@ const _abi = [
         type: "uint256",
       },
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "arbitrationId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "address",
-        name: "initiator",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "originalPrice",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "arbitrationPrice",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "resultChanged",
-        type: "bool",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "initiatorReward",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "timestamp",
-        type: "uint256",
-      },
-    ],
-    name: "ArbitrationResolved",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "dividendPerShare",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "totalDividend",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "timestamp",
-        type: "uint256",
-      },
-    ],
-    name: "DividendRecorded",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "seller",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "oldAmount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "newAmount",
-        type: "uint256",
-      },
-      {
         indexed: false,
         internalType: "string",
-        name: "changeType",
+        name: "underlyingCode",
         type: "string",
       },
       {
         indexed: false,
+        internalType: "string",
+        name: "market",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "country",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "enum FeedType",
+        name: "feedType",
+        type: "uint8",
+      },
+      {
+        indexed: false,
+        internalType: "enum FeedTier",
+        name: "tier",
+        type: "uint8",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "requester",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "notionalAmount",
+        type: "uint256",
+      },
+      {
+        indexed: false,
         internalType: "uint256",
         name: "timestamp",
         type: "uint256",
       },
     ],
-    name: "MarginChanged",
+    name: "FeedRequestEmitted",
     type: "event",
   },
   {
@@ -204,37 +136,6 @@ const _abi = [
         type: "uint256",
       },
       {
-        indexed: false,
-        internalType: "address",
-        name: "beneficiary",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "timestamp",
-        type: "uint256",
-      },
-    ],
-    name: "OrderLiquidated",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-      {
         indexed: true,
         internalType: "address",
         name: "buyer",
@@ -254,37 +155,6 @@ const _abi = [
       },
     ],
     name: "OrderMatched",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "buyerPayout",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "sellerPayout",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "timestamp",
-        type: "uint256",
-      },
-    ],
-    name: "OrderSettled",
     type: "event",
   },
   {
@@ -370,24 +240,6 @@ const _abi = [
       },
     ],
     name: "acceptQuote",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-    ],
-    name: "addMargin",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -616,32 +468,6 @@ const _abi = [
   {
     inputs: [
       {
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-    ],
-    name: "earlyExercise",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-    ],
-    name: "forceLiquidate",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
         internalType: "address",
         name: "buyer",
         type: "address",
@@ -753,6 +579,11 @@ const _abi = [
           {
             internalType: "uint256",
             name: "minMarginRate",
+            type: "uint256",
+          },
+          {
+            internalType: "uint256",
+            name: "maxPremiumRate",
             type: "uint256",
           },
           {
@@ -961,19 +792,6 @@ const _abi = [
         name: "orderId",
         type: "uint256",
       },
-    ],
-    name: "initiateArbitration",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
       {
         internalType: "enum FeedType",
         name: "feedType",
@@ -998,24 +816,6 @@ const _abi = [
         type: "uint256",
       },
       {
-        internalType: "uint256",
-        name: "dividendPerShare",
-        type: "uint256",
-      },
-    ],
-    name: "recordDividend",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-      {
         internalType: "enum FeedTier",
         name: "tier",
         type: "uint8",
@@ -1024,42 +824,6 @@ const _abi = [
     name: "requestFeed",
     outputs: [],
     stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "arbitrationPrice",
-        type: "uint256",
-      },
-      {
-        internalType: "address[]",
-        name: "arbitrators",
-        type: "address[]",
-      },
-    ],
-    name: "resolveArbitration",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-    ],
-    name: "settle",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -1103,24 +867,6 @@ const _abi = [
         type: "uint256",
       },
     ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "orderId",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-    ],
-    name: "withdrawExcessMargin",
-    outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },

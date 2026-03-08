@@ -12,7 +12,7 @@
  * - 超时未补足 → 强平，买方获得保证金
  */
 
-import { getOptionsCore, log, safeExecute, OrderStatus } from './utils';
+import { getOptionsCore, getOptionsSettlement, log, safeExecute, OrderStatus } from './utils';
 
 // 加密货币/外汇市场代码（用于判断追保时限）
 const CRYPTO_FOREX_MARKETS = ['CRYPTO', 'FOREX', 'BINANCE', 'COINBASE', 'FX'];
@@ -32,6 +32,7 @@ export async function runMarginKeeper(): Promise<void> {
 
     try {
         const optionsCore = getOptionsCore();
+        const optionsSettlement = getOptionsSettlement();
         const nextOrderId = await optionsCore.nextOrderId();
         const totalOrders = Number(nextOrderId);
 
@@ -107,7 +108,7 @@ export async function runMarginKeeper(): Promise<void> {
                     moduleName,
                     candidate.orderId,
                     'triggerMarginCall',
-                    optionsCore.triggerMarginCall(candidate.orderId, isCrypto)
+                    optionsSettlement.triggerMarginCall(candidate.orderId, isCrypto)
                 );
             }
         }
@@ -127,7 +128,7 @@ export async function runMarginKeeper(): Promise<void> {
                     moduleName,
                     candidate.orderId,
                     'forceLiquidateMarginCall',
-                    optionsCore.forceLiquidateMarginCall(candidate.orderId)
+                    optionsSettlement.forceLiquidateMarginCall(candidate.orderId)
                 );
 
                 if (success) {

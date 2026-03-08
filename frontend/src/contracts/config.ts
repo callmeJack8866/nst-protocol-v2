@@ -4,12 +4,13 @@
  * Upgrade: Added exerciseDelay & feedRule support to createSellerOrder
  */
 
-// BSC Testnet (ChainID: 97) - 2026-02-04 支持自动回调的新部署
+// BSC Testnet (ChainID: 97) - 2026-03-06 合约拆分后重新部署
 export const BSC_TESTNET_ADDRESSES = {
     USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
     Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
     VaultManager: '0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454',
-    OptionsCore: '0x0672f9ec88421858Ce4BC88071447BF31A8cEd24',
+    OptionsCore: '0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a',
+    OptionsSettlement: '0x8DF881593368FD8be3F40722fcb9f555593a8257',
     FeedProtocol: '0xa4d3d2D56902f91e92caDE54993f45b4376979C7',
     SeatManager: '0xB364f37b3fD3e1f373907478e532449b4bA09343',
     PointsManager: '0x22074e05314c3A20cdD40C8D127E8306dc919dEC',
@@ -23,6 +24,7 @@ export const BSC_MAINNET_ADDRESSES = {
     Config: '',
     VaultManager: '',
     OptionsCore: '',
+    OptionsSettlement: '',
     FeedProtocol: '',
     SeatManager: '',
     PointsManager: '',

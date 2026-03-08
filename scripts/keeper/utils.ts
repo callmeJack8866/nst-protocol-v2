@@ -8,22 +8,29 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-// 合约地址配置 (BSC Testnet) - 与 frontend/src/contracts/config.ts 同步
-// Updated: 2026-02-04 - 支持自动回调的新部署
+// 合约地址配置 (BSC Testnet) - 2026-03-06 合约拆分后重新部署
 const CONTRACT_ADDRESSES = {
-    OptionsCore: '0x0672f9ec88421858Ce4BC88071447BF31A8cEd24',
+    OptionsCore: '0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a',
+    OptionsSettlement: '0x8DF881593368FD8be3F40722fcb9f555593a8257',
     FeedProtocol: '0xa4d3d2D56902f91e92caDE54993f45b4376979C7',
     Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
     USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
 };
 
-// OptionsCore ABI (仅 Keeper 需要的函数)
+// OptionsCore ABI (仅 Keeper 需要的函数 - 创建/查询)
 const OPTIONS_CORE_ABI = [
     'function nextOrderId() view returns (uint256)',
-    'function getOrder(uint256 orderId) view returns (tuple(uint256 orderId, address buyer, address seller, string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 premiumRate, uint256 premiumAmount, uint256 expiryTimestamp, uint8 status, uint256 createdAt, uint256 matchedAt, uint256 settledAt, uint256 initialMargin, uint256 currentMargin, uint256 minMarginRate, uint256 marginCallDeadline, uint256 arbitrationWindow, bool dividendAdjustment, uint256 lastFeedPrice, uint256 lastFeedTime))',
+    'function getOrder(uint256 orderId) view returns (tuple(uint256 orderId, address buyer, address seller, string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 strikePrice, uint256 expiryTimestamp, uint256 premiumRate, uint256 premiumAmount, uint256 initialMargin, uint256 currentMargin, uint256 minMarginRate, uint256 maxPremiumRate, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint8 exerciseDelay, uint8 sellerType, address designatedSeller, uint256 arbitrationWindow, uint256 marginCallDeadline, bool dividendAdjustment, uint8 feedRule, uint8 status, uint256 createdAt, uint256 matchedAt, uint256 settledAt, uint256 lastFeedPrice, uint256 dividendAmount))',
     'function cancelRFQ(uint256 orderId) external',
-    'function forceLiquidate(uint256 orderId) external',
+];
+
+// OptionsSettlement ABI (结算/清算/追保)
+const OPTIONS_SETTLEMENT_ABI = [
     'function settle(uint256 orderId) external',
+    'function forceLiquidate(uint256 orderId) external',
+    'function forceLiquidateMarginCall(uint256 orderId) external',
+    'function cancelOrderDueToFeedTimeout(uint256 orderId) external',
+    'function triggerMarginCall(uint256 orderId, bool isCrypto) external',
 ];
 
 // 订单状态枚举
@@ -59,6 +66,11 @@ export function getSigner(): ethers.Wallet {
 // 获取 OptionsCore 合约实例
 export function getOptionsCore(): ethers.Contract {
     return new ethers.Contract(CONTRACT_ADDRESSES.OptionsCore, OPTIONS_CORE_ABI, getSigner());
+}
+
+// 获取 OptionsSettlement 合约实例
+export function getOptionsSettlement(): ethers.Contract {
+    return new ethers.Contract(CONTRACT_ADDRESSES.OptionsSettlement, OPTIONS_SETTLEMENT_ABI, getSigner());
 }
 
 // 格式化日志
@@ -98,6 +110,7 @@ export function sleep(ms: number): Promise<void> {
 
 // 导出合约地址
 export const OptionsCoreAddress = CONTRACT_ADDRESSES.OptionsCore;
+export const OptionsSettlementAddress = CONTRACT_ADDRESSES.OptionsSettlement;
 export const FeedProtocolAddress = CONTRACT_ADDRESSES.FeedProtocol;
 export const USDT_ADDRESS = process.env.USDT_ADDRESS || '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd';
 
@@ -110,6 +123,7 @@ export function getAdminWallet(): ethers.Wallet {
 export function getContracts() {
     return {
         optionsCore: getOptionsCore(),
+        optionsSettlement: getOptionsSettlement(),
     };
 }
 

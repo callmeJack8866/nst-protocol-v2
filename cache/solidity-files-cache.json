@@ -10,7 +10,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -41,6 +41,45 @@
         "Config"
       ]
     },
+    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\utils\\Pausable.sol": {
+      "lastModificationDate": 1766921874812,
+      "contentHash": "0d47b53e10b1985efbb396f937626279",
+      "sourceName": "@openzeppelin/contracts/utils/Pausable.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Pausable"
+      ]
+    },
     "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\access\\AccessControl.sol": {
       "lastModificationDate": 1766921873953,
       "contentHash": "d0e2c05f09a3aea7cd299bbd4a435ee2",
@@ -50,7 +89,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -82,16 +121,16 @@
         "AccessControl"
       ]
     },
-    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\utils\\Pausable.sol": {
-      "lastModificationDate": 1766921874812,
-      "contentHash": "0d47b53e10b1985efbb396f937626279",
-      "sourceName": "@openzeppelin/contracts/utils/Pausable.sol",
+    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\utils\\Context.sol": {
+      "lastModificationDate": 1766921874121,
+      "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
+      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -111,14 +150,12 @@
           }
         }
       },
-      "imports": [
-        "../utils/Context.sol"
-      ],
+      "imports": [],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "Pausable"
+        "Context"
       ]
     },
     "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\utils\\introspection\\ERC165.sol": {
@@ -130,7 +167,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -160,43 +197,6 @@
         "ERC165"
       ]
     },
-    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\utils\\Context.sol": {
-      "lastModificationDate": 1766921874121,
-      "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
-      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Context"
-      ]
-    },
     "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\access\\IAccessControl.sol": {
       "lastModificationDate": 1766921874542,
       "contentHash": "def1e8f7b6cac577cf2600655bf3bdf8",
@@ -206,7 +206,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -243,7 +243,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -280,7 +280,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -324,7 +324,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -361,7 +361,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -398,7 +398,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -438,7 +438,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -469,43 +469,6 @@
         "IERC1363"
       ]
     },
-    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\interfaces\\IERC165.sol": {
-      "lastModificationDate": 1766921874618,
-      "contentHash": "947853028399b7de34bcc3704ee06e99",
-      "sourceName": "@openzeppelin/contracts/interfaces/IERC165.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../utils/introspection/IERC165.sol"
-      ],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": []
-    },
     "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\interfaces\\IERC20.sol": {
       "lastModificationDate": 1766921874635,
       "contentHash": "68620db2da7583d9a4919096ac77f577",
@@ -515,7 +478,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -543,16 +506,16 @@
       ],
       "artifacts": []
     },
-    "F:\\Unstandardized_Products\\NST\\contracts\\core\\OptionsCore.sol": {
-      "lastModificationDate": 1770300650829,
-      "contentHash": "6ee6bdd51cd614dff763c84f8db3ce11",
-      "sourceName": "contracts/core/OptionsCore.sol",
+    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\interfaces\\IERC165.sol": {
+      "lastModificationDate": 1766921874618,
+      "contentHash": "947853028399b7de34bcc3704ee06e99",
+      "sourceName": "@openzeppelin/contracts/interfaces/IERC165.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -573,33 +536,65 @@
         }
       },
       "imports": [
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-        "@openzeppelin/contracts/access/AccessControl.sol",
-        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
-        "@openzeppelin/contracts/utils/Pausable.sol",
-        "../libraries/NSTTypes.sol",
-        "../interfaces/IOptionsCore.sol",
-        "../vault/VaultManager.sol",
-        "./Config.sol"
+        "../utils/introspection/IERC165.sol"
       ],
       "versionPragmas": [
-        "^0.8.20"
+        ">=0.4.16"
       ],
-      "artifacts": [
-        "OptionsCore"
-      ]
+      "artifacts": []
     },
-    "F:\\Unstandardized_Products\\NST\\contracts\\libraries\\NSTTypes.sol": {
-      "lastModificationDate": 1769603393914,
-      "contentHash": "2b1706abfb3ba5595a8ee184278d6c14",
-      "sourceName": "contracts/libraries/NSTTypes.sol",
+    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\ERC20.sol": {
+      "lastModificationDate": 1766921874333,
+      "contentHash": "59dfce11284f2636db261df9b6a18f81",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./IERC20.sol",
+        "./extensions/IERC20Metadata.sol",
+        "../../utils/Context.sol",
+        "../../interfaces/draft-IERC6093.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ERC20"
+      ]
+    },
+    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\interfaces\\draft-IERC6093.sol": {
+      "lastModificationDate": 1766921874211,
+      "contentHash": "5041977bbe908de2e6ed0270447f79ad",
+      "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -621,20 +616,24 @@
       },
       "imports": [],
       "versionPragmas": [
-        "^0.8.20"
+        ">=0.8.4"
       ],
-      "artifacts": []
+      "artifacts": [
+        "IERC1155Errors",
+        "IERC20Errors",
+        "IERC721Errors"
+      ]
     },
-    "F:\\Unstandardized_Products\\NST\\contracts\\interfaces\\IOptionsCore.sol": {
-      "lastModificationDate": 1770209015978,
-      "contentHash": "4cb58c32cc06ce51d49376a46bb3cd40",
-      "sourceName": "contracts/interfaces/IOptionsCore.sol",
+    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Metadata.sol": {
+      "lastModificationDate": 1766921874647,
+      "contentHash": "513778b30d2750f5d2b9b19bbcf748a5",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -655,13 +654,13 @@
         }
       },
       "imports": [
-        "../libraries/NSTTypes.sol"
+        "../IERC20.sol"
       ],
       "versionPragmas": [
-        "^0.8.20"
+        ">=0.6.2"
       ],
       "artifacts": [
-        "IOptionsCore"
+        "IERC20Metadata"
       ]
     },
     "F:\\Unstandardized_Products\\NST\\contracts\\seat\\SeatManager.sol": {
@@ -673,7 +672,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -709,6 +708,41 @@
         "SeatManager"
       ]
     },
+    "F:\\Unstandardized_Products\\NST\\contracts\\libraries\\NSTTypes.sol": {
+      "lastModificationDate": 1772786642621,
+      "contentHash": "642685e48e8a24395dd81dc35b7d8dac",
+      "sourceName": "contracts/libraries/NSTTypes.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": []
+    },
     "F:\\Unstandardized_Products\\NST\\contracts\\points\\PointsManager.sol": {
       "lastModificationDate": 1766922512878,
       "contentHash": "3a2b00572e0d565054155139c047106b",
@@ -718,7 +752,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -754,6 +788,177 @@
         "PointsManager"
       ]
     },
+    "F:\\Unstandardized_Products\\NST\\contracts\\feed\\VolumeBasedFeed.sol": {
+      "lastModificationDate": 1766923634340,
+      "contentHash": "48e7643f6de0c9a953e40908a4b0d611",
+      "sourceName": "contracts/feed/VolumeBasedFeed.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/access/AccessControl.sol",
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
+        "@openzeppelin/contracts/utils/Pausable.sol",
+        "../libraries/NSTTypes.sol",
+        "../core/Config.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "VolumeBasedFeed"
+      ]
+    },
+    "F:\\Unstandardized_Products\\NST\\contracts\\interfaces\\IOptionsSettlement.sol": {
+      "lastModificationDate": 1772786226586,
+      "contentHash": "e3a85df08d3fb868e1b0add32c1fb090",
+      "sourceName": "contracts/interfaces/IOptionsSettlement.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../libraries/NSTTypes.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IOptionsSettlement"
+      ]
+    },
+    "F:\\Unstandardized_Products\\NST\\contracts\\core\\OptionsSettlement.sol": {
+      "lastModificationDate": 1772786323925,
+      "contentHash": "12231ec4f23129e2dc0c937c21c82eb2",
+      "sourceName": "contracts/core/OptionsSettlement.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/access/AccessControl.sol",
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
+        "@openzeppelin/contracts/utils/Pausable.sol",
+        "../libraries/NSTTypes.sol",
+        "../interfaces/IOptionsSettlement.sol",
+        "../vault/VaultManager.sol",
+        "./Config.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IOptionsCoreForSettlement",
+        "OptionsSettlement"
+      ]
+    },
+    "F:\\Unstandardized_Products\\NST\\contracts\\interfaces\\IOptionsCore.sol": {
+      "lastModificationDate": 1772786452214,
+      "contentHash": "7759fdc60f3c70af6768b9a65e6e5b79",
+      "sourceName": "contracts/interfaces/IOptionsCore.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../libraries/NSTTypes.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IOptionsCore"
+      ]
+    },
     "F:\\Unstandardized_Products\\NST\\contracts\\feed\\FeedProtocol.sol": {
       "lastModificationDate": 1770301501568,
       "contentHash": "086265e89d2e22b9443684bbbc799a3c",
@@ -763,7 +968,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -810,7 +1015,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -840,16 +1045,16 @@
         "IFeedProtocol"
       ]
     },
-    "F:\\Unstandardized_Products\\NST\\contracts\\feed\\VolumeBasedFeed.sol": {
-      "lastModificationDate": 1766923634340,
-      "contentHash": "48e7643f6de0c9a953e40908a4b0d611",
-      "sourceName": "contracts/feed/VolumeBasedFeed.sol",
+    "F:\\Unstandardized_Products\\NST\\contracts\\core\\OptionsCore.sol": {
+      "lastModificationDate": 1772786683913,
+      "contentHash": "551886cfc415896aa1e2717345bfeaba",
+      "sourceName": "contracts/core/OptionsCore.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -876,13 +1081,54 @@
         "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
         "@openzeppelin/contracts/utils/Pausable.sol",
         "../libraries/NSTTypes.sol",
-        "../core/Config.sol"
+        "../interfaces/IOptionsCore.sol",
+        "../vault/VaultManager.sol",
+        "./Config.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "VolumeBasedFeed"
+        "OptionsCore"
+      ]
+    },
+    "F:\\Unstandardized_Products\\NST\\contracts\\mocks\\MockERC20.sol": {
+      "lastModificationDate": 1767075289248,
+      "contentHash": "40f1223cfa274f3247c08ad27f6fc2c4",
+      "sourceName": "contracts/mocks/MockERC20.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/ERC20.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MockERC20"
       ]
     },
     "F:\\Unstandardized_Products\\NST\\contracts\\feed\\FeederSelector.sol": {
@@ -894,7 +1140,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -936,7 +1182,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -977,7 +1223,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -1014,7 +1260,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -1044,43 +1290,6 @@
         "ConfirmedOwner"
       ]
     },
-    "F:\\Unstandardized_Products\\NST\\node_modules\\@chainlink\\contracts\\src\\v0.8\\vrf\\dev\\interfaces\\IVRFMigratableConsumerV2Plus.sol": {
-      "lastModificationDate": 1766924005253,
-      "contentHash": "2350ee2278ff8e0bc801a9aa36e1b969",
-      "sourceName": "@chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFMigratableConsumerV2Plus.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IVRFMigratableConsumerV2Plus"
-      ]
-    },
     "F:\\Unstandardized_Products\\NST\\node_modules\\@chainlink\\contracts\\src\\v0.8\\vrf\\dev\\interfaces\\IVRFCoordinatorV2Plus.sol": {
       "lastModificationDate": 1766924005245,
       "contentHash": "f00326a4773b809c7233af4b3504d04c",
@@ -1090,7 +1299,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -1121,6 +1330,43 @@
         "IVRFCoordinatorV2Plus"
       ]
     },
+    "F:\\Unstandardized_Products\\NST\\node_modules\\@chainlink\\contracts\\src\\v0.8\\vrf\\dev\\interfaces\\IVRFMigratableConsumerV2Plus.sol": {
+      "lastModificationDate": 1766924005253,
+      "contentHash": "2350ee2278ff8e0bc801a9aa36e1b969",
+      "sourceName": "@chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFMigratableConsumerV2Plus.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IVRFMigratableConsumerV2Plus"
+      ]
+    },
     "F:\\Unstandardized_Products\\NST\\node_modules\\@chainlink\\contracts\\src\\v0.8\\shared\\access\\ConfirmedOwnerWithProposal.sol": {
       "lastModificationDate": 1766924004033,
       "contentHash": "ef3fa3fed7285eb4cceb454a5f799c93",
@@ -1130,7 +1376,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -1169,7 +1415,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -1206,7 +1452,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -1232,165 +1478,6 @@
       ],
       "artifacts": [
         "IVRFSubscriptionV2Plus"
-      ]
-    },
-    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\ERC20.sol": {
-      "lastModificationDate": 1766921874333,
-      "contentHash": "59dfce11284f2636db261df9b6a18f81",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./IERC20.sol",
-        "./extensions/IERC20Metadata.sol",
-        "../../utils/Context.sol",
-        "../../interfaces/draft-IERC6093.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ERC20"
-      ]
-    },
-    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\interfaces\\draft-IERC6093.sol": {
-      "lastModificationDate": 1766921874211,
-      "contentHash": "5041977bbe908de2e6ed0270447f79ad",
-      "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.8.4"
-      ],
-      "artifacts": [
-        "IERC1155Errors",
-        "IERC20Errors",
-        "IERC721Errors"
-      ]
-    },
-    "F:\\Unstandardized_Products\\NST\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Metadata.sol": {
-      "lastModificationDate": 1766921874647,
-      "contentHash": "513778b30d2750f5d2b9b19bbcf748a5",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../IERC20.sol"
-      ],
-      "versionPragmas": [
-        ">=0.6.2"
-      ],
-      "artifacts": [
-        "IERC20Metadata"
-      ]
-    },
-    "F:\\Unstandardized_Products\\NST\\contracts\\mocks\\MockERC20.sol": {
-      "lastModificationDate": 1767075289248,
-      "contentHash": "40f1223cfa274f3247c08ad27f6fc2c4",
-      "sourceName": "contracts/mocks/MockERC20.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/token/ERC20/ERC20.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "MockERC20"
       ]
     }
   }

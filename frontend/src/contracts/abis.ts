@@ -6,7 +6,7 @@
 // OptionsCore ABI (minimal)
 export const OptionsCoreABI = [
     // Read functions
-    'function getOrder(uint256 orderId) view returns (tuple(uint256 orderId, address buyer, address seller, string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 strikePrice, uint256 expiryTimestamp, uint256 premiumRate, uint256 premiumAmount, uint256 initialMargin, uint256 currentMargin, uint256 minMarginRate, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint8 exerciseDelay, uint8 sellerType, address designatedSeller, uint256 arbitrationWindow, uint256 marginCallDeadline, bool dividendAdjustment, uint8 feedRule, uint8 status, uint256 createdAt, uint256 matchedAt, uint256 settledAt, uint256 lastFeedPrice))',
+    'function getOrder(uint256 orderId) view returns (tuple(uint256 orderId, address buyer, address seller, string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 strikePrice, uint256 expiryTimestamp, uint256 premiumRate, uint256 premiumAmount, uint256 initialMargin, uint256 currentMargin, uint256 minMarginRate, uint256 maxPremiumRate, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint8 exerciseDelay, uint8 sellerType, address designatedSeller, uint256 arbitrationWindow, uint256 marginCallDeadline, bool dividendAdjustment, uint8 feedRule, uint8 status, uint256 createdAt, uint256 matchedAt, uint256 settledAt, uint256 lastFeedPrice, uint256 dividendAmount))',
     'function getQuote(uint256 quoteId) view returns (tuple(uint256 quoteId, uint256 orderId, address seller, uint8 sellerType, uint256 premiumRate, uint256 premiumAmount, uint256 marginRate, uint256 marginAmount, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint256 createdAt, uint256 expiresAt, uint8 status))',
     'function getBuyerOrders(address buyer) view returns (uint256[])',
     'function getSellerOrders(address seller) view returns (uint256[])',
@@ -20,23 +20,38 @@ export const OptionsCoreABI = [
     'function submitQuote(uint256 orderId, uint256 premiumRate, uint256 marginRate, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent) returns (uint256 quoteId)',
     'function acceptQuote(uint256 quoteId)',
     'function cancelRFQ(uint256 orderId)',
-    'function addMargin(uint256 orderId, uint256 amount)',
-    'function withdrawExcessMargin(uint256 orderId, uint256 amount)',
     'function requestFeed(uint256 orderId, uint8 tier) payable',
-    'function earlyExercise(uint256 orderId)',
-    'function settle(uint256 orderId)',
     'function acceptSellerOrder(uint256 orderId)',
-    'function initiateArbitration(uint256 orderId)',
-    'function forceLiquidate(uint256 orderId)',
 
     // Events
     'event OrderCreated(uint256 indexed orderId, address indexed creator, bool isBuyerOrder, uint256 timestamp)',
     'event QuoteSubmitted(uint256 indexed orderId, uint256 indexed quoteId, address indexed seller, uint256 premiumRate, uint256 timestamp)',
     'event OrderMatched(uint256 indexed orderId, address indexed buyer, address indexed seller, uint256 timestamp)',
-    'event OrderSettled(uint256 indexed orderId, int256 buyerPnL, int256 sellerPnL, uint256 timestamp)',
+    'event OrderCancelled(uint256 indexed orderId, string reason, uint256 timestamp)',
+    'event OrderStatusChanged(uint256 indexed orderId, uint8 oldStatus, uint8 newStatus, string reason, uint256 timestamp)',
+    'event FeedRequestEmitted(uint256 indexed orderId, string underlyingCode, string market, string country, uint8 feedType, uint8 tier, address indexed requester, uint256 notionalAmount, uint256 timestamp)',
+] as const;
+
+// OptionsSettlement ABI (结算/保证金/仲裁)
+export const OptionsSettlementABI = [
+    // Write functions
+    'function settle(uint256 orderId)',
+    'function earlyExercise(uint256 orderId)',
+    'function addMargin(uint256 orderId, uint256 amount)',
+    'function withdrawExcessMargin(uint256 orderId, uint256 amount)',
+    'function initiateArbitration(uint256 orderId) payable',
+    'function forceLiquidate(uint256 orderId)',
+    'function cancelOrderDueToFeedTimeout(uint256 orderId)',
+    'function triggerMarginCall(uint256 orderId, bool isCrypto)',
+    'function forceLiquidateMarginCall(uint256 orderId)',
+
+    // Events
+    'event OrderSettled(uint256 indexed orderId, uint256 buyerPayout, uint256 sellerPayout, uint256 timestamp)',
+    'event OrderLiquidated(uint256 indexed orderId, address beneficiary, uint256 amount, uint256 timestamp)',
     'event OrderCancelled(uint256 indexed orderId, string reason, uint256 timestamp)',
     'event OrderStatusChanged(uint256 indexed orderId, uint8 oldStatus, uint8 newStatus, string reason, uint256 timestamp)',
     'event MarginChanged(uint256 indexed orderId, address indexed seller, uint256 oldAmount, uint256 newAmount, string changeType, uint256 timestamp)',
+    'event MarginCallTriggered(uint256 indexed orderId, address indexed seller, uint256 currentMargin, uint256 requiredMargin, uint256 deadline)',
 ] as const;
 
 // FeedProtocol ABI (minimal)

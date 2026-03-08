@@ -9,7 +9,7 @@
  * 完整实现需要链下喂价历史数据库或事件日志索引。
  */
 
-import { getOptionsCore, log, safeExecute, OrderStatus, getProvider } from './utils';
+import { getOptionsCore, getOptionsSettlement, log, safeExecute, OrderStatus, getProvider } from './utils';
 import { formatUnits } from 'ethers';
 
 // 典型涨停板阈值 (10%)
@@ -32,6 +32,7 @@ export async function runLimitUpKeeper(): Promise<void> {
 
     try {
         const optionsCore = getOptionsCore();
+        const optionsSettlement = getOptionsSettlement();
         const nextOrderId = await optionsCore.nextOrderId();
         const totalOrders = Number(nextOrderId);
 
@@ -120,7 +121,7 @@ export async function runLimitUpKeeper(): Promise<void> {
                 moduleName,
                 candidate.orderId,
                 'forceLiquidate',
-                optionsCore.forceLiquidate(candidate.orderId)
+                optionsSettlement.forceLiquidate(candidate.orderId)
             );
 
             if (success) {

@@ -1,5 +1,51 @@
 # NST Finance 前端进展
 
+## [2026-03-08 15:30]
+- **Status**: Done
+- **Changes**: 联调测试脚本执行成功 — 24/24 全部通过
+  - 合约部署验证 ✅ | 角色权限验证(5项) ✅
+  - OptionsCore读写(nextOrderId/getOrder/createBuyerRFQ) ✅
+  - submitQuote + acceptQuote 撮合流程 ✅
+  - Settlement跨合约读取 + revert检查 ✅
+  - update函数权限隔离(SETTLEMENT_ROLE) ✅
+- **Next Step**: 用户手动测试前端UI
+
+
+- **Status**: Done
+- **Changes**: 合约拆分 Phase 3 — 联调准备完成
+  - VaultManager 授权 VAULT_OPERATOR_ROLE → OptionsCore + OptionsSettlement
+  - Keeper脚本全部更新: settle/forceLiquidate/triggerMarginCall → OptionsSettlement
+  - 修改文件: `keeper/utils.ts` / `settleKeeper.ts` / `limitUpKeeper.ts` / `marginKeeper.ts`
+- **Next Step**: 重启FeedEngine后端后即可开始端到端联调测试
+
+## [2026-03-06 16:50]
+- **Status**: Done
+- **Changes**: OptionsCore 合约拆分完成
+  - OptionsCore.sol 从 1100行精简到 599行（保留创建/撮合/喂价）
+  - 新增 OptionsSettlement.sol 310行（结算/保证金/仲裁/清算）
+  - 新增 IOptionsSettlement.sol 接口
+  - NSTTypes.sol 添加 maxPremiumRate 字段
+  - 部署到 BSC Testnet:
+    - OptionsCore: `0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a`
+    - OptionsSettlement: `0x8DF881593368FD8be3F40722fcb9f555593a8257`
+  - SETTLEMENT_ROLE + FEED_PROTOCOL_ROLE 已授权
+  - config.ts + FeedEngine .env 已更新
+- **Next Step**: 更新前端hooks（useContracts.ts）将结算/保证金/仲裁函数调用指向OptionsSettlement
+
+## [2026-03-06 15:30]
+- **Status**: Done
+- **Changes**: NST × FeedEngine 联调 Phase 1-3 完成
+  - `OptionsCore.sol`: 实现 `requestFeed()` — 状态判断(MATCHED/LIVE/WAITING_FINAL_FEED) + `FeedRequestEmitted` 事件发射
+  - `IOptionsCore.sol`: 添加 `FeedRequestEmitted` 事件定义
+  - FeedEngine `blockchain.service.ts`: 添加 NST 合约地址/ABI/getter
+  - FeedEngine `event-listener.service.ts`: 添加 NST `FeedRequestEmitted` 事件监听 → 自动创建 Order → WebSocket 广播
+  - FeedEngine `consensus.service.ts`: 添加 `writebackToNstContract()` — 共识完成后调用 `OptionsCore.processFeedCallback()` 回写价格
+  - FeedEngine `schema.prisma`: Order 表添加 `externalOrderId` 字段
+- **Next Step**: 端到端联调测试 (买方requestFeed → FeedEngine创建订单 → 喂价 → 共识回写)
+  - ⚠️ OptionsCore 超 24KB 限制无法重新部署，采用现有合约(`0x0672f9ec...`) + 角色授权方案
+  - ✅ FEED_PROTOCOL_ROLE 已授权给 FeedEngine 钱包 (`0xFF486124...`) Block#94105860
+  - ✅ FeedEngine `.env` 已配置 `NST_OPTIONS_CORE_CONTRACT`
+
 ## [2026-02-06 21:15]
 - **Status**: Done
 - **Changes**: 完成按钮显示和仲裁按钮样式修复

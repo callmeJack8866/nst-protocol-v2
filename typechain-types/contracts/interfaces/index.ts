@@ -3,3 +3,4 @@
 /* eslint-disable */
 export type { IFeedProtocol } from "./IFeedProtocol";
 export type { IOptionsCore } from "./IOptionsCore";
+export type { IOptionsSettlement } from "./IOptionsSettlement";

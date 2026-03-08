@@ -3,3 +3,4 @@
 /* eslint-disable */
 export { IFeedProtocol__factory } from "./IFeedProtocol__factory";
 export { IOptionsCore__factory } from "./IOptionsCore__factory";
+export { IOptionsSettlement__factory } from "./IOptionsSettlement__factory";

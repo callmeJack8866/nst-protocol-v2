@@ -110,6 +110,14 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.OptionsCore__factory>;
     getContractFactory(
+      name: "IOptionsCoreForSettlement",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IOptionsCoreForSettlement__factory>;
+    getContractFactory(
+      name: "OptionsSettlement",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.OptionsSettlement__factory>;
+    getContractFactory(
       name: "FeederSelector",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.FeederSelector__factory>;
@@ -129,6 +137,10 @@ declare module "hardhat/types/runtime" {
       name: "IOptionsCore",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IOptionsCore__factory>;
+    getContractFactory(
+      name: "IOptionsSettlement",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IOptionsSettlement__factory>;
     getContractFactory(
       name: "MockERC20",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -267,6 +279,16 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.OptionsCore>;
     getContractAt(
+      name: "IOptionsCoreForSettlement",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IOptionsCoreForSettlement>;
+    getContractAt(
+      name: "OptionsSettlement",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.OptionsSettlement>;
+    getContractAt(
       name: "FeederSelector",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -291,6 +313,11 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.IOptionsCore>;
+    getContractAt(
+      name: "IOptionsSettlement",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IOptionsSettlement>;
     getContractAt(
       name: "MockERC20",
       address: string | ethers.Addressable,
@@ -409,6 +436,14 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.OptionsCore>;
     deployContract(
+      name: "IOptionsCoreForSettlement",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IOptionsCoreForSettlement>;
+    deployContract(
+      name: "OptionsSettlement",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.OptionsSettlement>;
+    deployContract(
       name: "FeederSelector",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.FeederSelector>;
@@ -428,6 +463,10 @@ declare module "hardhat/types/runtime" {
       name: "IOptionsCore",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IOptionsCore>;
+    deployContract(
+      name: "IOptionsSettlement",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IOptionsSettlement>;
     deployContract(
       name: "MockERC20",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -566,6 +605,16 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.OptionsCore>;
     deployContract(
+      name: "IOptionsCoreForSettlement",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IOptionsCoreForSettlement>;
+    deployContract(
+      name: "OptionsSettlement",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.OptionsSettlement>;
+    deployContract(
       name: "FeederSelector",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -590,6 +639,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IOptionsCore>;
+    deployContract(
+      name: "IOptionsSettlement",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IOptionsSettlement>;
     deployContract(
       name: "MockERC20",
       args: any[],
