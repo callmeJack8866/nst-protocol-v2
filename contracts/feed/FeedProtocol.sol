@@ -357,19 +357,23 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
 
         orderFeedRequests[orderId].push(requestId);
 
+        // 从 OptionsCore 读取订单信息填充事件（而非发送空字符串）
+        Order memory order = optionsCore.getOrder(orderId);
+
         emit FeedRequested(
             requestId,
             orderId,
-            "",
-            "",
-            "",
-            "",
+            order.underlyingName,
+            order.underlyingCode,
+            order.market,
+            order.country,
             feedType,
-            LiquidationRule.NoLiquidation,
-            0,
-            0,
+            order.liquidationRule,
+            order.consecutiveDays,
+            order.exerciseDelay,
             block.timestamp
         );
+
 
         return requestId;
     }

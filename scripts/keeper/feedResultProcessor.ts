@@ -18,7 +18,8 @@ const FEED_PROTOCOL_ABI = [
 const OPTIONS_CORE_ABI = [
     "function processInitialFeedResult(uint256 orderId, uint256 initialPrice) external",
     "function processFinalFeedResult(uint256 orderId, uint256 finalPrice) external",
-    "function orders(uint256 orderId) view returns (uint256 orderId, address buyer, address seller, uint8 status)"
+    "function processFeedCallback(uint256 orderId, uint8 feedType, uint256 feedPrice) external",
+    "function getOrder(uint256 orderId) view returns (tuple(uint256 orderId, address buyer, address seller, string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 strikePrice, uint256 expiryTimestamp, uint256 premiumRate, uint256 premiumAmount, uint256 initialMargin, uint256 currentMargin, uint256 minMarginRate, uint256 maxPremiumRate, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint8 exerciseDelay, uint8 sellerType, address designatedSeller, uint256 arbitrationWindow, uint256 marginCallDeadline, bool dividendAdjustment, uint8 feedRule, uint8 status, uint256 createdAt, uint256 matchedAt, uint256 settledAt, uint256 lastFeedPrice, uint256 dividendAmount))"
 ];
 
 // FeedType 枚举 (from NSTTypes.sol)
@@ -86,9 +87,9 @@ async function processEvent(
 
     console.log(`[FeedResultProcessor] Order ${orderId}, FeedType: ${feedType}`);
 
-    // 检查订单当前状态
-    const order = await optionsCore.orders(orderId);
-    const currentStatus = Number(order[3]); // status is at index 3
+    // 使用 getOrder 获取完整订单信息
+    const order = await optionsCore.getOrder(orderId);
+    const currentStatus = Number(order.status);
 
     console.log(`[FeedResultProcessor] Order ${orderId} current status: ${currentStatus}`);
 
@@ -103,11 +104,14 @@ async function processEvent(
             const tx = await optionsCore.processFinalFeedResult(orderId, finalPrice);
             await tx.wait();
             console.log(`[FeedResultProcessor] ✅ Order ${orderId} updated to PENDING_SETTLEMENT. TX: ${tx.hash}`);
+        } else if (currentStatus === ORDER_STATUS.LIVE || currentStatus === ORDER_STATUS.PENDING_SETTLEMENT || currentStatus === ORDER_STATUS.SETTLED) {
+            // 订单已经处理过，可能是合约 _finalizeFeed 自动回调已完成
+            console.log(`[FeedResultProcessor] Order ${orderId} already in status ${currentStatus}, skipping (likely already processed by contract callback).`);
         } else {
             console.log(`[FeedResultProcessor] Skipping: FeedType=${feedType}, Status=${currentStatus}`);
         }
     } catch (err: any) {
-        if (err.message?.includes('order not matched') || err.message?.includes('order not in valid state')) {
+        if (err.message?.includes('order not matched') || err.message?.includes('order not in valid state') || err.message?.includes('already processed')) {
             console.log(`[FeedResultProcessor] Order ${orderId} already processed, skipping.`);
         } else {
             throw err;

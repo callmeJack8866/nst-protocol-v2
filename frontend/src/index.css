@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
@@ -370,6 +370,201 @@
   @keyframes spinner {
     to {
       transform: rotate(360deg);
+    }
+  }
+
+  /* === FeedTierModal Styles === */
+  .feed-tier-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fade-in 0.2s ease;
+  }
+
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  .feed-tier-modal {
+    background: rgba(12, 12, 12, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 1.25rem;
+    padding: 2rem;
+    max-width: 640px;
+    width: 90%;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.9);
+    animation: modal-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes modal-in {
+    from { transform: scale(0.92) translateY(20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .feed-tier-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .feed-tier-header h3 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .feed-tier-close {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 1.2rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .feed-tier-close:hover { color: white; }
+
+  .feed-tier-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .feed-tier-card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.875rem;
+    padding: 1.25rem 1rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+
+  .feed-tier-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .feed-tier-card.selected {
+    border-color: var(--tier-accent, #00d4aa);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 20px rgba(var(--tier-accent, 0, 212, 170), 0.15);
+  }
+
+  .tier-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    color: #000;
+    margin-bottom: 0.75rem;
+  }
+
+  .tier-feeders {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .tier-feeders-num {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: white;
+  }
+
+  .tier-feeders-label {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .tier-effective {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 0.5rem;
+  }
+
+  .tier-fee {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #EAB308;
+    margin-bottom: 0.5rem;
+  }
+
+  .tier-desc {
+    font-size: 0.6rem;
+    color: rgba(255, 255, 255, 0.35);
+    line-height: 1.4;
+  }
+
+  .tier-check {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--tier-accent, #00d4aa);
+    color: #000;
+    font-size: 0.7rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .feed-tier-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  .feed-tier-cancel {
+    padding: 0.75rem 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 700;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .feed-tier-cancel:hover { background: rgba(255, 255, 255, 0.08); }
+
+  .feed-tier-confirm {
+    padding: 0.75rem 1.5rem;
+    background: var(--accent-primary);
+    border: none;
+    border-radius: 0.75rem;
+    color: #000;
+    font-weight: 900;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .feed-tier-confirm:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .feed-tier-confirm:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  @media (max-width: 640px) {
+    .feed-tier-cards {
+      grid-template-columns: 1fr;
     }
   }
 }

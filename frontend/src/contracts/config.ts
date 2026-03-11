@@ -1,17 +1,17 @@
-﻿/**
+/**
  * Contract Addresses Configuration
  * Updated: 2026-01-28 17:15 BSC Testnet Deployment
  * Upgrade: Added exerciseDelay & feedRule support to createSellerOrder
  */
 
-// BSC Testnet (ChainID: 97) - 2026-03-06 合约拆分后重新部署
+// BSC Testnet (ChainID: 97) - 2026-03-11 FeedProtocol 重部署（事件数据修复）
 export const BSC_TESTNET_ADDRESSES = {
     USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
     Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
     VaultManager: '0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454',
     OptionsCore: '0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a',
     OptionsSettlement: '0x8DF881593368FD8be3F40722fcb9f555593a8257',
-    FeedProtocol: '0xa4d3d2D56902f91e92caDE54993f45b4376979C7',
+    FeedProtocol: '0x98BA4261835533FEBf2335a4edA04d1a69D45311',
     SeatManager: '0xB364f37b3fD3e1f373907478e532449b4bA09343',
     PointsManager: '0x22074e05314c3A20cdD40C8D127E8306dc919dEC',
     VolumeBasedFeed: '0xa4d3d2D56902f91e92caDE54993f45b4376979C7',

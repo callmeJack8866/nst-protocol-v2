@@ -1,5 +1,30 @@
 # NST Finance 前端进展
 
+## [2026-03-11 21:30]
+- **Status**: Done
+- **Changes**: NST 优化方案第一轮执行完成（前端/Keeper/合约）
+  - **🔴 关键BUG修复**: `MyOrders.tsx` 中 ORDER_STATUS 枚举值错误 — ARBITRATION=7（应为SETTLED=7），导致状态过滤和判断逻辑错位
+  - **前端**: 创建 `constants/orderStatus.ts` 共享常量（ORDER_STATUS/FEED_TIER/FEED_TYPE），替换所有 magic number
+  - **前端**: 创建 `components/FeedTierModal.tsx` 喂价档位选择弹窗（三档：BASIC/STANDARD/PREMIUM）
+  - **前端**: `index.css` 添加 FeedTierModal 暗色玻璃态 CSS 样式
+  - **前端**: `MyOrders.tsx` 集成 FeedTierModal — 点击发起喂价弹出档位选择（不再硬编码 tier=0）
+  - **前端**: `feedRequestedOrders` 改为 localStorage 持久化，避免页面刷新时状态闪烁
+  - **Keeper**: `feedResultProcessor.ts` 替换简化 `orders()` ABI 为完整 `getOrder()` ABI
+  - **Keeper**: 添加 `processFeedCallback` 到 ABI，添加去重逻辑跳过已被合约自动回调处理的订单
+  - **配置**: `deployed-addresses.json` 更新对齐 `config.ts`（OptionsCore/OptionsSettlement/FeedProtocol）
+  - **合约**: `FeedProtocol.sol` `requestFeedPublic` 修改事件 emit 从空字符串改为从 `OptionsCore.getOrder()` 读取真实订单数据
+- **Next Step**: ⚠️ 合约修改需要重新编译部署才能生效。FeedEngine 侧的优化请在 FeedEngine 项目中执行
+
+## [2026-03-11 21:45]
+- **Status**: Done
+- **Changes**: FeedProtocol 合约重部署（事件数据修复）
+  - 编译通过，部署到 BSC Testnet: `0x98BA4261835533FEBf2335a4edA04d1a69D45311`
+  - `setOptionsCore` → `0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a` ✅
+  - `FEED_PROTOCOL_ROLE` 授权完成 ✅
+  - 已更新配置：`config.ts`、`keeper/utils.ts`、`deployed-addresses.json`、FeedEngine `.env`
+  - 修正：ORDER_STATUS 枚举值回退为合约正确值（ARBITRATION=7, SETTLED=8）
+- **Next Step**: 重启 FeedEngine 后端和前端，测试喂价流程端到端
+
 ## [2026-03-08 19:35]
 - **Status**: Done
 - **Changes**: 修复 FeedEngine 订单显示为 NVDA 而非谷歌/烦颂颂

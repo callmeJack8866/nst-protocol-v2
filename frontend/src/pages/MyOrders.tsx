@@ -1,14 +1,17 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useOptions, useFeedProtocol } from '../hooks';
 import { useToast } from '../components/Toast';
+import FeedTierModal from '../components/FeedTierModal';
 import { useWalletContext } from '../context/WalletContext';
 import { usePerspective } from '../context/PerspectiveContext';
-import { formatUnits } from 'ethers';
+import { formatUnits, Contract } from 'ethers';
 import { useTranslation } from 'react-i18next';
+import { ORDER_STATUS, FEED_TYPE, FEED_TIER } from '../constants/orderStatus';
+import { getContractAddresses } from '../contracts/config';
 
 
 export function MyOrders() {
-    const { isConnected, account } = useWalletContext();
+    const { isConnected, account, provider, chainId } = useWalletContext();
     const { t } = useTranslation();
     const { perspective: viewMode } = usePerspective();
     const {
@@ -46,8 +49,27 @@ export function MyOrders() {
     // 动态喂价加载状态
     const [dynamicFeedLoading, setDynamicFeedLoading] = useState<number | null>(null);
 
+    // 喂价档位弹窗状态
+    const [tierModalOpen, setTierModalOpen] = useState(false);
+    const [tierModalOrderId, setTierModalOrderId] = useState<number | null>(null);
+    const [feedFees, setFeedFees] = useState<string[]>(['', '', '']);
+
     // 已发起喂价请求的 orderId 集合（用于 UI 反馈，因为合约 status 不会立刻变化）
-    const [feedRequestedOrders, setFeedRequestedOrders] = useState<Set<number>>(new Set());
+    // 使用 localStorage 持久化，避免页面刷新时状态闪烁
+    const [feedRequestedOrders, setFeedRequestedOrders] = useState<Set<number>>(() => {
+        try {
+            const cached = localStorage.getItem('nst_feed_requested_orders');
+            if (cached) return new Set(JSON.parse(cached) as number[]);
+        } catch { /* ignore parse error */ }
+        return new Set();
+    });
+
+    // 同步 feedRequestedOrders 到 localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem('nst_feed_requested_orders', JSON.stringify([...feedRequestedOrders]));
+        } catch { /* ignore storage error */ }
+    }, [feedRequestedOrders]);
 
     // 状态筛选标签页
     type StatusFilter = 'all' | 'rfq' | 'pending_feed' | 'live' | 'settlement' | 'history';
@@ -121,15 +143,15 @@ export function MyOrders() {
 
             switch (filter) {
                 case 'rfq': // 询价订单: RFQ_CREATED, QUOTING
-                    return status === 0 || status === 1;
+                    return status === ORDER_STATUS.RFQ_CREATED || status === ORDER_STATUS.QUOTING;
                 case 'pending_feed': // 待喂价: MATCHED, WAITING_INITIAL_FEED
-                    return status === 2 || status === 3;
+                    return status === ORDER_STATUS.MATCHED || status === ORDER_STATUS.WAITING_INITIAL_FEED;
                 case 'live': // 持仓订单: LIVE, WAITING_FINAL_FEED
-                    return status === 4 || status === 5;
+                    return status === ORDER_STATUS.LIVE || status === ORDER_STATUS.WAITING_FINAL_FEED;
                 case 'settlement': // 结算/仲裁: PENDING_SETTLEMENT, ARBITRATION
-                    return status === 6 || status === 7;
+                    return status === ORDER_STATUS.PENDING_SETTLEMENT || status === ORDER_STATUS.ARBITRATION;
                 case 'history': // 历史订单: SETTLED, LIQUIDATED, CANCELLED
-                    return status === 8 || status === 9 || status === 10;
+                    return status === ORDER_STATUS.SETTLED || status === ORDER_STATUS.LIQUIDATED || status === ORDER_STATUS.CANCELLED;
                 default:
                     return true;
             }
@@ -237,31 +259,27 @@ export function MyOrders() {
         return pnl >= 0 ? 'text-emerald-500' : 'text-red-500';
     };
 
-    // Order status constants matching contract enum
-    const ORDER_STATUS = {
-        RFQ_CREATED: 0,
-        QUOTING: 1,
-        MATCHED: 2,
-        WAITING_INITIAL_FEED: 3,
-        LIVE: 4,
-        WAITING_FINAL_FEED: 5,
-        PENDING_SETTLEMENT: 6,
-        ARBITRATION: 7,
-        SETTLED: 8,
-        LIQUIDATED: 9,
-        CANCELLED: 10
-    };
+    // ORDER_STATUS imported from '../constants/orderStatus' — matches NSTTypes.sol:
+    // PENDING_SETTLEMENT=6, ARBITRATION=7, SETTLED=8, LIQUIDATED=9, CANCELLED=10
 
     // Get status number from order (handles both number and string status)
     const getStatusNum = (order: any): number => {
         const status = order.status;
         if (typeof status === 'number') return status;
         if (typeof status === 'bigint') return Number(status);
-        // Handle string status names
+        // Handle string status names — matches NSTTypes.sol enum order
         const statusMap: Record<string, number> = {
-            'RFQ_CREATED': 0, 'QUOTING': 1, 'MATCHED': 2, 'WAITING_INITIAL_FEED': 3,
-            'LIVE': 4, 'WAITING_FINAL_FEED': 5, 'PENDING_SETTLEMENT': 6,
-            'ARBITRATION': 7, 'SETTLED': 8, 'LIQUIDATED': 9, 'CANCELLED': 10
+            'RFQ_CREATED': ORDER_STATUS.RFQ_CREATED,
+            'QUOTING': ORDER_STATUS.QUOTING,
+            'MATCHED': ORDER_STATUS.MATCHED,
+            'WAITING_INITIAL_FEED': ORDER_STATUS.WAITING_INITIAL_FEED,
+            'LIVE': ORDER_STATUS.LIVE,
+            'WAITING_FINAL_FEED': ORDER_STATUS.WAITING_FINAL_FEED,
+            'PENDING_SETTLEMENT': ORDER_STATUS.PENDING_SETTLEMENT,
+            'SETTLED': ORDER_STATUS.SETTLED,
+            'CANCELLED': ORDER_STATUS.CANCELLED,
+            'LIQUIDATED': ORDER_STATUS.LIQUIDATED,
+            'ARBITRATION': ORDER_STATUS.ARBITRATION,
         };
         return statusMap[String(status).toUpperCase()] ?? -1;
     };
@@ -525,16 +543,49 @@ export function MyOrders() {
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     };
 
-    // Handle initiating initial feed for MATCHED orders
+    /**
+     * 打开喂价档位选择弹窗
+     * 先从合约读取各档费用，然后显示弹窗让用户选择
+     */
     const handleInitiateFeed = async (orderId: number) => {
+        setTierModalOrderId(orderId);
+        setTierModalOpen(true);
+
+        // 异步加载各档位费用
+        try {
+            if (provider) {
+                const addresses = getContractAddresses(chainId || 97);
+                const feedProtocol = new Contract(
+                    addresses.FeedProtocol,
+                    ['function getFeedFee(uint8 tier) view returns (uint256)'],
+                    await provider.getSigner()
+                );
+                const fees = await Promise.all([
+                    feedProtocol.getFeedFee(FEED_TIER.TIER_5_3),
+                    feedProtocol.getFeedFee(FEED_TIER.TIER_7_5),
+                    feedProtocol.getFeedFee(FEED_TIER.TIER_10_7),
+                ]);
+                setFeedFees(fees.map(f => Number(formatUnits(f, 18)).toFixed(2)));
+            }
+        } catch (err) {
+            console.warn('Failed to fetch feed fees:', err);
+        }
+    };
+
+    /**
+     * 用户在弹窗中选择档位后确认发起喂价
+     */
+    const handleConfirmFeed = async (tier: number) => {
+        if (tierModalOrderId === null) return;
+        const orderId = tierModalOrderId;
         setInitFeedLoading(orderId);
         try {
-            // FeedType.Initial = 0, FeedTier.Tier_5_3 = 0 (lowest tier for MVP)
-            await requestFeed(orderId, 0, 0);
+            await requestFeed(orderId, FEED_TYPE.INITIAL, tier);
             showToast('success', t('portfolio.feed_requested') + ' — 等待喂价员提交价格');
-            // 记录已发起喂价的订单，前端立即显示等待状态
             setFeedRequestedOrders(prev => new Set(prev).add(orderId));
             setRefreshKey(k => k + 1);
+            setTierModalOpen(false);
+            setTierModalOrderId(null);
         } catch (err: any) {
             const message = err?.reason || err?.message || 'Request feed failed';
             showToast('error', `${t('portfolio.initiate_feed')} 失败: ${message}`);
@@ -1088,6 +1139,15 @@ export function MyOrders() {
                     </div>
                 </div>
             )}
+
+            {/* 喂价档位选择弹窗 */}
+            <FeedTierModal
+                isOpen={tierModalOpen}
+                onClose={() => { setTierModalOpen(false); setTierModalOrderId(null); }}
+                onConfirm={handleConfirmFeed}
+                loading={initFeedLoading !== null}
+                feedFees={feedFees}
+            />
         </div>
     );
 }

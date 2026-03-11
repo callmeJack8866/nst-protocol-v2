@@ -960,8 +960,8 @@
       ]
     },
     "F:\\Unstandardized_Products\\NST\\contracts\\feed\\FeedProtocol.sol": {
-      "lastModificationDate": 1770301501568,
-      "contentHash": "086265e89d2e22b9443684bbbc799a3c",
+      "lastModificationDate": 1773236506768,
+      "contentHash": "c036f53ef8c8b4f49ec1a5f312b79480",
       "sourceName": "contracts/feed/FeedProtocol.sol",
       "solcConfig": {
         "version": "0.8.20",
