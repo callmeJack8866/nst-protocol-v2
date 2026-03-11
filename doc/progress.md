@@ -1,5 +1,70 @@
 # NST Finance 前端进展
 
+## [2026-03-08 19:35]
+- **Status**: Done
+- **Changes**: 修复 FeedEngine 订单显示为 NVDA 而非谷歌/烦颂颂
+  - **根因1**: FeedProtocol.sol `requestFeedPublic` emit FeedRequested 时所有关键字段（name/code/market/country）为空字符串 `""`
+  - **根因2**: FeedEngine 后端 `scanHistoricalFeedRequests` 回退到 OptionsCore getOrder，但 symbol 取值优先级是 `underlyingCode || underlyingName`，而链上 code=NVDA name=谷歌
+  - 修复 `event-listener.service.ts` 两处 `underlyingCode || underlyingName` → `underlyingName || underlyingCode`
+  - 已删除 FeedEngine DB 中旧的 NVDA 记录
+- **Next Step**: 重启 FeedEngine 后端，重新扫描时会用正确名称（谷歌/烦烦烦）创建订单
+
+## [2026-03-08 19:27]
+- **Status**: Done
+- **Changes**: 修复 FeedEngine 前端不显示 NST 喂价订单
+  - **根因**: `App.tsx` 使用 `MOCK_ORDERS` 硬编码假数据，**从未调用后端 API**
+  - 修改 `App.tsx` useEffect：启动时调用 `api.getOrders()` 获取真实订单，与 mock 合并
+  - 修改 `filteredOrders` 过滤：NST 外部协议订单跳过 prefs 偏好过滤
+  - `transform.ts` 保留 `sourceProtocol` 字段传递到前端
+- **Next Step**: 刷新 FeedEngine 前端页面，确认 PRIMARY SYNC 标签下能看到 NST 订单
+
+## [2026-03-08 19:07]
+- **Status**: Done
+- **Changes**: 修复两个喂价问题
+  - **问题1: 切换页面后状态重置** — `MyOrders.tsx` `fetchOrders` 新增链上检查 `getOrderFeedRequests`，MATCHED 订单如果已有 feed request 自动标记等待状态
+  - **问题2: FeedEngine 看不到 NST 喂价请求** — 根因: FeedEngine 后端只监听 OptionsCore 的 `FeedRequestEmitted` 事件，但 `requestFeedPublic` 在 FeedProtocol 合约 emit `FeedRequested`。新增：
+    - `.env` 添加 `NST_FEED_PROTOCOL_CONTRACT=0xa4d3d2D56902f91e92caDE54993f45b4376979C7`
+    - `blockchain.service.ts` 添加 `NST_FEED_PROTOCOL` 地址
+    - `event-listener.service.ts` 添加 `setupNstFeedProtocolListeners()` 监听 FeedRequested
+- **Next Step**: 重启 FeedEngine 后端 → 启动时自动扫描历史事件 → 补漏创建缺失订单 → FeedEngine 前端刷新后可见
+
+## [2026-03-08 19:16 补充]
+- **Status**: Done
+- **Changes**: 添加启动时历史事件扫描 `scanHistoricalFeedRequests()`
+  - 后端启动时扫描最近 5000 区块的 FeedRequested 事件
+  - 通过 `externalOrderId` 去重，补漏创建缺失的 FeedEngine 订单
+  - WebSocket 广播新创建的订单给前端
+- **Next Step**: 再次重启 FeedEngine 后端，确认控制台输出扫描结果
+
+## [2026-03-08 18:59]
+- **Status**: Done
+- **Changes**: 修复发起喂价后按钮不更新问题
+  - **根因**: `requestFeedPublic` 只在 FeedProtocol 创建请求，不更新 OptionsCore 状态（status 保持 MATCHED=2）
+  - 状态只在喂价完成后通过 `_finalizeFeed` → `processFeedCallback` 回调更新
+  - 添加 `feedRequestedOrders` Set 前端状态跟踪已发起请求的 orderId
+  - 发起成功后按钮变为「⏳ 喂价请求已发起，等待喂价员提交价格...」（青色脉冲指示器）
+  - Toast 提示增加说明：「等待喂价员提交价格」
+- **Next Step**: 在 FeedEngine 前端 (5174) 登录喂价员 → 看到喂价请求 → 提交价格 → finalize → 回调更新状态
+
+## [2026-03-08 18:49]
+- **Status**: Done
+- **Changes**: 修复 NST 前端「合同未初始化」+「网络错误」
+  - **根因**: 钱包未在 BSC Testnet (chainId 97) 上，`connect()` 不会自动切换网络
+  - `WalletContext.tsx` `connect()` 函数添加自动检测和切换逻辑
+  - 连接时检查 chainId，非 97 自动调用 `wallet_switchEthereumChain`
+  - 支持 chain 不存在时自动 `wallet_addEthereumChain` 添加网络
+- **Next Step**: 刷新 NST 前端，重新连接钱包（MetaMask 会弹出切换网络提示）
+
+## [2026-03-08 18:42]
+- **Status**: Done
+- **Changes**: 修复 FeedEngine 前端钱包连接失败（双重问题）
+  - **问题1 CORS**: `.env` 中 `FRONTEND_URL="http://localhost:3000"` 覆盖了 `index.ts` 的 fallback 值
+    - 修改为 `FRONTEND_URL="http://localhost:5173,http://localhost:5174"`
+  - **问题2 500 Error**: `auth.controller.ts` L183 `new URL(逗号分隔URL)` 抛异常
+    - 修改为先 `split(',')[0].trim()` 取第一个 URL 再解析
+  - nonce 接口验证通过：返回 `{success: true, nonce: "...", message: "..."}` ✅
+- **Next Step**: 刷新 FeedEngine 前端页面重新连接钱包
+
 ## [2026-03-08 15:30]
 - **Status**: Done
 - **Changes**: 联调测试脚本执行成功 — 24/24 全部通过

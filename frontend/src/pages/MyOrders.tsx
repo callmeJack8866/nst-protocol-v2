@@ -24,7 +24,7 @@ export function MyOrders() {
     } = useOptions();
 
     // Feed protocol for initiating initial feeds
-    const { requestFeed, isLoading: feedLoading } = useFeedProtocol();
+    const { requestFeed, isLoading: feedLoading, getOrderFeedRequests } = useFeedProtocol();
     const { showToast } = useToast();
 
     const [buyerOrders, setBuyerOrders] = useState<any[]>([]);
@@ -45,6 +45,9 @@ export function MyOrders() {
 
     // 动态喂价加载状态
     const [dynamicFeedLoading, setDynamicFeedLoading] = useState<number | null>(null);
+
+    // 已发起喂价请求的 orderId 集合（用于 UI 反馈，因为合约 status 不会立刻变化）
+    const [feedRequestedOrders, setFeedRequestedOrders] = useState<Set<number>>(new Set());
 
     // 状态筛选标签页
     type StatusFilter = 'all' | 'rfq' | 'pending_feed' | 'live' | 'settlement' | 'history';
@@ -73,6 +76,30 @@ export function MyOrders() {
                 const sData = await Promise.all(sIds.map((id: any) => getOrder(Number(id))));
                 setBuyerOrders(bData);
                 setSellerOrders(sData);
+
+                // 检查 MATCHED 状态订单是否已有链上 feed request（持久化状态）
+                const allData = [...bData, ...sData];
+                const matchedOrders = allData.filter(o => {
+                    const s = typeof o.status === 'bigint' ? Number(o.status) : (typeof o.status === 'number' ? o.status : -1);
+                    return s === 2; // MATCHED
+                });
+                if (matchedOrders.length > 0) {
+                    const feedChecks = await Promise.all(
+                        matchedOrders.map(async (o) => {
+                            const ids = await getOrderFeedRequests(Number(o.orderId));
+                            return { orderId: Number(o.orderId), hasFeedRequest: ids.length > 0 };
+                        })
+                    );
+                    const requested = new Set<number>();
+                    feedChecks.forEach(c => { if (c.hasFeedRequest) requested.add(c.orderId); });
+                    if (requested.size > 0) {
+                        setFeedRequestedOrders(prev => {
+                            const merged = new Set(prev);
+                            requested.forEach(id => merged.add(id));
+                            return merged;
+                        });
+                    }
+                }
             } catch (e) {
                 console.error('Failed to fetch orders:', e);
             } finally {
@@ -80,7 +107,7 @@ export function MyOrders() {
             }
         };
         fetchOrders();
-    }, [isConnected, account, refreshKey, getBuyerOrders, getOrder, getSellerOrders]);
+    }, [isConnected, account, refreshKey, getBuyerOrders, getOrder, getSellerOrders, getOrderFeedRequests]);
 
     const allOrders = viewMode === 'buyer' ? buyerOrders : sellerOrders;
 
@@ -504,7 +531,9 @@ export function MyOrders() {
         try {
             // FeedType.Initial = 0, FeedTier.Tier_5_3 = 0 (lowest tier for MVP)
             await requestFeed(orderId, 0, 0);
-            showToast('success', t('portfolio.feed_requested'));
+            showToast('success', t('portfolio.feed_requested') + ' — 等待喂价员提交价格');
+            // 记录已发起喂价的订单，前端立即显示等待状态
+            setFeedRequestedOrders(prev => new Set(prev).add(orderId));
             setRefreshKey(k => k + 1);
         } catch (err: any) {
             const message = err?.reason || err?.message || 'Request feed failed';
@@ -884,13 +913,22 @@ export function MyOrders() {
 
                                     {/* Initiate Feed button for MATCHED orders */}
                                     {canInitiateFeed(order) && (
-                                        <button
-                                            onClick={() => handleInitiateFeed(Number(order.orderId))}
-                                            disabled={initFeedLoading === Number(order.orderId) || feedLoading}
-                                            className="btn-gold min-w-[160px] h-12 text-[11px] tracking-widest"
-                                        >
-                                            {initFeedLoading === Number(order.orderId) ? t('portfolio.requesting') : t('portfolio.initiate_feed')}
-                                        </button>
+                                        feedRequestedOrders.has(Number(order.orderId)) ? (
+                                            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+                                                <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+                                                <span className="text-[11px] font-bold text-cyan-400 tracking-wider">
+                                                    ⏳ 喂价请求已发起，等待喂价员提交价格...
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleInitiateFeed(Number(order.orderId))}
+                                                disabled={initFeedLoading === Number(order.orderId) || feedLoading}
+                                                className="btn-gold min-w-[160px] h-12 text-[11px] tracking-widest"
+                                            >
+                                                {initFeedLoading === Number(order.orderId) ? t('portfolio.requesting') : t('portfolio.initiate_feed')}
+                                            </button>
+                                        )
                                     )}
 
                                     {viewMode === 'buyer' ? (
@@ -957,8 +995,8 @@ export function MyOrders() {
                                         disabled={!canArbitrate(order)}
                                         title={!canArbitrate(order) ? t('portfolio.hint.need_pending_settlement') : ''}
                                         className={`min-w-[100px] h-11 px-4 rounded-xl font-bold text-sm transition-all ${!canArbitrate(order)
-                                                ? 'bg-gray-700/30 text-gray-500 border border-gray-600/30 cursor-not-allowed'
-                                                : 'bg-red-500/20 text-red-400 border-2 border-red-500/60 hover:bg-red-500/30 hover:border-red-400 hover:shadow-lg hover:shadow-red-500/20'
+                                            ? 'bg-gray-700/30 text-gray-500 border border-gray-600/30 cursor-not-allowed'
+                                            : 'bg-red-500/20 text-red-400 border-2 border-red-500/60 hover:bg-red-500/30 hover:border-red-400 hover:shadow-lg hover:shadow-red-500/20'
                                             }`}
                                     >
                                         仲裁
