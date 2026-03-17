@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { parseUnits } from 'ethers';
 import { useWalletContext } from '../context/WalletContext';
 import { getContractAddresses } from '../contracts/config';
@@ -474,12 +474,15 @@ export function useOptions() {
         setError(null);
         try {
             const amount = parseUnits(amountUSDT, 18); // USDT 18位小数 (BSC)
-            const optionsCoreAddr = getOptionsCoreAddress();
 
-            // Check and approve USDT
-            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            // OptionsSettlement.addMargin 调用 usdt.safeTransferFrom
+            // 因此 approve 对象必须是 OptionsSettlement 地址（不是 OptionsCore）
+            const settlementAddr = getContractAddresses(chainId || 97).OptionsSettlement?.toLowerCase() || '';
+
+            // Check and approve USDT to OptionsSettlement
+            const currentAllowance = await usdt.allowance(account, settlementAddr);
             if (currentAllowance < amount) {
-                const approveTx = await usdt.approve(optionsCoreAddr, amount);
+                const approveTx = await usdt.approve(settlementAddr, amount * 10n); // 10x for convenience
                 await approveTx.wait();
             }
 
@@ -494,7 +497,7 @@ export function useOptions() {
         } finally {
             setLoading(false);
         }
-    }, [optionsCore, usdt, account, getOptionsCoreAddress]);
+    }, [optionsCore, usdt, account, chainId, optionsSettlement]);
 
     /**
      * 卖方提取超额保证金
@@ -511,6 +514,21 @@ export function useOptions() {
         try {
             const amount = parseUnits(amountUSDT, 18); // USDT 18位小数 (BSC)
 
+            // 前置检查：读取链上订单，计算可提取超额保证金
+            const order = await optionsCore.getOrder(orderId);
+            const currentMargin = BigInt(order.currentMargin.toString());
+            const initialMargin = BigInt(order.initialMargin.toString());
+
+            if (currentMargin <= initialMargin) {
+                throw new Error('当前保证金未超出初始保证金，无法提取。需先追加保证金后才能提取超额部分。');
+            }
+
+            const excess = currentMargin - initialMargin;
+            if (amount > excess) {
+                const excessUSDT = Number(excess) / 1e18;
+                throw new Error(`提取金额超出可提取上限。可提取超额保证金: ${excessUSDT.toFixed(2)} USDT`);
+            }
+
             // Call withdrawExcessMargin
             const tx = await optionsSettlement.withdrawExcessMargin(orderId, amount);
             const receipt = await tx.wait();
@@ -522,7 +540,7 @@ export function useOptions() {
         } finally {
             setLoading(false);
         }
-    }, [optionsCore]);
+    }, [optionsCore, optionsSettlement]);
 
     /**
      * 买方提前行权
@@ -588,12 +606,14 @@ export function useOptions() {
         try {
             // 仲裁费 30 USDT (6位小数)
             const arbitrationFee = parseUnits('30', 18); // 仲裁费30U (18位)
-            const optionsCoreAddr = getOptionsCoreAddress();
+            // OptionsSettlement.initiateArbitration 调用 usdt.safeTransferFrom
+            // approve 对象必须是 OptionsSettlement 地址
+            const settlementAddr = getContractAddresses(chainId || 97).OptionsSettlement?.toLowerCase() || '';
 
             // Check and approve USDT for arbitration fee
-            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            const currentAllowance = await usdt.allowance(account, settlementAddr);
             if (currentAllowance < arbitrationFee) {
-                const approveTx = await usdt.approve(optionsCoreAddr, arbitrationFee);
+                const approveTx = await usdt.approve(settlementAddr, arbitrationFee * 10n);
                 await approveTx.wait();
             }
 

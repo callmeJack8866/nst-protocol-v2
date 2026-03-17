@@ -1,7 +1,7 @@
 # NST × FeedEngine 联调测试手册
 
-> 更新时间：2026-03-08
-> 测试目标：验证 OptionsCore + OptionsSettlement 双合约架构完整性
+> 更新时间：2026-03-12
+> 测试目标：验证 OptionsCore + OptionsSettlement + FeedProtocol 三合约架构完整性
 
 ---
 
@@ -11,6 +11,7 @@
 |------|------|
 | OptionsCore | `0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a` |
 | OptionsSettlement | `0x8DF881593368FD8be3F40722fcb9f555593a8257` |
+| FeedProtocol | `0x98BA4261835533FEBf2335a4edA04d1a69D45311` |
 | Config | `0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea` |
 | VaultManager | `0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454` |
 | USDT | `0x6ae0833E637D1d99F3FCB6204860386f6a6713C0` |
@@ -56,7 +57,7 @@ NST_OPTIONS_CORE: 0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a
 
 > ⚠️ Redis 重连警告可以忽略，后端有内存降级模式。
 
-配置文件：`feed-engine-backend/.env` — 包含 `NST_OPTIONS_CORE_CONTRACT` 地址
+配置文件：`feed-engine-backend/.env` — 包含 `NST_OPTIONS_CORE_CONTRACT` 和 `NST_FEED_PROTOCOL_CONTRACT` 地址
 
 ### 2.3 FeedEngine 前端 (Vite + React)
 
@@ -168,34 +169,38 @@ netstat -aon | findstr "LISTENING" | findstr "5173 5174 3001"
 
 ---
 
-### TC-05：发起喂价请求 (→ OptionsCore → FeedEngine)
+### TC-05：发起喂价请求 (→ FeedProtocol → FeedEngine)
 
 **前置**：订单为 MATCHED 状态
 
-**操作**：在订单详情中点击"发起喂价" → 选择喂价档位
+**操作**：在订单详情中点击"发起喂价" → **弹出喂价档位选择弹窗** → 选择档位（BASIC/STANDARD/PREMIUM） → 确认
 
 **验证**：
-- [ ] requestFeed 交易成功
-- [ ] 订单状态 → `WAITING_INITIAL_FEED`
-- [ ] **FeedEngine 后端日志**显示收到 `FeedRequestEmitted` 事件
+- [ ] 弹窗正确显示三个档位及费用
+- [ ] requestFeedPublic 交易成功（USDT 扣除喂价费）
+- [ ] 前端按钮变为「⏳ 喂价请求已发起，等待喂价员提交价格...」
+- [ ] **FeedEngine 后端日志**显示收到 `FeedRequested` 事件
+- [ ] 事件数据包含真实的 underlyingName/underlyingCode（不再是空字符串）
 
 > **这是 NST × FeedEngine 联调核心验证点**
 > 如果 FeedEngine 没收到事件：
-> 1. 检查 `.env` 中 `NST_OPTIONS_CORE_CONTRACT` = 新地址
+> 1. 检查 `.env` 中 `NST_FEED_PROTOCOL_CONTRACT` = `0x98BA4261835533FEBf2335a4edA04d1a69D45311`
 > 2. 确认后端已重启
+> 3. 注意：喂价请求通过 **FeedProtocol.requestFeedPublic** 发起，事件名称是 `FeedRequested`（不是 `FeedRequestEmitted`）
 
 ---
 
-### TC-06：喂价完成回调 (→ FeedEngine → OptionsCore)
+### TC-06：喂价完成回调 (→ FeedProtocol → OptionsCore)
 
 **前置**：TC-05 完成
 
-**操作**：喂价员在 FeedEngine 前端提交价格 → 达到法定人数后 finalize
+**操作**：喂价员在 FeedEngine 前端提交价格 → 达到法定人数后 FeedProtocol._finalizeFeed 自动回调
 
 **验证**：
-- [ ] FeedEngine 回调 OptionsCore.processFeedCallback 成功
+- [ ] FeedProtocol 自动调用 OptionsCore.processFeedCallback 成功
 - [ ] 订单状态 → `LIVE`（期初喂价后）
 - [ ] `lastFeedPrice` 更新为喂价结果
+- [ ] NST 前端刷新后订单从「等待喂价」变为「持仓中」
 
 ---
 
@@ -272,7 +277,8 @@ netstat -aon | findstr "LISTENING" | findstr "5173 5174 3001"
 | submitQuote | OptionsCore | 卖方报价 |
 | acceptQuote | OptionsCore | 接受报价 |
 | cancelRFQ | OptionsCore | 取消询价 |
-| requestFeed | OptionsCore | 发起喂价 |
+| requestFeed | OptionsCore | 发起喂价（内部路径） |
+| **requestFeedPublic** | **FeedProtocol** | **发起喂价（前端路径，emit 真实数据）** |
 | acceptSellerOrder | OptionsCore | 承接卖方单 |
 | processFeedCallback | OptionsCore | FeedEngine回调 |
 | **settle** | **OptionsSettlement** | 到期结算 |
@@ -293,7 +299,9 @@ netstat -aon | findstr "LISTENING" | findstr "5173 5174 3001"
 | 控制台只有 OptionsCore initialized | OptionsSettlement 地址缺失 | 确认 `config.ts` 有 OptionsSettlement |
 | addMargin/settle 失败 | 调用了错误的合约 | 确认 `useContracts.ts` 调用 `optionsSettlement` |
 | `VAULT_OPERATOR_ROLE` 错误 | VaultManager 未授权 | 运行 `scripts/grant-vault-operator.ts` |
-| FeedEngine 收不到事件 | 监听旧合约地址 | 更新 `.env` 并重启 |
+| FeedEngine 收不到事件 | 监听旧 FeedProtocol 地址 | 更新 `.env` 中 `NST_FEED_PROTOCOL_CONTRACT` 并重启 |
+| 喂价事件数据为空 | 使用旧版 FeedProtocol | 确认 FeedProtocol 地址为 `0x98BA...` |
+| 喂价档位弹窗费用显示 "..." | 合约无 getFeedFee 或地址错 | 检查 config.ts FeedProtocol 地址 |
 | settle revert | 订单状态不对 | 确认订单经过完整喂价流程 |
 | FeedEngine CORS 错误 | 后端CORS未配置5174 | 确认 `index.ts` 中 cors 在 helmet 前 |
 

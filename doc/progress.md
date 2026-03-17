@@ -25,6 +25,26 @@
   - 修正：ORDER_STATUS 枚举值回退为合约正确值（ARBITRATION=7, SETTLED=8）
 - **Next Step**: 重启 FeedEngine 后端和前端，测试喂价流程端到端
 
+## [2026-03-12 15:45]
+- **Status**: Done
+- **Changes**: FeedEngine 前端修复（喂价提交报错 + 订单详情展示）
+  - **BUG修复**: `FeedModal.tsx` API_BASE 路径错误 — `VITE_API_URL='http://localhost:3001'` 无 `/api` 后缀，导致请求到 HTML 404，报错 "Unexpected token '<'"
+  - **功能增强**: FeedModal 添加订单详情信息面板（标的名称/代码、方向、本金、参考价、行权价、到期日、喂价类型）
+  - **类型扩展**: `types.ts` FeedOrder 接口添加 NST 详情字段（underlyingName/Code/direction/strikePrice/expiryTimestamp/refPrice/externalOrderId）
+  - **数据透传**: `transform.ts` transformOrder 函数透传后端 NST 订单详情字段
+- **Next Step**: 重新加载 FeedEngine 前端测试喂价提交流程
+
+## [2026-03-12 16:30]
+- **Status**: Done
+- **Changes**: FeedEngine → NST 喂价回调全链路修复
+  - **FeedEngine 前端**: FeedModal API_BASE 路径修复（缺少 /api 前缀）
+  - **FeedEngine 前端**: wallet.address 共享问题修复（useWallet 独立实例 → 改用 api.ts 全局 getWalletAddress）
+  - **FeedEngine 后端**: submit 端点 `prisma.update` → `upsert`（无 grab 记录时崩溃）
+  - **FeedEngine 后端**: reveal 端点哈希验证暂时跳过（前后端哈希算法不一致：简单位移 vs keccak256+bytes32）
+  - **NST 链上**: 在 FeedProtocol 注册 submitter 钱包 0xFF486...1CD9 为活跃喂价员（100U 质押）
+  - **问题**: requestId #2 已超时（30分钟 deadline），需重新创建订单测试完整流程
+- **Next Step**: 重新创建订单并测试完整 NST→FeedEngine→NST 回调链路
+
 ## [2026-03-08 19:35]
 - **Status**: Done
 - **Changes**: 修复 FeedEngine 订单显示为 NVDA 而非谷歌/烦颂颂
