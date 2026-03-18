@@ -295,7 +295,7 @@ export function useFeedProtocol() {
 
         try {
             const fee = await contract.getFeedFee(tier);
-            return formatUnits(fee, 6); // USDT 6 decimals
+            return formatUnits(fee, 18); // USDT 18 decimals (项目统一标准)
         } catch (err) {
             console.error('Failed to get feed fee:', err);
             return '0';

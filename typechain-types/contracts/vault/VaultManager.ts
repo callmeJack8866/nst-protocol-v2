@@ -51,6 +51,7 @@ export interface VaultManagerInterface extends Interface {
       | "marginPoolBalance"
       | "pause"
       | "paused"
+      | "penaltyToTreasury"
       | "profitPoolBalance"
       | "refundMargin"
       | "refundPremium"
@@ -175,6 +176,10 @@ export interface VaultManagerInterface extends Interface {
   ): string;
   encodeFunctionData(functionFragment: "pause", values?: undefined): string;
   encodeFunctionData(functionFragment: "paused", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "penaltyToTreasury",
+    values: [AddressLike, AddressLike, BigNumberish]
+  ): string;
   encodeFunctionData(
     functionFragment: "profitPoolBalance",
     values: [AddressLike]
@@ -323,6 +328,10 @@ export interface VaultManagerInterface extends Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "pause", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "paused", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "penaltyToTreasury",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "profitPoolBalance",
     data: BytesLike
@@ -768,6 +777,12 @@ export interface VaultManager extends BaseContract {
 
   paused: TypedContractMethod<[], [boolean], "view">;
 
+  penaltyToTreasury: TypedContractMethod<
+    [_user: AddressLike, _token: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   profitPoolBalance: TypedContractMethod<[arg0: AddressLike], [bigint], "view">;
 
   refundMargin: TypedContractMethod<
@@ -1001,6 +1016,13 @@ export interface VaultManager extends BaseContract {
   getFunction(
     nameOrSignature: "paused"
   ): TypedContractMethod<[], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "penaltyToTreasury"
+  ): TypedContractMethod<
+    [_user: AddressLike, _token: AddressLike, _amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "profitPoolBalance"
   ): TypedContractMethod<[arg0: AddressLike], [bigint], "view">;

@@ -27,6 +27,7 @@ export interface IOptionsSettlementInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "addMargin"
+      | "cancelOrderDueFinalFeedTimeout"
       | "cancelOrderDueToFeedTimeout"
       | "earlyExercise"
       | "forceLiquidate"
@@ -54,6 +55,10 @@ export interface IOptionsSettlementInterface extends Interface {
   encodeFunctionData(
     functionFragment: "addMargin",
     values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "cancelOrderDueFinalFeedTimeout",
+    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "cancelOrderDueToFeedTimeout",
@@ -97,6 +102,10 @@ export interface IOptionsSettlementInterface extends Interface {
   ): string;
 
   decodeFunctionResult(functionFragment: "addMargin", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "cancelOrderDueFinalFeedTimeout",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "cancelOrderDueToFeedTimeout",
     data: BytesLike
@@ -406,6 +415,12 @@ export interface IOptionsSettlement extends BaseContract {
     "nonpayable"
   >;
 
+  cancelOrderDueFinalFeedTimeout: TypedContractMethod<
+    [orderId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   cancelOrderDueToFeedTimeout: TypedContractMethod<
     [orderId: BigNumberish],
     [void],
@@ -477,6 +492,9 @@ export interface IOptionsSettlement extends BaseContract {
     [void],
     "nonpayable"
   >;
+  getFunction(
+    nameOrSignature: "cancelOrderDueFinalFeedTimeout"
+  ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "cancelOrderDueToFeedTimeout"
   ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;

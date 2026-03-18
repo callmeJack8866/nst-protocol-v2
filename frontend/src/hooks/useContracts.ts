@@ -59,7 +59,16 @@ export function useOptions() {
     const getOptionsCoreAddress = useCallback(() => {
         if (!chainId) return '';
         const rawAddress = getContractAddresses(chainId).OptionsCore;
-        // Use toLowerCase() to bypass ethers v6 strict checksum validation
+        return rawAddress ? rawAddress.toLowerCase() : '';
+    }, [chainId]);
+
+    /**
+     * 获取 VaultManager 合约地址
+     * @dev 资金操作（创建/报价/接单）需要 approve 给 VaultManager
+     */
+    const getVaultManagerAddress = useCallback(() => {
+        if (!chainId) return '';
+        const rawAddress = getContractAddresses(chainId).VaultManager;
         return rawAddress ? rawAddress.toLowerCase() : '';
     }, [chainId]);
 
@@ -95,11 +104,12 @@ export function useOptions() {
             // 动态获取 USDT 精度 (可能是 6 或 18)
             const decimals = await usdt.decimals();
             const creationFee = parseUnits('1', decimals);
-            const optionsCoreAddr = getOptionsCoreAddress();
-            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            // VaultManager 执行 safeTransferFrom，需要 approve 给 VaultManager
+            const vaultAddr = getVaultManagerAddress();
+            const currentAllowance = await usdt.allowance(account, vaultAddr);
 
             if (currentAllowance < creationFee) {
-                const approveTx = await usdt.approve(optionsCoreAddr, parseUnits('1000000', decimals));
+                const approveTx = await usdt.approve(vaultAddr, parseUnits('1000000', decimals));
                 await approveTx.wait();
             }
 
@@ -155,7 +165,8 @@ export function useOptions() {
             const decimals = await usdt.decimals();
             const creationFee = parseUnits('1', decimals);
             const totalRequired = creationFee + params.marginAmount;
-            const optionsCoreAddr = getOptionsCoreAddress();
+            // VaultManager 执行 safeTransferFrom，approve 给 VaultManager
+            const vaultAddr = getVaultManagerAddress();
 
             // 检查用户 USDT 余额
             const balance = await usdt.balanceOf(account);
@@ -167,12 +178,12 @@ export function useOptions() {
             }
 
             // 检查并设置授权
-            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            const currentAllowance = await usdt.allowance(account, vaultAddr);
             if (currentAllowance < totalRequired) {
-                console.log('Approving USDT...', { currentAllowance: currentAllowance.toString(), needed: totalRequired.toString() });
-                const approveTx = await usdt.approve(optionsCoreAddr, parseUnits('1000000', decimals));
+                console.log('Approving USDT to VaultManager...', { currentAllowance: currentAllowance.toString(), needed: totalRequired.toString() });
+                const approveTx = await usdt.approve(vaultAddr, parseUnits('1000000', decimals));
                 await approveTx.wait();
-                console.log('USDT approved successfully');
+                console.log('USDT approved to VaultManager successfully');
             }
 
             // 调用合约创建卖方订单 (已支持 exerciseDelay 和 feedRule)
@@ -326,12 +337,13 @@ export function useOptions() {
         setLoading(true);
         setError(null);
         try {
-            const optionsCoreAddr = getOptionsCoreAddress();
+            // VaultManager 执行 safeTransferFrom，approve 给 VaultManager
+            const vaultAddr = getVaultManagerAddress();
 
             // Check and approve USDT for premium payment
-            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            const currentAllowance = await usdt.allowance(account, vaultAddr);
             if (currentAllowance < params.premiumAmount) {
-                const approveTx = await usdt.approve(optionsCoreAddr, params.premiumAmount * 10n);
+                const approveTx = await usdt.approve(vaultAddr, params.premiumAmount * 10n);
                 await approveTx.wait();
             }
 
@@ -368,12 +380,13 @@ export function useOptions() {
         try {
             // Calculate margin amount (notional * marginRate / 10000)
             const marginAmount = (params.notionalUSDT * BigInt(params.marginRate)) / 10000n;
-            const optionsCoreAddr = getOptionsCoreAddress();
+            // VaultManager 执行 safeTransferFrom，approve 给 VaultManager
+            const vaultAddr = getVaultManagerAddress();
 
             // Check and approve USDT for margin
-            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            const currentAllowance = await usdt.allowance(account, vaultAddr);
             if (currentAllowance < marginAmount) {
-                const approveTx = await usdt.approve(optionsCoreAddr, marginAmount * 10n); // Approve 10x for future quotes
+                const approveTx = await usdt.approve(vaultAddr, marginAmount * 10n);
                 await approveTx.wait();
             }
 
@@ -438,12 +451,13 @@ export function useOptions() {
             // Calculate trading fee (0.1% of notional)
             const tradingFee = (notionalUSDT * 10n) / 10000n;
             const totalPayment = premiumAmount + tradingFee;
-            const optionsCoreAddr = getOptionsCoreAddress();
+            // VaultManager 执行 safeTransferFrom，approve 给 VaultManager
+            const vaultAddr = getVaultManagerAddress();
 
             // Check and approve USDT for premium + fee
-            const currentAllowance = await usdt.allowance(account, optionsCoreAddr);
+            const currentAllowance = await usdt.allowance(account, vaultAddr);
             if (currentAllowance < totalPayment) {
-                const approveTx = await usdt.approve(optionsCoreAddr, totalPayment * 2n); // Approve 2x for safety
+                const approveTx = await usdt.approve(vaultAddr, totalPayment * 2n);
                 await approveTx.wait();
             }
 

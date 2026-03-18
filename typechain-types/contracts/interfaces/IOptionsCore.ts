@@ -204,6 +204,7 @@ export interface IOptionsCoreInterface extends Interface {
       | "OrderCreated"
       | "OrderMatched"
       | "OrderStatusChanged"
+      | "QuoteMarginRefunded"
       | "QuoteSubmitted"
   ): EventFragment;
 
@@ -466,6 +467,34 @@ export namespace OrderStatusChangedEvent {
     oldStatus: bigint;
     newStatus: bigint;
     reason: string;
+    timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace QuoteMarginRefundedEvent {
+  export type InputTuple = [
+    orderId: BigNumberish,
+    quoteId: BigNumberish,
+    seller: AddressLike,
+    amount: BigNumberish,
+    timestamp: BigNumberish
+  ];
+  export type OutputTuple = [
+    orderId: bigint,
+    quoteId: bigint,
+    seller: string,
+    amount: bigint,
+    timestamp: bigint
+  ];
+  export interface OutputObject {
+    orderId: bigint;
+    quoteId: bigint;
+    seller: string;
+    amount: bigint;
     timestamp: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
@@ -791,6 +820,13 @@ export interface IOptionsCore extends BaseContract {
     OrderStatusChangedEvent.OutputObject
   >;
   getEvent(
+    key: "QuoteMarginRefunded"
+  ): TypedContractEvent<
+    QuoteMarginRefundedEvent.InputTuple,
+    QuoteMarginRefundedEvent.OutputTuple,
+    QuoteMarginRefundedEvent.OutputObject
+  >;
+  getEvent(
     key: "QuoteSubmitted"
   ): TypedContractEvent<
     QuoteSubmittedEvent.InputTuple,
@@ -852,6 +888,17 @@ export interface IOptionsCore extends BaseContract {
       OrderStatusChangedEvent.InputTuple,
       OrderStatusChangedEvent.OutputTuple,
       OrderStatusChangedEvent.OutputObject
+    >;
+
+    "QuoteMarginRefunded(uint256,uint256,address,uint256,uint256)": TypedContractEvent<
+      QuoteMarginRefundedEvent.InputTuple,
+      QuoteMarginRefundedEvent.OutputTuple,
+      QuoteMarginRefundedEvent.OutputObject
+    >;
+    QuoteMarginRefunded: TypedContractEvent<
+      QuoteMarginRefundedEvent.InputTuple,
+      QuoteMarginRefundedEvent.OutputTuple,
+      QuoteMarginRefundedEvent.OutputObject
     >;
 
     "QuoteSubmitted(uint256,uint256,address,uint256,uint256)": TypedContractEvent<

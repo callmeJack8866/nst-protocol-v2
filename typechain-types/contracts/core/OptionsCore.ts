@@ -191,6 +191,7 @@ export interface OptionsCoreInterface extends Interface {
       | "acceptSellerOrder"
       | "buyerOrders"
       | "cancelRFQ"
+      | "cancelRFQDueToTimeout"
       | "config"
       | "createBuyerRFQ"
       | "createSellerOrder"
@@ -228,6 +229,7 @@ export interface OptionsCoreInterface extends Interface {
       | "updateOrderPrice"
       | "updateOrderSettledAt"
       | "updateOrderStatus"
+      | "updateOrderStrikePrice"
       | "usdt"
       | "vaultManager"
   ): FunctionFragment;
@@ -240,6 +242,7 @@ export interface OptionsCoreInterface extends Interface {
       | "OrderMatched"
       | "OrderStatusChanged"
       | "Paused"
+      | "QuoteMarginRefunded"
       | "QuoteSubmitted"
       | "RoleAdminChanged"
       | "RoleGranted"
@@ -273,6 +276,10 @@ export interface OptionsCoreInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "cancelRFQ",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "cancelRFQDueToTimeout",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(functionFragment: "config", values?: undefined): string;
@@ -456,6 +463,10 @@ export interface OptionsCoreInterface extends Interface {
     functionFragment: "updateOrderStatus",
     values: [BigNumberish, BigNumberish]
   ): string;
+  encodeFunctionData(
+    functionFragment: "updateOrderStrikePrice",
+    values: [BigNumberish, BigNumberish]
+  ): string;
   encodeFunctionData(functionFragment: "usdt", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "vaultManager",
@@ -487,6 +498,10 @@ export interface OptionsCoreInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "cancelRFQ", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "cancelRFQDueToTimeout",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "config", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "createBuyerRFQ",
@@ -597,6 +612,10 @@ export interface OptionsCoreInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "updateOrderStatus",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "updateOrderStrikePrice",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "usdt", data: BytesLike): Result;
@@ -751,6 +770,34 @@ export namespace PausedEvent {
   export type OutputTuple = [account: string];
   export interface OutputObject {
     account: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace QuoteMarginRefundedEvent {
+  export type InputTuple = [
+    orderId: BigNumberish,
+    quoteId: BigNumberish,
+    seller: AddressLike,
+    amount: BigNumberish,
+    timestamp: BigNumberish
+  ];
+  export type OutputTuple = [
+    orderId: bigint,
+    quoteId: bigint,
+    seller: string,
+    amount: bigint,
+    timestamp: bigint
+  ];
+  export interface OutputObject {
+    orderId: bigint;
+    quoteId: bigint;
+    seller: string;
+    amount: bigint;
+    timestamp: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -924,6 +971,12 @@ export interface OptionsCore extends BaseContract {
   >;
 
   cancelRFQ: TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
+
+  cancelRFQDueToTimeout: TypedContractMethod<
+    [orderId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
 
   config: TypedContractMethod<[], [string], "view">;
 
@@ -1288,6 +1341,12 @@ export interface OptionsCore extends BaseContract {
     "nonpayable"
   >;
 
+  updateOrderStrikePrice: TypedContractMethod<
+    [orderId: BigNumberish, price: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   usdt: TypedContractMethod<[], [string], "view">;
 
   vaultManager: TypedContractMethod<[], [string], "view">;
@@ -1320,6 +1379,9 @@ export interface OptionsCore extends BaseContract {
   >;
   getFunction(
     nameOrSignature: "cancelRFQ"
+  ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "cancelRFQDueToTimeout"
   ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "config"
@@ -1702,6 +1764,13 @@ export interface OptionsCore extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "updateOrderStrikePrice"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, price: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "usdt"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
@@ -1749,6 +1818,13 @@ export interface OptionsCore extends BaseContract {
     PausedEvent.InputTuple,
     PausedEvent.OutputTuple,
     PausedEvent.OutputObject
+  >;
+  getEvent(
+    key: "QuoteMarginRefunded"
+  ): TypedContractEvent<
+    QuoteMarginRefundedEvent.InputTuple,
+    QuoteMarginRefundedEvent.OutputTuple,
+    QuoteMarginRefundedEvent.OutputObject
   >;
   getEvent(
     key: "QuoteSubmitted"
@@ -1851,6 +1927,17 @@ export interface OptionsCore extends BaseContract {
       PausedEvent.InputTuple,
       PausedEvent.OutputTuple,
       PausedEvent.OutputObject
+    >;
+
+    "QuoteMarginRefunded(uint256,uint256,address,uint256,uint256)": TypedContractEvent<
+      QuoteMarginRefundedEvent.InputTuple,
+      QuoteMarginRefundedEvent.OutputTuple,
+      QuoteMarginRefundedEvent.OutputObject
+    >;
+    QuoteMarginRefunded: TypedContractEvent<
+      QuoteMarginRefundedEvent.InputTuple,
+      QuoteMarginRefundedEvent.OutputTuple,
+      QuoteMarginRefundedEvent.OutputObject
     >;
 
     "QuoteSubmitted(uint256,uint256,address,uint256,uint256)": TypedContractEvent<

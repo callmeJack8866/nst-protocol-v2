@@ -109,8 +109,8 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         require(notionalUSDT > 0, "OptionsCore: notional must be positive");
         require(expiryTimestamp > block.timestamp, "OptionsCore: expiry must be in future");
 
-        // 收取建仓手续费 1U
-        usdt.safeTransferFrom(msg.sender, address(vaultManager), config.creationFee());
+        // 收取建仓手续费 1U（通过 VaultManager 正式入账到利润池）
+        vaultManager.collectFee(msg.sender, address(usdt), config.creationFee(), "creation_fee");
 
         orderId = nextOrderId++;
         Order storage order = orders[orderId];
@@ -174,8 +174,10 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         order.matchedAt = block.timestamp;
 
         uint256 tradingFee = (order.notionalUSDT * config.tradingFeeRate()) / 10000;
-        uint256 totalPayment = quote.premiumAmount + tradingFee;
-        usdt.safeTransferFrom(msg.sender, address(vaultManager), totalPayment);
+        // 权利金存入买方保证金账户（结算时由 transferMargin 划给卖方）
+        vaultManager.depositMargin(msg.sender, address(usdt), quote.premiumAmount);
+        // 交易手续费入利润池
+        vaultManager.collectFee(msg.sender, address(usdt), tradingFee, "trading_fee");
 
         sellerOrders[quote.seller].push(order.orderId);
 
@@ -210,8 +212,10 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         order.matchedAt = block.timestamp;
 
         uint256 tradingFee = (order.notionalUSDT * config.tradingFeeRate()) / 10000;
-        uint256 totalPayment = order.premiumAmount + tradingFee;
-        usdt.safeTransferFrom(msg.sender, address(vaultManager), totalPayment);
+        // 权利金存入买方保证金账户（结算时由 transferMargin 划给卖方）
+        vaultManager.depositMargin(msg.sender, address(usdt), order.premiumAmount);
+        // 交易手续费入利润池
+        vaultManager.collectFee(msg.sender, address(usdt), tradingFee, "trading_fee");
 
         buyerOrders[msg.sender].push(orderId);
         
@@ -259,6 +263,7 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
 
     /**
      * @notice 买方取消未成交的RFQ
+     * @dev QUOTING 状态下需退还所有卖方报价保证金
      */
     function cancelRFQ(uint256 orderId) external override 
         validOrder(orderId) 
@@ -271,11 +276,63 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
             order.status == OrderStatus.RFQ_CREATED || order.status == OrderStatus.QUOTING,
             "OptionsCore: cannot cancel after match"
         );
+
+        // QUOTING 状态下退还所有卖方报价保证金
+        if (order.status == OrderStatus.QUOTING) {
+            _refundAllQuoteMargins(orderId);
+        }
+
         OrderStatus oldStatus = order.status;
         order.status = OrderStatus.CANCELLED;
 
         emit OrderCancelled(orderId, "buyer cancelled", block.timestamp);
         emit OrderStatusChanged(orderId, oldStatus, OrderStatus.CANCELLED, "buyer cancelled", block.timestamp);
+    }
+
+    /**
+     * @notice RFQ 超时未成交自动取消
+     * @dev 超过 rfqValidityPeriod 后任何人可触发
+     */
+    function cancelRFQDueToTimeout(uint256 orderId) external 
+        validOrder(orderId)
+        nonReentrant 
+        whenNotPaused 
+    {
+        Order storage order = orders[orderId];
+        require(
+            order.status == OrderStatus.RFQ_CREATED || order.status == OrderStatus.QUOTING,
+            "OptionsCore: not in RFQ phase"
+        );
+        require(
+            block.timestamp > order.createdAt + config.rfqValidityPeriod(),
+            "OptionsCore: RFQ not expired yet"
+        );
+
+        // 退还所有卖方报价保证金
+        if (order.status == OrderStatus.QUOTING) {
+            _refundAllQuoteMargins(orderId);
+        }
+
+        OrderStatus oldStatus = order.status;
+        order.status = OrderStatus.CANCELLED;
+
+        emit OrderCancelled(orderId, "rfq timeout", block.timestamp);
+        emit OrderStatusChanged(orderId, oldStatus, OrderStatus.CANCELLED, "rfq timeout", block.timestamp);
+    }
+
+    /**
+     * @notice 内部函数：退还订单所有报价的卖方保证金
+     */
+    function _refundAllQuoteMargins(uint256 orderId) internal {
+        Quote[] storage allQuotes = orderQuotes[orderId];
+        for (uint256 i = 0; i < allQuotes.length; i++) {
+            Quote storage q = allQuotes[i];
+            if (q.status == QuoteStatus.Active && q.marginAmount > 0) {
+                q.status = QuoteStatus.Expired;
+                vaultManager.withdrawMargin(q.seller, address(usdt), q.marginAmount);
+                emit QuoteMarginRefunded(orderId, q.quoteId, q.seller, q.marginAmount, block.timestamp);
+            }
+        }
     }
 
     // ==================== 卖方功能 ====================
@@ -305,8 +362,9 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         require(notionalUSDT > 0, "OptionsCore: notional must be positive");
         require(expiryTimestamp > block.timestamp, "OptionsCore: expiry must be in future");
 
-        usdt.safeTransferFrom(msg.sender, address(vaultManager), config.creationFee());
-        usdt.safeTransferFrom(msg.sender, address(vaultManager), marginAmount);
+        // 手续费入利润池，保证金入卖方保证金账户
+        vaultManager.collectFee(msg.sender, address(usdt), config.creationFee(), "creation_fee");
+        vaultManager.depositMargin(msg.sender, address(usdt), marginAmount);
 
         orderId = nextOrderId++;
         Order storage order = orders[orderId];
@@ -339,6 +397,7 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         ordersByCode[underlyingCode].push(orderId);
 
         emit OrderCreated(orderId, msg.sender, false, block.timestamp);
+        emit OrderStatusChanged(orderId, OrderStatus.RFQ_CREATED, OrderStatus.RFQ_CREATED, "seller order created", block.timestamp);
 
         return orderId;
     }
@@ -368,7 +427,8 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         }
         require(marginRate >= order.minMarginRate, "OptionsCore: margin rate too low");
 
-        usdt.safeTransferFrom(msg.sender, address(vaultManager), marginAmount);
+        // 报价保证金入卖方保证金账户
+        vaultManager.depositMargin(msg.sender, address(usdt), marginAmount);
 
         quoteId = nextQuoteId++;
 
@@ -382,7 +442,7 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
             marginRate: marginRate,
             marginAmount: marginAmount,
             createdAt: block.timestamp,
-            expiresAt: block.timestamp + 24 hours,
+            expiresAt: block.timestamp + config.quoteValidityPeriod(),
             status: QuoteStatus.Active,
             liquidationRule: liquidationRule,
             consecutiveDays: consecutiveDays,
@@ -457,6 +517,15 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         orders[orderId].dividendAmount = amount;
     }
 
+    /**
+     * @notice 更新订单行权价（仅 Settlement 合约可调用）
+     */
+    function updateOrderStrikePrice(uint256 orderId, uint256 price) external 
+        validOrder(orderId) onlyRole(SETTLEMENT_ROLE) 
+    {
+        orders[orderId].strikePrice = price;
+    }
+
     // ==================== 查询功能 ====================
 
     function getOrder(uint256 orderId) external view override returns (Order memory) {
@@ -513,6 +582,7 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         Order storage order = orders[orderId];
         require(order.status == OrderStatus.MATCHED, "OptionsCore: order not matched");
         
+        order.strikePrice = initialPrice;  // 首轮喂价确认价 → 正式行权价
         order.lastFeedPrice = initialPrice;
         OrderStatus oldStatus = order.status;
         order.status = OrderStatus.LIVE;
@@ -556,6 +626,7 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
                 order.status == OrderStatus.MATCHED || order.status == OrderStatus.WAITING_INITIAL_FEED,
                 "OptionsCore: not awaiting initial feed"
             );
+            order.strikePrice = finalPrice;  // 首轮喂价确认价 → 正式行权价
             order.lastFeedPrice = finalPrice;
             OrderStatus oldStatus = order.status;
             order.status = OrderStatus.LIVE;

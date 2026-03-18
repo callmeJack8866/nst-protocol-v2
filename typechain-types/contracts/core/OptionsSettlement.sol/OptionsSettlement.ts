@@ -28,6 +28,8 @@ export interface OptionsSettlementInterface extends Interface {
     nameOrSignature:
       | "DEFAULT_ADMIN_ROLE"
       | "addMargin"
+      | "arbitrationInitiator"
+      | "cancelOrderDueFinalFeedTimeout"
       | "cancelOrderDueToFeedTimeout"
       | "config"
       | "earlyExercise"
@@ -79,6 +81,14 @@ export interface OptionsSettlementInterface extends Interface {
   encodeFunctionData(
     functionFragment: "addMargin",
     values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "arbitrationInitiator",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "cancelOrderDueFinalFeedTimeout",
+    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "cancelOrderDueToFeedTimeout",
@@ -171,6 +181,14 @@ export interface OptionsSettlementInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "addMargin", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "arbitrationInitiator",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "cancelOrderDueFinalFeedTimeout",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "cancelOrderDueToFeedTimeout",
     data: BytesLike
@@ -597,6 +615,18 @@ export interface OptionsSettlement extends BaseContract {
     "nonpayable"
   >;
 
+  arbitrationInitiator: TypedContractMethod<
+    [arg0: BigNumberish],
+    [string],
+    "view"
+  >;
+
+  cancelOrderDueFinalFeedTimeout: TypedContractMethod<
+    [orderId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   cancelOrderDueToFeedTimeout: TypedContractMethod<
     [orderId: BigNumberish],
     [void],
@@ -725,6 +755,12 @@ export interface OptionsSettlement extends BaseContract {
     [void],
     "nonpayable"
   >;
+  getFunction(
+    nameOrSignature: "arbitrationInitiator"
+  ): TypedContractMethod<[arg0: BigNumberish], [string], "view">;
+  getFunction(
+    nameOrSignature: "cancelOrderDueFinalFeedTimeout"
+  ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "cancelOrderDueToFeedTimeout"
   ): TypedContractMethod<[orderId: BigNumberish], [void], "nonpayable">;

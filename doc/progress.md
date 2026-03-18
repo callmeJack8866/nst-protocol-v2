@@ -45,6 +45,42 @@
   - **问题**: requestId #2 已超时（30分钟 deadline），需重新创建订单测试完整流程
 - **Next Step**: 重新创建订单并测试完整 NST→FeedEngine→NST 回调链路
 
+## [2026-03-18 23:00]
+- **Status**: Done
+- **Changes**: 修复资金入账主链路（VaultManager 正式记账）
+  - **OptionsCore.sol**: 6 个资金入口全部改为通过 VaultManager 的 `collectFee()`/`depositMargin()` 正式入账
+    - createBuyerRFQ: creationFee → `collectFee()` 入利润池
+    - createSellerOrder: creationFee → `collectFee()`, margin → `depositMargin()` 入卖方账户
+    - submitQuote: margin → `depositMargin()` 入卖方账户
+    - acceptQuote: premium → `depositMargin(buyer)` 入买方账户, tradingFee → `collectFee()` 入利润池
+    - acceptSellerOrder: 同 acceptQuote
+  - **useContracts.ts**: 所有 USDT approve 目标从 OptionsCore → VaultManager（6 处）
+  - **OptionsCore.test.ts**: approve 目标更新 + VAULT_OPERATOR_ROLE 授权 + 16 处参数签名修复
+  - 测试结果: 15/17 通过（2 failures 为历史遗留：addMargin/settle 已迁移到 OptionsSettlement）
+- **Next Step**: 部署合约到 BSC Testnet 验证端到端流程
+
+## [2026-03-18 23:20]
+- **Status**: Done
+- **Changes**: 修复结算出金链路（真实 USDT 到账）
+  - **VaultManager.sol**: 新增 `penaltyToTreasury()` — 从用户保证金余额扣违约金到利润池
+  - **OptionsSettlement.sol**: 修复 5 个资金出口
+    - `settle()`: 买方 payout 增加 `withdrawMargin` 真实转账
+    - `addMargin()`: 改为 `vaultManager.depositMargin()` 正式入账
+    - `forceLiquidate()`: 补充资金操作，保证金全赔买方并真实转账
+    - `cancelOrderDueToFeedTimeout()`: 用 `withdrawMargin`/`penaltyToTreasury` 替代旧的 refund 函数
+    - `forceLiquidateMarginCall()`: 用 `transferMargin+withdrawMargin` 替代 `refundPremium`
+  - 测试结果: 20/24 通过（4 failures 为历史遗留测试引用旧接口）
+- **Next Step**: 部署合约到 BSC Testnet 验证端到端流程
+
+## [2026-03-18 23:25]
+- **Status**: Done
+- **Changes**: 修复首轮喂价与 strikePrice 的关系
+  - `order.strikePrice` 字段已存在但从未写入（始终为 0），结算用 `_parsePrice(refPrice)` 顶替
+  - **OptionsCore.sol**: 两个首轮喂价回调写入 `order.strikePrice`，新增 `updateOrderStrikePrice()` setter
+  - **OptionsSettlement.sol**: `settle()` 用 `order.strikePrice` 替代 `_parsePrice(order.refPrice)`
+  - 测试: 20/24 通过，无新回归
+- **Next Step**: 部署全部修改到 BSC Testnet
+
 ## [2026-03-08 19:35]
 - **Status**: Done
 - **Changes**: 修复 FeedEngine 订单显示为 NVDA 而非谷歌/烦颂颂

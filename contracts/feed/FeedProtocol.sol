@@ -31,7 +31,7 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
     // OptionsCore 引用（用于自动回调）
     IOptionsCore public optionsCore;
     
-    // FeederSelector for VRF random selection
+    // [P2预留] FeederSelector (Chainlink VRF V2.5) 链上随机选择，MVP 阶段由链下 FeedEngine 服务分配
     address public feederSelector;
 
     uint256 public nextRequestId = 1;
@@ -130,32 +130,31 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
     }
 
     function _initTierConfigs() internal {
-        // 使用 6 位小数精度匹配 USDT (1e6 = 1 USDT)
-        // 5-3档：3U (测试模式: 1人即可完成)
+        // 5-3档：5个喂价员，取3个有效中位数
         tierConfigs[FeedTier.Tier_5_3] = FeedTierConfig({
-            totalFeeders: 1,       // 测试模式: 1人即可完成
-            effectiveFeeds: 1,     // 测试模式: 1人即可完成
-            platformFee: 0.3e6,     // 10% = 0.3U
-            feederReward: 2.7e6,    // 90% = 2.7U
-            totalFee: 3e6
+            totalFeeders: 5,
+            effectiveFeeds: 3,
+            platformFee: 0.3 ether,     // 10% = 0.3U
+            feederReward: 2.7 ether,    // 90% = 2.7U
+            totalFee: 3 ether
         });
 
         // 7-5档：5U
         tierConfigs[FeedTier.Tier_7_5] = FeedTierConfig({
             totalFeeders: 7,
             effectiveFeeds: 5,
-            platformFee: 0.5e6,
-            feederReward: 4.5e6,
-            totalFee: 5e6
+            platformFee: 0.5 ether,
+            feederReward: 4.5 ether,
+            totalFee: 5 ether
         });
 
         // 10-7档：8U
         tierConfigs[FeedTier.Tier_10_7] = FeedTierConfig({
             totalFeeders: 10,
             effectiveFeeds: 7,
-            platformFee: 0.8e6,
-            feederReward: 7.2e6,
-            totalFee: 8e6
+            platformFee: 0.8 ether,
+            feederReward: 7.2 ether,
+            totalFee: 8 ether
         });
     }
 
@@ -293,7 +292,7 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
             orderId: orderId,
             feedType: feedType,
             tier: tier,
-            deadline: block.timestamp + 30 minutes,  // 30分钟超时
+            deadline: block.timestamp + _getFeedDeadline(feedType),
             createdAt: block.timestamp,
             totalFeeders: tierConfig.totalFeeders,
             submittedCount: 0,
@@ -303,8 +302,8 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
 
         orderFeedRequests[orderId].push(requestId);
 
-        // 注意：实际的喂价员选择需要 VRF 随机数
-        // 这里简化处理，事件触发后由链下服务分配
+        // [架构说明] 喂价员分配由链下 FeedEngine 服务完成（MVP 阶段）
+        // FeederSelector(Chainlink VRF V2.5) 随机选择为 P2 阶段预留模块
 
         emit FeedRequested(
             requestId,
@@ -347,7 +346,7 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
             orderId: orderId,
             feedType: feedType,
             tier: tier,
-            deadline: block.timestamp + 30 minutes,
+            deadline: block.timestamp + _getFeedDeadline(feedType),
             createdAt: block.timestamp,
             totalFeeders: tierConfig.totalFeeders,
             submittedCount: 0,
@@ -602,7 +601,7 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
         return nextRequestId - 1;
     }
 
-    // ==================== VRF 集成功能 ====================
+    // ==================== VRF 集成功能 (P2 预留) ====================
 
     /**
      * @notice 获取活跃喂价员列表（供 FeederSelector 使用）
@@ -767,6 +766,17 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
         feeders[feeder].isBlacklisted = true;
         feeders[feeder].isActive = false;
         emit FeederBlacklisted(feeder, reason, block.timestamp);
+    }
+
+    /**
+     * @notice 根据喂价类型获取对应的超时时限
+     * @dev Initial → config.initialFeedDeadline, Final/Dynamic/Arbitration → config.closingFeedDeadline
+     */
+    function _getFeedDeadline(FeedType feedType) internal view returns (uint256) {
+        if (feedType == FeedType.Initial) {
+            return config.initialFeedDeadline();
+        }
+        return config.closingFeedDeadline();
     }
 
     function setConfig(address _config) external onlyRole(DEFAULT_ADMIN_ROLE) {

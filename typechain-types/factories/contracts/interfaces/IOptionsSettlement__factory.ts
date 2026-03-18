@@ -325,6 +325,19 @@ const _abi = [
         type: "uint256",
       },
     ],
+    name: "cancelOrderDueFinalFeedTimeout",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "orderId",
+        type: "uint256",
+      },
+    ],
     name: "cancelOrderDueToFeedTimeout",
     outputs: [],
     stateMutability: "nonpayable",

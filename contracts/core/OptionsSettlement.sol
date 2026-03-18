@@ -26,6 +26,7 @@ interface IOptionsCoreForSettlement {
     function updateOrderSettledAt(uint256 orderId, uint256 timestamp) external;
     function updateOrderMarginCallDeadline(uint256 orderId, uint256 deadline) external;
     function updateOrderDividend(uint256 orderId, uint256 amount) external;
+    function updateOrderStrikePrice(uint256 orderId, uint256 price) external;
 }
 
 /**
@@ -95,8 +96,8 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
         require(msg.sender == order.buyer, "Settlement: not buyer");
         require(order.status == OrderStatus.LIVE, "Settlement: order not live");
 
-        // 检查 T+X 条件
-        uint256 requiredDelay = uint256(order.exerciseDelay) * 1 seconds;
+        // 检查 T+X 条件（exerciseDelay 存储天数，如 1 = T+1，需转换为秒）
+        uint256 requiredDelay = uint256(order.exerciseDelay) * 1 days;
         require(
             block.timestamp >= order.matchedAt + requiredDelay,
             "Settlement: exercise delay not met"
@@ -118,8 +119,9 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
         require(order.status == OrderStatus.PENDING_SETTLEMENT, "Settlement: not pending settlement");
         require(order.lastFeedPrice > 0, "Settlement: no feed price");
 
-        // 计算盈亏 (支持分红调整)
-        uint256 strikePrice = _parsePrice(order.refPrice);
+        // 使用首轮喂价确认的正式行权价（不再用 refPrice 字符串解析）
+        require(order.strikePrice > 0, "Settlement: strike price not set (initial feed required)");
+        uint256 strikePrice = order.strikePrice;
         
         if (order.dividendAdjustment && order.dividendAmount > 0) {
             if (order.dividendAmount < strikePrice) {
@@ -155,13 +157,16 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
             sellerPayout = order.currentMargin;
         }
 
-        // 划转资金
+        // 划转资金（真实 USDT 转账）
         if (buyerPayout > 0) {
+            // 从卖方内部余额转给买方，然后提现给买方钱包
             vaultManager.transferMargin(
                 order.seller, order.buyer, address(usdt), buyerPayout, "settlement payout"
             );
+            vaultManager.withdrawMargin(order.buyer, address(usdt), buyerPayout);
         }
         if (sellerPayout > 0) {
+            // 卖方剩余保证金直接提现到卖方钱包
             vaultManager.withdrawMargin(order.seller, address(usdt), sellerPayout);
         }
 
@@ -185,10 +190,20 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
         require(order.status == OrderStatus.LIVE, "Settlement: order not live");
 
         uint256 oldMargin = order.currentMargin;
-        usdt.safeTransferFrom(msg.sender, address(vaultManager), amount);
-        optionsCore.updateOrderMargin(orderId, order.currentMargin + amount);
+        uint256 newMargin = order.currentMargin + amount;
+        // 通过 VaultManager 正式入账（卖方保证金账户）
+        vaultManager.depositMargin(msg.sender, address(usdt), amount);
+        optionsCore.updateOrderMargin(orderId, newMargin);
 
-        emit MarginChanged(orderId, msg.sender, oldMargin, order.currentMargin + amount, "add", block.timestamp);
+        // 追保成功后，如果保证金已恢复到最低要求以上，自动清除追保状态
+        if (order.marginCallDeadline > 0) {
+            uint256 minRequired = (order.initialMargin * order.minMarginRate) / 10000;
+            if (newMargin >= minRequired) {
+                optionsCore.updateOrderMarginCallDeadline(orderId, 0);
+            }
+        }
+
+        emit MarginChanged(orderId, msg.sender, oldMargin, newMargin, "add", block.timestamp);
     }
 
     /**
@@ -226,8 +241,12 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
 
     // ==================== 仲裁 ====================
 
+    // 记录仲裁发起人（买方或卖方）
+    mapping(uint256 => address) public arbitrationInitiator;
+
     /**
      * @notice 发起仲裁
+     * @dev 买方或卖方均可发起，需支付仲裁费
      */
     function initiateArbitration(uint256 orderId) external payable override nonReentrant whenNotPaused {
         Order memory order = optionsCore.getOrder(orderId);
@@ -235,7 +254,11 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
         require(msg.sender == order.buyer || msg.sender == order.seller, "Settlement: not party to order");
         require(block.timestamp <= order.settledAt + order.arbitrationWindow, "Settlement: arbitration window closed");
 
-        usdt.safeTransferFrom(msg.sender, address(vaultManager), config.arbitrationFee());
+        // 仲裁费走 VaultManager 正式记账
+        vaultManager.collectFee(msg.sender, address(usdt), config.arbitrationFee(), "arbitration_fee");
+
+        // 记录仲裁发起人
+        arbitrationInitiator[orderId] = msg.sender;
 
         OrderStatus oldStatus = order.status;
         optionsCore.updateOrderStatus(orderId, OrderStatus.ARBITRATION);
@@ -245,6 +268,7 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
 
     /**
      * @notice 解决仲裁 (§15.4)
+     * @dev 如果仲裁价格与原价不同，必须用新价格重新结算资金分配
      */
     function resolveArbitration(
         uint256 orderId,
@@ -257,16 +281,23 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
         require(arbitrators.length > 0, "Settlement: no arbitrators");
 
         uint256 originalPrice = order.lastFeedPrice;
-        address initiator = order.buyer;
+        address initiator = arbitrationInitiator[orderId];
+        if (initiator == address(0)) initiator = order.buyer; // 向后兼容
         bool resultChanged = (arbitrationPrice != originalPrice);
         
+        // 仲裁成功奖励发起人（价格改变时）
         uint256 initiatorReward = 0;
         if (resultChanged) {
             initiatorReward = 11 * 1e18;
             vaultManager.transferReward(initiator, initiatorReward);
-        }
 
-        optionsCore.updateOrderPrice(orderId, arbitrationPrice);
+            // 用仲裁价格重新结算
+            optionsCore.updateOrderPrice(orderId, arbitrationPrice);
+            _settleWithPrice(orderId, order, arbitrationPrice);
+        } else {
+            // 价格未改变，维持原结算
+            optionsCore.updateOrderPrice(orderId, arbitrationPrice);
+        }
         
         OrderStatus oldStatus = order.status;
         optionsCore.updateOrderStatus(orderId, OrderStatus.SETTLED);
@@ -282,20 +313,90 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
         emit OrderStatusChanged(orderId, oldStatus, OrderStatus.SETTLED, "arbitration resolved", block.timestamp);
     }
 
+    /**
+     * @notice 内部函数：用指定价格重新结算（仲裁用）
+     * @dev 重新计算买卖双方 payout 并转账
+     */
+    function _settleWithPrice(uint256 orderId, Order memory order, uint256 finalPrice) internal {
+        require(order.strikePrice > 0, "Settlement: strike price not set");
+        uint256 strikePrice = order.strikePrice;
+
+        // 分红调整
+        if (order.dividendAdjustment && order.dividendAmount > 0) {
+            if (order.dividendAmount < strikePrice) {
+                strikePrice = strikePrice - order.dividendAmount;
+            } else {
+                strikePrice = 0;
+            }
+        }
+
+        // 计算盈亏
+        uint256 buyerProfit = 0;
+        if (order.direction == Direction.Call) {
+            if (finalPrice > strikePrice && strikePrice > 0) {
+                buyerProfit = (finalPrice - strikePrice) * order.notionalUSDT / strikePrice;
+            }
+        } else {
+            if (strikePrice > finalPrice && strikePrice > 0) {
+                buyerProfit = (strikePrice - finalPrice) * order.notionalUSDT / strikePrice;
+            }
+        }
+
+        // 分配
+        uint256 buyerPayout = buyerProfit > order.currentMargin ? order.currentMargin : buyerProfit;
+        uint256 sellerPayout = order.currentMargin - buyerPayout;
+
+        // 转账
+        if (buyerPayout > 0) {
+            vaultManager.transferMargin(
+                order.seller, order.buyer, address(usdt), buyerPayout, "arbitration settlement"
+            );
+            vaultManager.withdrawMargin(order.buyer, address(usdt), buyerPayout);
+        }
+        if (sellerPayout > 0) {
+            vaultManager.withdrawMargin(order.seller, address(usdt), sellerPayout);
+        }
+        optionsCore.updateOrderMargin(orderId, 0);
+
+        emit OrderSettled(orderId, buyerPayout, sellerPayout, block.timestamp);
+    }
+
     // ==================== 清算 ====================
 
     /**
-     * @notice 强制清算（保证金不足）
+     * @notice 强制清算（连续涨停/单日暴涨触发）
+     * @dev 仅 ADMIN 可触发，需满足订单的 liquidationRule 条件
      */
     function forceLiquidate(uint256 orderId) external override nonReentrant whenNotPaused {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Settlement: not authorized");
         Order memory order = optionsCore.getOrder(orderId);
         require(order.status == OrderStatus.LIVE, "Settlement: order not live");
+        // 强平规则校验：必须有设定强平条件
+        require(
+            order.liquidationRule != LiquidationRule.NoLiquidation,
+            "Settlement: no liquidation rule set"
+        );
 
         OrderStatus oldStatus = order.status;
         optionsCore.updateOrderStatus(orderId, OrderStatus.LIQUIDATED);
         optionsCore.updateOrderSettledAt(orderId, block.timestamp);
 
-        emit OrderLiquidated(orderId, order.buyer, order.currentMargin, block.timestamp);
+        // 清算时保证金全部赔付买方（真实 USDT 转账）
+        uint256 payout = order.currentMargin;
+        if (payout > 0) {
+            vaultManager.transferMargin(
+                order.seller, order.buyer, address(usdt), payout, "liquidation payout"
+            );
+            vaultManager.withdrawMargin(order.buyer, address(usdt), payout);
+        }
+        optionsCore.updateOrderMargin(orderId, 0);
+
+        // 清除追保状态（如有）
+        if (order.marginCallDeadline > 0) {
+            optionsCore.updateOrderMarginCallDeadline(orderId, 0);
+        }
+
+        emit OrderLiquidated(orderId, order.buyer, payout, block.timestamp);
         emit OrderStatusChanged(orderId, oldStatus, OrderStatus.LIQUIDATED, "force liquidated", block.timestamp);
     }
 
@@ -322,18 +423,58 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
         uint256 penaltyAmount = (order.currentMargin * penaltyRate) / 10000;
         uint256 sellerRefund = order.currentMargin - penaltyAmount;
 
-        vaultManager.refundPremium(order.buyer, order.premiumAmount);
-        if (sellerRefund > 0) {
-            vaultManager.refundMargin(order.seller, sellerRefund);
-        }
+        // 退还权利金给买方（从买方内部余额提现）
+        vaultManager.withdrawMargin(order.buyer, address(usdt), order.premiumAmount);
+        // 违约金从卖方余额转入利润池
         if (penaltyAmount > 0) {
-            vaultManager.transferToTreasury(penaltyAmount);
+            vaultManager.penaltyToTreasury(order.seller, address(usdt), penaltyAmount);
+        }
+        // 卖方剩余保证金提现
+        if (sellerRefund > 0) {
+            vaultManager.withdrawMargin(order.seller, address(usdt), sellerRefund);
         }
         optionsCore.updateOrderMargin(orderId, 0);
 
         emit OrderCancelled(orderId, "initial feed timeout", block.timestamp);
         emit OrderStatusChanged(orderId, oldStatus, OrderStatus.CANCELLED, "initial feed timeout", block.timestamp);
         emit MarginChanged(orderId, order.seller, order.currentMargin, 0, "penalty_deducted", block.timestamp);
+    }
+
+    /**
+     * @notice 终轮喂价超时取消订单
+     * @dev 终轮喂价超时后双方均无过错：买方权利金退还，卖方保证金全额退还
+     *      违约金由喂价员承担（在 FeedProtocol 中扣质押），不扣卖方保证金
+     */
+    function cancelOrderDueFinalFeedTimeout(uint256 orderId) external nonReentrant whenNotPaused {
+        Order memory order = optionsCore.getOrder(orderId);
+        require(
+            order.status == OrderStatus.LIVE || order.status == OrderStatus.WAITING_FINAL_FEED,
+            "Settlement: order not awaiting final feed"
+        );
+        require(order.expiryTimestamp > 0, "Settlement: no expiry set");
+        require(
+            block.timestamp > order.expiryTimestamp + config.closingFeedDeadline(),
+            "Settlement: final feed deadline not reached"
+        );
+
+        OrderStatus oldStatus = order.status;
+        optionsCore.updateOrderStatus(orderId, OrderStatus.CANCELLED);
+        optionsCore.updateOrderSettledAt(orderId, block.timestamp);
+
+        // 终轮喂价超时，双方无过错，全额退还
+        // 退还买方权利金
+        if (order.premiumAmount > 0) {
+            vaultManager.withdrawMargin(order.buyer, address(usdt), order.premiumAmount);
+        }
+        // 退还卖方全部保证金（无违约金）
+        if (order.currentMargin > 0) {
+            vaultManager.withdrawMargin(order.seller, address(usdt), order.currentMargin);
+        }
+        optionsCore.updateOrderMargin(orderId, 0);
+
+        emit OrderCancelled(orderId, "final feed timeout", block.timestamp);
+        emit OrderStatusChanged(orderId, oldStatus, OrderStatus.CANCELLED, "final feed timeout", block.timestamp);
+        emit MarginChanged(orderId, order.seller, order.currentMargin, 0, "final_feed_timeout_refund", block.timestamp);
     }
 
     /**
@@ -371,7 +512,11 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
 
         uint256 buyerPayout = order.currentMargin;
         if (buyerPayout > 0) {
-            vaultManager.refundPremium(order.buyer, buyerPayout);
+            // 从卖方余额转给买方，然后提现给买方钱包
+            vaultManager.transferMargin(
+                order.seller, order.buyer, address(usdt), buyerPayout, "margin call liquidation"
+            );
+            vaultManager.withdrawMargin(order.buyer, address(usdt), buyerPayout);
         }
         optionsCore.updateOrderMargin(orderId, 0);
         optionsCore.updateOrderMarginCallDeadline(orderId, 0);

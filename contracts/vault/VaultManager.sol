@@ -237,6 +237,28 @@ contract VaultManager is AccessControl, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @notice 从用户保证金余额中扣除违约金到利润池
+     * @param _user 被扣款用户
+     * @param _token 代币地址
+     * @param _amount 违约金金额
+     * @dev 用于超时取消等违约场景，从用户余额扣减并转入利润池
+     */
+    function penaltyToTreasury(
+        address _user,
+        address _token,
+        uint256 _amount
+    ) external onlyOperator nonReentrant whenNotPaused {
+        require(_amount > 0, "VaultManager: amount must be greater than 0");
+        require(userMarginBalance[_user][_token] >= _amount, "VaultManager: insufficient user balance");
+
+        userMarginBalance[_user][_token] -= _amount;
+        marginPoolBalance[_token] -= _amount;
+        profitPoolBalance[_token] += _amount;
+
+        emit FeeCollected(_token, _amount, "penalty", block.timestamp);
+    }
+
+    /**
      * @notice 分配利润到各池子
      * @param _token 代币地址
      * @param _amount 总金额

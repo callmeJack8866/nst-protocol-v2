@@ -141,6 +141,7 @@ export interface IOptionsCoreForSettlementInterface extends Interface {
       | "updateOrderPrice"
       | "updateOrderSettledAt"
       | "updateOrderStatus"
+      | "updateOrderStrikePrice"
   ): FunctionFragment;
 
   encodeFunctionData(
@@ -175,6 +176,10 @@ export interface IOptionsCoreForSettlementInterface extends Interface {
     functionFragment: "updateOrderStatus",
     values: [BigNumberish, BigNumberish]
   ): string;
+  encodeFunctionData(
+    functionFragment: "updateOrderStrikePrice",
+    values: [BigNumberish, BigNumberish]
+  ): string;
 
   decodeFunctionResult(functionFragment: "getOrder", data: BytesLike): Result;
   decodeFunctionResult(
@@ -203,6 +208,10 @@ export interface IOptionsCoreForSettlementInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "updateOrderStatus",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "updateOrderStrikePrice",
     data: BytesLike
   ): Result;
 }
@@ -294,6 +303,12 @@ export interface IOptionsCoreForSettlement extends BaseContract {
     "nonpayable"
   >;
 
+  updateOrderStrikePrice: TypedContractMethod<
+    [orderId: BigNumberish, price: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
   ): T;
@@ -343,6 +358,13 @@ export interface IOptionsCoreForSettlement extends BaseContract {
     nameOrSignature: "updateOrderStatus"
   ): TypedContractMethod<
     [orderId: BigNumberish, newStatus: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "updateOrderStrikePrice"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, price: BigNumberish],
     [void],
     "nonpayable"
   >;

@@ -59,6 +59,15 @@ interface IOptionsCore {
         uint256 timestamp
     );
 
+    /// @notice 报价保证金退还事件
+    event QuoteMarginRefunded(
+        uint256 indexed orderId,
+        uint256 indexed quoteId,
+        address indexed seller,
+        uint256 amount,
+        uint256 timestamp
+    );
+
     // ==================== 买方功能 ====================
 
     function createBuyerRFQ(

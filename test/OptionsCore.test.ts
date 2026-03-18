@@ -42,9 +42,13 @@ describe("OptionsCore", function () {
         );
         await optionsCore.waitForDeployment();
 
-        // Approve USDT for OptionsCore
-        await usdt.connect(buyer).approve(await optionsCore.getAddress(), mintAmount);
-        await usdt.connect(seller).approve(await optionsCore.getAddress(), mintAmount);
+        // Approve USDT for VaultManager (VaultManager now executes safeTransferFrom)
+        await usdt.connect(buyer).approve(await vaultManager.getAddress(), mintAmount);
+        await usdt.connect(seller).approve(await vaultManager.getAddress(), mintAmount);
+
+        // Grant VAULT_OPERATOR_ROLE to OptionsCore so it can call depositMargin/collectFee
+        const VAULT_OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("VAULT_OPERATOR_ROLE"));
+        await vaultManager.connect(admin).grantRole(VAULT_OPERATOR_ROLE, await optionsCore.getAddress());
 
         return { optionsCore, config, vaultManager, usdt, owner, buyer, seller, feeder, admin };
     }
@@ -89,7 +93,11 @@ describe("OptionsCore", function () {
                 ethers.ZeroAddress,       // designatedSeller
                 86400,                    // arbitrationWindow (24h)
                 7200,                     // marginCallDeadline (2h)
-                false                     // dividendAdjustment
+                false,                    // dividendAdjustment
+                0,                        // liquidationRule: NoLiquidation
+                0,                        // consecutiveDays
+                0,                        // dailyLimitPercent
+                0                         // feedRule: Normal
             );
 
             await expect(tx).to.emit(optionsCore, "OrderCreated");
@@ -109,7 +117,8 @@ describe("OptionsCore", function () {
             await optionsCore.connect(buyer).createBuyerRFQ(
                 "黄金", "XAU", "CN", "CN", "2000.00", 0,
                 ethers.parseUnits("10000", 18), expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             expect(await optionsCore.nextOrderId()).to.equal(2);
@@ -124,7 +133,8 @@ describe("OptionsCore", function () {
                 optionsCore.connect(buyer).createBuyerRFQ(
                     "黄金", "XAU", "CN", "CN", "2000.00", 0,
                     0, expiryTimestamp,  // notionalUSDT = 0
-                    800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                    800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
                 )
             ).to.be.revertedWith("OptionsCore: notional must be positive");
         });
@@ -138,7 +148,8 @@ describe("OptionsCore", function () {
                 optionsCore.connect(buyer).createBuyerRFQ(
                     "黄金", "XAU", "CN", "CN", "2000.00", 0,
                     ethers.parseUnits("10000", 18), pastTimestamp,
-                    800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                    800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
                 )
             ).to.be.revertedWith("OptionsCore: expiry must be in future");
         });
@@ -151,7 +162,8 @@ describe("OptionsCore", function () {
             await optionsCore.connect(buyer).createBuyerRFQ(
                 "黄金", "XAU", "CN", "CN", "2000.00", 0,
                 ethers.parseUnits("10000", 18), expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             const buyerOrders = await optionsCore.getBuyerOrders(buyer.address);
@@ -181,7 +193,9 @@ describe("OptionsCore", function () {
                 0,                        // consecutiveDays
                 0,                        // dailyLimitPercent
                 86400,                    // arbitrationWindow
-                false                     // dividendAdjustment
+                false,                    // dividendAdjustment
+                1,                        // exerciseDelay: T+1
+                0                         // feedRule: Normal
             );
 
             await expect(tx).to.emit(optionsCore, "OrderCreated");
@@ -200,7 +214,7 @@ describe("OptionsCore", function () {
             await optionsCore.connect(seller).createSellerOrder(
                 "AAPL", "AAPL", "US", "US", "170.00", 1,
                 ethers.parseUnits("50000", 18), expiryTimestamp,
-                700, ethers.parseUnits("5000", 18), 0, 0, 0, 86400, false
+                700, ethers.parseUnits("5000", 18), 0, 0, 0, 86400, false, 1, 0
             );
 
             const sellerOrders = await optionsCore.getSellerOrders(seller.address);
@@ -218,7 +232,8 @@ describe("OptionsCore", function () {
             await optionsCore.connect(buyer).createBuyerRFQ(
                 "黄金", "XAU", "CN", "CN", "2000.00", 0,
                 ethers.parseUnits("10000", 18), expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             // Submit quote
@@ -249,7 +264,8 @@ describe("OptionsCore", function () {
             await optionsCore.connect(buyer).createBuyerRFQ(
                 "黄金", "XAU", "CN", "CN", "2000.00", 0,
                 ethers.parseUnits("10000", 18), expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             await optionsCore.connect(seller).submitQuote(
@@ -272,7 +288,8 @@ describe("OptionsCore", function () {
             await optionsCore.connect(buyer).createBuyerRFQ(
                 "黄金", "XAU", "CN", "CN", "2000.00", 0,
                 ethers.parseUnits("10000", 18), expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             // Seller submits quote
@@ -300,7 +317,8 @@ describe("OptionsCore", function () {
             await optionsCore.connect(buyer).createBuyerRFQ(
                 "黄金", "XAU", "CN", "CN", "2000.00", 0,
                 ethers.parseUnits("10000", 18), expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             const tx = await optionsCore.connect(buyer).cancelRFQ(1);
@@ -319,7 +337,8 @@ describe("OptionsCore", function () {
             await optionsCore.connect(buyer).createBuyerRFQ(
                 "黄金", "XAU", "CN", "CN", "2000.00", 0,
                 ethers.parseUnits("10000", 18), expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             await expect(
@@ -338,7 +357,8 @@ describe("OptionsCore", function () {
             await optionsCore.connect(buyer).createBuyerRFQ(
                 "黄金", "XAU", "CN", "CN", "2000.00", 0,
                 ethers.parseUnits("10000", 18), expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             await optionsCore.connect(seller).submitQuote(
@@ -375,7 +395,8 @@ describe("OptionsCore", function () {
                 direction,
                 ethers.parseUnits("10000", 18),
                 expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             // Seller submits quote
@@ -444,7 +465,8 @@ describe("OptionsCore", function () {
                 1, // Put direction
                 ethers.parseUnits("10000", 18),
                 expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             const order = await optionsCore.getOrder(1);
@@ -487,7 +509,8 @@ describe("OptionsCore", function () {
             await optionsCore.connect(buyer).createBuyerRFQ(
                 "Gold", "XAU", "CN", "CN", "2000.00",
                 0, ethers.parseUnits("10000", 18), expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             await optionsCore.connect(seller).submitQuote(1, 700, 1500, 0, 0, 0);
@@ -508,7 +531,8 @@ describe("OptionsCore", function () {
             await optionsCore.connect(buyer).createBuyerRFQ(
                 "Gold", "XAU", "CN", "CN", "2000.00",
                 0, ethers.parseUnits("10000", 18), expiryTimestamp,
-                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false
+                800, 1000, 0, ethers.ZeroAddress, 86400, 7200, false,
+                0, 0, 0, 0
             );
 
             // Order is in RFQ_OPEN status, not LIVE
