@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { WalletProvider } from './context/WalletContext';
@@ -18,6 +18,7 @@ import { SeatManagement } from './pages/SeatManagement';
 import SubmitQuotePage from './pages/SubmitQuotePage';
 import { UserProfile } from './pages/UserProfile';
 import { SellerHall } from './pages/SellerHall';
+import { BuyerHall } from './pages/BuyerHall';
 import { ToastProvider } from './components/Toast';
 
 function App() {
@@ -63,6 +64,7 @@ function App() {
                       <Route path="/quote/:orderId" element={<SubmitQuotePage />} />
                       <Route path="/profile" element={<UserProfile />} />
                       <Route path="/seller-hall" element={<SellerHall />} />
+                      <Route path="/buyer-hall" element={<BuyerHall />} />
                     </Routes>
                   </div>
 

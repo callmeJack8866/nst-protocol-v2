@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../libraries/NSTTypes.sol";
 import "../core/Config.sol";
+import "../interfaces/IOptionsCore.sol";
 
 /**
  * @title VolumeBasedFeed
@@ -72,6 +73,7 @@ contract VolumeBasedFeed is AccessControl, ReentrancyGuard, Pausable {
     // ==================== 状态变量 ====================
     Config public config;
     IERC20 public usdt;
+    IOptionsCore public optionsCore;
 
     uint256 public nextRequestId = 1;
 
@@ -95,6 +97,19 @@ contract VolumeBasedFeed is AccessControl, ReentrancyGuard, Pausable {
         string priceEvidence,
         FeedType feedType,
         uint256 timestamp
+    );
+
+    /// @notice OptionsCore 回调失败
+    event CallbackFailed(
+        uint256 indexed requestId,
+        uint256 indexed orderId,
+        string reason
+    );
+
+    /// @notice OptionsCore 地址更新
+    event OptionsCoreUpdated(
+        address indexed oldAddress,
+        address indexed newAddress
     );
 
     /// @notice 喂价员验证通过
@@ -258,6 +273,9 @@ contract VolumeBasedFeed is AccessControl, ReentrancyGuard, Pausable {
         request.status = VolumeBasedFeedStatus.Approved;
 
         emit PriceApproved(requestId, msg.sender, request.finalPrice, block.timestamp);
+
+        // 自动回调 OptionsCore
+        _callbackOptionsCore(request);
     }
 
     /**
@@ -299,6 +317,9 @@ contract VolumeBasedFeed is AccessControl, ReentrancyGuard, Pausable {
             reason,
             block.timestamp
         );
+
+        // 自动回调 OptionsCore
+        _callbackOptionsCore(request);
     }
 
     /**
@@ -417,7 +438,44 @@ contract VolumeBasedFeed is AccessControl, ReentrancyGuard, Pausable {
         return "Other reason";
     }
 
+    // ==================== 内部函数 ====================
+
+    /**
+     * @dev 回调 OptionsCore，将确认的价格写入订单
+     *      先 onFeedRequested 同步状态，再 processFeedCallback 写价格
+     */
+    function _callbackOptionsCore(VolumeBasedFeedRequest storage request) internal {
+        if (address(optionsCore) == address(0)) return;
+
+        // ① 同步订单状态（MATCHED → WAITING_INITIAL_FEED 等）
+        try optionsCore.onFeedRequested(request.orderId, request.feedType) {
+        } catch {}
+
+        // ② 写入最终价格并推进状态（WAITING_INITIAL_FEED → LIVE 等）
+        try optionsCore.processFeedCallback(
+            request.orderId,
+            request.feedType,
+            request.finalPrice
+        ) {
+            request.status = VolumeBasedFeedStatus.Finalized;
+        } catch Error(string memory reason) {
+            emit CallbackFailed(request.requestId, request.orderId, reason);
+        } catch {
+            emit CallbackFailed(request.requestId, request.orderId, "unknown error");
+        }
+    }
+
     // ==================== 管理功能 ====================
+
+    /**
+     * @notice 设置 OptionsCore 合约地址
+     * @dev VolumeBasedFeed 需要 FEED_PROTOCOL_ROLE 权限才能回调
+     */
+    function setOptionsCore(address _optionsCore) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address old = address(optionsCore);
+        optionsCore = IOptionsCore(_optionsCore);
+        emit OptionsCoreUpdated(old, _optionsCore);
+    }
 
     /**
      * @notice 设置验证超时时间

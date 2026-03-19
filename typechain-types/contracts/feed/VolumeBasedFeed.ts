@@ -101,6 +101,7 @@ export interface VolumeBasedFeedInterface extends Interface {
       | "markExpired"
       | "modifyPrice"
       | "nextRequestId"
+      | "optionsCore"
       | "orderVolumeRequests"
       | "pause"
       | "paused"
@@ -110,6 +111,7 @@ export interface VolumeBasedFeedInterface extends Interface {
       | "revokeFeederRole"
       | "revokeRole"
       | "setConfig"
+      | "setOptionsCore"
       | "setVerificationTimeout"
       | "submitSuggestedPrice"
       | "supportsInterface"
@@ -120,6 +122,8 @@ export interface VolumeBasedFeedInterface extends Interface {
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "CallbackFailed"
+      | "OptionsCoreUpdated"
       | "Paused"
       | "PriceApproved"
       | "PriceModified"
@@ -215,6 +219,10 @@ export interface VolumeBasedFeedInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "optionsCore",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "orderVolumeRequests",
     values: [BigNumberish, BigNumberish]
   ): string;
@@ -242,6 +250,10 @@ export interface VolumeBasedFeedInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "setConfig",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setOptionsCore",
     values: [AddressLike]
   ): string;
   encodeFunctionData(
@@ -333,6 +345,10 @@ export interface VolumeBasedFeedInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "optionsCore",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "orderVolumeRequests",
     data: BytesLike
   ): Result;
@@ -354,6 +370,10 @@ export interface VolumeBasedFeedInterface extends Interface {
   decodeFunctionResult(functionFragment: "revokeRole", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "setConfig", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "setOptionsCore",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "setVerificationTimeout",
     data: BytesLike
   ): Result;
@@ -371,6 +391,41 @@ export interface VolumeBasedFeedInterface extends Interface {
     functionFragment: "verificationTimeout",
     data: BytesLike
   ): Result;
+}
+
+export namespace CallbackFailedEvent {
+  export type InputTuple = [
+    requestId: BigNumberish,
+    orderId: BigNumberish,
+    reason: string
+  ];
+  export type OutputTuple = [
+    requestId: bigint,
+    orderId: bigint,
+    reason: string
+  ];
+  export interface OutputObject {
+    requestId: bigint;
+    orderId: bigint;
+    reason: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace OptionsCoreUpdatedEvent {
+  export type InputTuple = [oldAddress: AddressLike, newAddress: AddressLike];
+  export type OutputTuple = [oldAddress: string, newAddress: string];
+  export interface OutputObject {
+    oldAddress: string;
+    newAddress: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace PausedEvent {
@@ -748,6 +803,8 @@ export interface VolumeBasedFeed extends BaseContract {
 
   nextRequestId: TypedContractMethod<[], [bigint], "view">;
 
+  optionsCore: TypedContractMethod<[], [string], "view">;
+
   orderVolumeRequests: TypedContractMethod<
     [arg0: BigNumberish, arg1: BigNumberish],
     [bigint],
@@ -823,6 +880,12 @@ export interface VolumeBasedFeed extends BaseContract {
   >;
 
   setConfig: TypedContractMethod<[_config: AddressLike], [void], "nonpayable">;
+
+  setOptionsCore: TypedContractMethod<
+    [_optionsCore: AddressLike],
+    [void],
+    "nonpayable"
+  >;
 
   setVerificationTimeout: TypedContractMethod<
     [timeout: BigNumberish],
@@ -942,6 +1005,9 @@ export interface VolumeBasedFeed extends BaseContract {
     nameOrSignature: "nextRequestId"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
+    nameOrSignature: "optionsCore"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
     nameOrSignature: "orderVolumeRequests"
   ): TypedContractMethod<
     [arg0: BigNumberish, arg1: BigNumberish],
@@ -1023,6 +1089,9 @@ export interface VolumeBasedFeed extends BaseContract {
     nameOrSignature: "setConfig"
   ): TypedContractMethod<[_config: AddressLike], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "setOptionsCore"
+  ): TypedContractMethod<[_optionsCore: AddressLike], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "setVerificationTimeout"
   ): TypedContractMethod<[timeout: BigNumberish], [void], "nonpayable">;
   getFunction(
@@ -1051,6 +1120,20 @@ export interface VolumeBasedFeed extends BaseContract {
     nameOrSignature: "verificationTimeout"
   ): TypedContractMethod<[], [bigint], "view">;
 
+  getEvent(
+    key: "CallbackFailed"
+  ): TypedContractEvent<
+    CallbackFailedEvent.InputTuple,
+    CallbackFailedEvent.OutputTuple,
+    CallbackFailedEvent.OutputObject
+  >;
+  getEvent(
+    key: "OptionsCoreUpdated"
+  ): TypedContractEvent<
+    OptionsCoreUpdatedEvent.InputTuple,
+    OptionsCoreUpdatedEvent.OutputTuple,
+    OptionsCoreUpdatedEvent.OutputObject
+  >;
   getEvent(
     key: "Paused"
   ): TypedContractEvent<
@@ -1130,6 +1213,28 @@ export interface VolumeBasedFeed extends BaseContract {
   >;
 
   filters: {
+    "CallbackFailed(uint256,uint256,string)": TypedContractEvent<
+      CallbackFailedEvent.InputTuple,
+      CallbackFailedEvent.OutputTuple,
+      CallbackFailedEvent.OutputObject
+    >;
+    CallbackFailed: TypedContractEvent<
+      CallbackFailedEvent.InputTuple,
+      CallbackFailedEvent.OutputTuple,
+      CallbackFailedEvent.OutputObject
+    >;
+
+    "OptionsCoreUpdated(address,address)": TypedContractEvent<
+      OptionsCoreUpdatedEvent.InputTuple,
+      OptionsCoreUpdatedEvent.OutputTuple,
+      OptionsCoreUpdatedEvent.OutputObject
+    >;
+    OptionsCoreUpdated: TypedContractEvent<
+      OptionsCoreUpdatedEvent.InputTuple,
+      OptionsCoreUpdatedEvent.OutputTuple,
+      OptionsCoreUpdatedEvent.OutputObject
+    >;
+
     "Paused(address)": TypedContractEvent<
       PausedEvent.InputTuple,
       PausedEvent.OutputTuple,

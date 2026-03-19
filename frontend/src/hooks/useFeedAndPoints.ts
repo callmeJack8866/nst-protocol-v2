@@ -656,6 +656,46 @@ export function useVolumeBasedFeed() {
     }, [getReadContract]);
 
     /**
+     * 卖方提交建议价格（发起跟量成交喂价）
+     * @param orderId 订单ID
+     * @param suggestedPrice 建议成交价格（字符串，如 "2100.50"）
+     * @param priceEvidence 价格依据说明
+     * @param feedType 喂价类型（0=Initial, 1=Dynamic, 2=Final）
+     * @param isInitialFeed 是否为期初喂价
+     */
+    const submitSuggestedPrice = useCallback(async (
+        orderId: number,
+        suggestedPrice: string,
+        priceEvidence: string,
+        feedType: number,
+        isInitialFeed: boolean
+    ) => {
+        const contract = await getContract();
+        if (!contract) throw new Error('VolumeBasedFeed contract not initialized');
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const tx = await contract.submitSuggestedPrice(
+                orderId,
+                parseUnits(suggestedPrice, 18),
+                priceEvidence,
+                feedType,
+                isInitialFeed
+            );
+            const receipt = await tx.wait();
+            return receipt;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Submit suggested price failed';
+            setError(message);
+            throw err;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [getContract]);
+
+    /**
      * 喂价员确认使用卖方建议价格
      */
     const approvePrice = useCallback(async (requestId: number) => {
@@ -744,6 +784,7 @@ export function useVolumeBasedFeed() {
     return {
         isLoading,
         error,
+        submitSuggestedPrice,
         getVolumeRequest,
         getOrderVolumeRequests,
         approvePrice,

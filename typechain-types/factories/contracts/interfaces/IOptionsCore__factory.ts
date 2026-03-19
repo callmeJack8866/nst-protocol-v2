@@ -834,6 +834,24 @@ const _abi = [
         name: "feedType",
         type: "uint8",
       },
+    ],
+    name: "onFeedRequested",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "orderId",
+        type: "uint256",
+      },
+      {
+        internalType: "enum FeedType",
+        name: "feedType",
+        type: "uint8",
+      },
       {
         internalType: "uint256",
         name: "finalPrice",

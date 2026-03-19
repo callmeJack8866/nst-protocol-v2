@@ -52,6 +52,10 @@ contract Config is AccessControl, Pausable {
     uint256 public defaultDailyLimitPercent = 30;            // 默认单日涨幅阈值
     uint256 public minExerciseDelay = 1;                     // 最小行权延迟T+1
     uint256 public maxExerciseDelay = 5;                     // 最大行权延迟T+5
+    uint256 public minArbitrationWindow = 1 hours;           // 仲裁窗口下限
+    uint256 public maxArbitrationWindow = 48 hours;          // 仲裁窗口上限
+    uint256 public minMarginCallDeadline = 1 hours;          // 追保截止下限
+    uint256 public maxMarginCallDeadline = 24 hours;         // 追保截止上限
 
     // ==================== 积分参数 ====================
     uint256 public pointsMultiplier = 100;                   // 积分倍率：1U = 100分

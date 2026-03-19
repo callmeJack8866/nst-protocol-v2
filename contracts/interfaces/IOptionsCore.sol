@@ -141,4 +141,9 @@ interface IOptionsCore {
         FeedType feedType, 
         uint256 finalPrice
     ) external;
+
+    function onFeedRequested(
+        uint256 orderId,
+        FeedType feedType
+    ) external;
 }

@@ -109,6 +109,24 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         require(notionalUSDT > 0, "OptionsCore: notional must be positive");
         require(expiryTimestamp > block.timestamp, "OptionsCore: expiry must be in future");
 
+        // Config 约束校验
+        require(
+            minMarginRate >= config.minMarginRate(),
+            "OptionsCore: minMarginRate below config minimum"
+        );
+        require(
+            arbitrationWindow >= config.minArbitrationWindow() && arbitrationWindow <= config.maxArbitrationWindow(),
+            "OptionsCore: arbitrationWindow out of config range"
+        );
+        require(
+            marginCallDeadline >= config.minMarginCallDeadline() && marginCallDeadline <= config.maxMarginCallDeadline(),
+            "OptionsCore: marginCallDeadline out of config range"
+        );
+        require(
+            consecutiveDays <= config.maxConsecutiveDays(),
+            "OptionsCore: consecutiveDays exceeds config maximum"
+        );
+
         // 收取建仓手续费 1U（通过 VaultManager 正式入账到利润池）
         vaultManager.collectFee(msg.sender, address(usdt), config.creationFee(), "creation_fee");
 
@@ -362,6 +380,20 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         require(notionalUSDT > 0, "OptionsCore: notional must be positive");
         require(expiryTimestamp > block.timestamp, "OptionsCore: expiry must be in future");
 
+        // Config 约束校验
+        require(
+            exerciseDelay >= config.minExerciseDelay() && exerciseDelay <= config.maxExerciseDelay(),
+            "OptionsCore: exerciseDelay out of config range"
+        );
+        require(
+            consecutiveDays <= config.maxConsecutiveDays(),
+            "OptionsCore: consecutiveDays exceeds config maximum"
+        );
+        require(
+            arbitrationWindow >= config.minArbitrationWindow() && arbitrationWindow <= config.maxArbitrationWindow(),
+            "OptionsCore: arbitrationWindow out of config range"
+        );
+
         // 手续费入利润池，保证金入卖方保证金账户
         vaultManager.collectFee(msg.sender, address(usdt), config.creationFee(), "creation_fee");
         vaultManager.depositMargin(msg.sender, address(usdt), marginAmount);
@@ -417,6 +449,31 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         require(
             order.status == OrderStatus.RFQ_CREATED || order.status == OrderStatus.QUOTING,
             "OptionsCore: order not accepting quotes"
+        );
+
+        // 报价数量限制
+        uint256 activeQuoteCount = 0;
+        Quote[] storage existingQuotes = orderQuotes[orderId];
+        for (uint256 i = 0; i < existingQuotes.length; i++) {
+            if (existingQuotes[i].status == QuoteStatus.Active) {
+                activeQuoteCount++;
+            }
+        }
+        require(
+            activeQuoteCount < config.maxQuotesPerBuyerOrder(),
+            "OptionsCore: max active quotes reached for this order"
+        );
+
+        // consecutiveDays 校验
+        require(
+            consecutiveDays <= config.maxConsecutiveDays(),
+            "OptionsCore: consecutiveDays exceeds config maximum"
+        );
+
+        // marginRate 必须 >= Config 最低保证金率
+        require(
+            marginRate >= config.minMarginRate(),
+            "OptionsCore: marginRate below config minimum"
         );
 
         uint256 premiumAmount = (order.notionalUSDT * premiumRate) / 10000;
@@ -573,51 +630,87 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
     // ==================== 喂价回调 ====================
 
     /**
-     * @notice 处理期初喂价结果
+     * @notice [DEPRECATED] 处理期初喂价结果 — admin 紧急/手动使用
+     * @dev 内部转发到 _processFeedCallbackInternal，逻辑与 processFeedCallback(Initial) 一致
+     *      正式路径请使用 FeedProtocol 自动回调 processFeedCallback
      */
     function processInitialFeedResult(
         uint256 orderId, 
         uint256 initialPrice
     ) external validOrder(orderId) onlyRole(DEFAULT_ADMIN_ROLE) {
-        Order storage order = orders[orderId];
-        require(order.status == OrderStatus.MATCHED, "OptionsCore: order not matched");
-        
-        order.strikePrice = initialPrice;  // 首轮喂价确认价 → 正式行权价
-        order.lastFeedPrice = initialPrice;
-        OrderStatus oldStatus = order.status;
-        order.status = OrderStatus.LIVE;
-        
-        emit OrderStatusChanged(orderId, oldStatus, OrderStatus.LIVE, "initial feed", block.timestamp);
+        _processFeedCallbackInternal(orderId, FeedType.Initial, initialPrice);
     }
 
     /**
-     * @notice 处理期末喂价结果
+     * @notice [DEPRECATED] 处理期末喂价结果 — admin 紧急/手动使用
+     * @dev 内部转发到 _processFeedCallbackInternal，逻辑与 processFeedCallback(Final) 一致
+     *      正式路径请使用 FeedProtocol 自动回调 processFeedCallback
      */
     function processFinalFeedResult(
         uint256 orderId, 
         uint256 finalPrice
     ) external validOrder(orderId) onlyRole(DEFAULT_ADMIN_ROLE) {
-        Order storage order = orders[orderId];
-        require(
-            order.status == OrderStatus.LIVE || order.status == OrderStatus.WAITING_FINAL_FEED, 
-            "OptionsCore: invalid status"
-        );
-        
-        order.lastFeedPrice = finalPrice;
-        OrderStatus oldStatus = order.status;
-        order.status = OrderStatus.PENDING_SETTLEMENT;
-        
-        emit OrderStatusChanged(orderId, oldStatus, OrderStatus.PENDING_SETTLEMENT, "final feed", block.timestamp);
+        _processFeedCallbackInternal(orderId, FeedType.Final, finalPrice);
     }
 
     /**
-     * @notice FeedEngine 喂价完成后自动回调
+     * @notice FeedProtocol 通知：已创建喂价请求，同步更新订单状态
+     * @dev 当前端通过 FeedProtocol.requestFeedPublic 发起喂价时，
+     *      FeedProtocol 调用此函数同步 OptionsCore 订单状态，
+     *      确保链上状态与 UI 状态一致
+     *      Initial  → MATCHED → WAITING_INITIAL_FEED
+     *      Dynamic  → LIVE（不变）
+     *      Final    → LIVE → WAITING_FINAL_FEED（如当前是 LIVE）
+     */
+    function onFeedRequested(
+        uint256 orderId,
+        FeedType feedType
+    ) external override validOrder(orderId) onlyRole(FEED_PROTOCOL_ROLE) {
+        Order storage order = orders[orderId];
+
+        if (feedType == FeedType.Initial) {
+            if (order.status == OrderStatus.MATCHED) {
+                OrderStatus oldStatus = order.status;
+                order.status = OrderStatus.WAITING_INITIAL_FEED;
+                emit OrderStatusChanged(orderId, oldStatus, OrderStatus.WAITING_INITIAL_FEED, "feed requested via FeedProtocol", block.timestamp);
+            }
+            // 已经是 WAITING_INITIAL_FEED 则不重复变更
+        } else if (feedType == FeedType.Final) {
+            if (order.status == OrderStatus.LIVE) {
+                OrderStatus oldStatus = order.status;
+                order.status = OrderStatus.WAITING_FINAL_FEED;
+                emit OrderStatusChanged(orderId, oldStatus, OrderStatus.WAITING_FINAL_FEED, "final feed requested via FeedProtocol", block.timestamp);
+            }
+        }
+        // Dynamic 和 Arbitration 不需要状态变更
+    }
+
+    /**
+     * @notice FeedEngine 喂价完成后自动回调（正式路径）
+     * @dev 处理四种喂价类型：
+     *      Initial  → 设置行权价 + lastFeedPrice，状态 → LIVE
+     *      Dynamic  → 仅更新 lastFeedPrice，状态保持 LIVE（用于保证金风控）
+     *      Final    → 更新 lastFeedPrice，状态 → PENDING_SETTLEMENT
+     *      Arbitration → 更新 lastFeedPrice，状态 → PENDING_SETTLEMENT
      */
     function processFeedCallback(
         uint256 orderId, 
         FeedType feedType, 
         uint256 finalPrice
     ) external override validOrder(orderId) onlyRole(FEED_PROTOCOL_ROLE) {
+        _processFeedCallbackInternal(orderId, feedType, finalPrice);
+    }
+
+    /**
+     * @dev 统一的喂价结果处理内部函数
+     *      所有外部入口（processFeedCallback / processInitialFeedResult / processFinalFeedResult）
+     *      都转发到此函数，确保状态变更逻辑唯一
+     */
+    function _processFeedCallbackInternal(
+        uint256 orderId,
+        FeedType feedType,
+        uint256 finalPrice
+    ) internal {
         Order storage order = orders[orderId];
         require(finalPrice > 0, "OptionsCore: invalid price");
 
@@ -626,11 +719,19 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
                 order.status == OrderStatus.MATCHED || order.status == OrderStatus.WAITING_INITIAL_FEED,
                 "OptionsCore: not awaiting initial feed"
             );
-            order.strikePrice = finalPrice;  // 首轮喂价确认价 → 正式行权价
+            order.strikePrice = finalPrice;
             order.lastFeedPrice = finalPrice;
             OrderStatus oldStatus = order.status;
             order.status = OrderStatus.LIVE;
             emit OrderStatusChanged(orderId, oldStatus, OrderStatus.LIVE, "initial feed callback", block.timestamp);
+
+        } else if (feedType == FeedType.Dynamic) {
+            require(
+                order.status == OrderStatus.LIVE,
+                "OptionsCore: dynamic feed only for LIVE orders"
+            );
+            order.lastFeedPrice = finalPrice;
+            emit OrderStatusChanged(orderId, OrderStatus.LIVE, OrderStatus.LIVE, "dynamic feed callback", block.timestamp);
 
         } else if (feedType == FeedType.Final) {
             require(
@@ -642,6 +743,17 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
             order.status = OrderStatus.PENDING_SETTLEMENT;
             order.settledAt = block.timestamp;
             emit OrderStatusChanged(orderId, oldStatus, OrderStatus.PENDING_SETTLEMENT, "final feed callback", block.timestamp);
+
+        } else if (feedType == FeedType.Arbitration) {
+            require(
+                order.status == OrderStatus.ARBITRATION,
+                "OptionsCore: not in arbitration"
+            );
+            order.lastFeedPrice = finalPrice;
+            OrderStatus oldStatus = order.status;
+            order.status = OrderStatus.PENDING_SETTLEMENT;
+            order.settledAt = block.timestamp;
+            emit OrderStatusChanged(orderId, oldStatus, OrderStatus.PENDING_SETTLEMENT, "arbitration feed callback", block.timestamp);
         }
     }
 

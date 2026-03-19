@@ -72,6 +72,14 @@ async function processHistoricalEvents() {
     }
 }
 
+/**
+ * 处理单个 FeedFinalized 事件
+ * 
+ * 注意：正式路径是 FeedProtocol._finalizeFeed → OptionsCore.processFeedCallback（自动回调）
+ * 此 keeper 作为后备/监控，仅在自动回调失败时才介入
+ * 自动回调使用 FEED_PROTOCOL_ROLE（FeedProtocol 合约地址）
+ * 后备手动调用使用 DEFAULT_ADMIN_ROLE（admin wallet）
+ */
 async function processEvent(
     feedProtocol: ethers.Contract,
     optionsCore: ethers.Contract,
@@ -93,29 +101,52 @@ async function processEvent(
 
     console.log(`[FeedResultProcessor] Order ${orderId} current status: ${currentStatus}`);
 
+    // 检查是否已被自动回调处理（幂等检查）
+    const expectedPostStatus = getExpectedPostStatus(feedType);
+    if (expectedPostStatus !== null && currentStatus >= expectedPostStatus) {
+        console.log(`[FeedResultProcessor] ✓ Order ${orderId} already in status ${currentStatus} (>= ${expectedPostStatus}), auto-callback already processed.`);
+        return;
+    }
+
     try {
         if (feedType === FEED_TYPE.Initial && (currentStatus === ORDER_STATUS.MATCHED || currentStatus === ORDER_STATUS.WAITING_INITIAL_FEED)) {
-            console.log(`[FeedResultProcessor] Processing INITIAL feed for order ${orderId}...`);
+            console.log(`[FeedResultProcessor] [FALLBACK] Processing INITIAL feed for order ${orderId}...`);
             const tx = await optionsCore.processInitialFeedResult(orderId, finalPrice);
             await tx.wait();
             console.log(`[FeedResultProcessor] ✅ Order ${orderId} updated to LIVE. TX: ${tx.hash}`);
         } else if (feedType === FEED_TYPE.Final && (currentStatus === ORDER_STATUS.LIVE || currentStatus === ORDER_STATUS.WAITING_FINAL_FEED)) {
-            console.log(`[FeedResultProcessor] Processing FINAL feed for order ${orderId}...`);
+            console.log(`[FeedResultProcessor] [FALLBACK] Processing FINAL feed for order ${orderId}...`);
             const tx = await optionsCore.processFinalFeedResult(orderId, finalPrice);
             await tx.wait();
             console.log(`[FeedResultProcessor] ✅ Order ${orderId} updated to PENDING_SETTLEMENT. TX: ${tx.hash}`);
-        } else if (currentStatus === ORDER_STATUS.LIVE || currentStatus === ORDER_STATUS.PENDING_SETTLEMENT || currentStatus === ORDER_STATUS.SETTLED) {
-            // 订单已经处理过，可能是合约 _finalizeFeed 自动回调已完成
-            console.log(`[FeedResultProcessor] Order ${orderId} already in status ${currentStatus}, skipping (likely already processed by contract callback).`);
+        } else if (feedType === FEED_TYPE.Dynamic && currentStatus === ORDER_STATUS.LIVE) {
+            // Dynamic 喂价只能通过 processFeedCallback（需要 FEED_PROTOCOL_ROLE）
+            // keeper 使用 admin wallet 没有此权限，记录 warning
+            console.log(`[FeedResultProcessor] ⚠️ Dynamic feed for order ${orderId} — should be handled by auto-callback. If not processed, check FEED_PROTOCOL_ROLE.`);
+        } else if (feedType === FEED_TYPE.Arbitration) {
+            console.log(`[FeedResultProcessor] ⚠️ Arbitration feed for order ${orderId} — should be handled by auto-callback.`);
         } else {
             console.log(`[FeedResultProcessor] Skipping: FeedType=${feedType}, Status=${currentStatus}`);
         }
     } catch (err: any) {
-        if (err.message?.includes('order not matched') || err.message?.includes('order not in valid state') || err.message?.includes('already processed')) {
-            console.log(`[FeedResultProcessor] Order ${orderId} already processed, skipping.`);
+        if (err.message?.includes('order not matched') || err.message?.includes('not awaiting') || err.message?.includes('invalid price') || err.message?.includes('already processed')) {
+            console.log(`[FeedResultProcessor] Order ${orderId} already processed or invalid state, skipping.`);
         } else {
             throw err;
         }
+    }
+}
+
+/**
+ * 根据 FeedType 返回预期的处理后状态
+ */
+function getExpectedPostStatus(feedType: number): number | null {
+    switch (feedType) {
+        case FEED_TYPE.Initial: return ORDER_STATUS.LIVE;
+        case FEED_TYPE.Final: return ORDER_STATUS.PENDING_SETTLEMENT;
+        case FEED_TYPE.Arbitration: return ORDER_STATUS.PENDING_SETTLEMENT;
+        case FEED_TYPE.Dynamic: return null; // Dynamic 不改变状态
+        default: return null;
     }
 }
 

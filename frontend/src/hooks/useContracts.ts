@@ -150,7 +150,6 @@ export function useOptions() {
         dailyLimitPercent: number;
         exerciseDelay: number;       // T+X 行权延迟
         feedRule: number;            // 喂价规则: 0=正常, 1=跟量成交
-        suggestedPrice?: string;     // 跟量成交建议价格
         arbitrationWindow: number;
         dividendAdjustment: boolean;
     }) => {
@@ -311,7 +310,6 @@ export function useOptions() {
                             // Extended fields for P2
                             exerciseDelay: order.exerciseDelay ? Number(order.exerciseDelay) : 1,
                             feedRule: order.feedRule ? Number(order.feedRule) : 0,
-                            suggestedPrice: order.suggestedPrice || '',
                         });
                     }
                 } catch {

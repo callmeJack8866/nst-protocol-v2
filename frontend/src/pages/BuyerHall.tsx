@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useOptions } from '../hooks';
 import { useWalletContext } from '../context/WalletContext';
 import { OrderCard } from '../components/OrderCard';
@@ -40,7 +40,7 @@ interface Quote {
 }
 
 export function BuyerHall() {
-  const { t } = useTranslation();
+  const { t: _t } = useTranslation();
   const { account, connect } = useWalletContext();
   const { getAllActiveRFQs, getQuotesForOrder, acceptQuote, isConnected } = useOptions();
   const [filter, setFilter] = useState('ALL');

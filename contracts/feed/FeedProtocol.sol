@@ -113,6 +113,17 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
         string reason
     );
 
+    event FeedFinalizeSkipped(
+        uint256 indexed requestId,
+        string reason
+    );
+
+    event FeedRequestStatusSyncFailed(
+        uint256 indexed requestId,
+        uint256 indexed orderId,
+        string reason
+    );
+
     // ==================== 构造函数 ====================
     constructor(
         address _config,
@@ -323,8 +334,8 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
     }
 
     /**
-     * @notice 创建喂价请求（公开版本，MVP演示用）
-     * @dev 允许任何地址发起喂价请求，需支付 USDT 喂价费用
+     * @notice 创建喂价请求（公开版本）
+     * @dev 强校验：订单有效性、状态匹配、重复请求、活跃喂价员数量
      * @param orderId 订单ID
      * @param feedType 喂价类型 (期初/动态/期末/仲裁)
      * @param tier 喂价档位 (5-3/7-5/10-7)
@@ -335,7 +346,30 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
         FeedTier tier
     ) external nonReentrant whenNotPaused returns (uint256 requestId) {
         FeedTierConfig memory tierConfig = tierConfigs[tier];
-        
+
+        // ① 订单有效性校验：不存在的 orderId 返回空 struct（buyer = address(0)）
+        Order memory order = optionsCore.getOrder(orderId);
+        require(order.buyer != address(0), "FeedProtocol: order does not exist");
+
+        // ② feedType 与订单状态匹配校验
+        _validateFeedTypeForStatus(feedType, order.status);
+
+        // ②b feedRule 路由校验：跟量成交订单应走 VolumeBasedFeed，不走 FeedProtocol
+        require(
+            order.feedRule == FeedRule.NormalFeed,
+            "FeedProtocol: order uses VolumeBasedFeed, use VolumeBasedFeed contract instead"
+        );
+
+        // ③ 重复请求检查：同一 orderId + feedType 不能有未 finalized 的活跃请求
+        _requireNoActiveFeedRequest(orderId, feedType);
+
+        // ④ 活跃喂价员数量校验：必须有足够的喂价员支撑所选档位
+        uint256 activeFeederCount = _countActiveFeeders();
+        require(
+            activeFeederCount >= tierConfig.totalFeeders,
+            "FeedProtocol: not enough active feeders for selected tier"
+        );
+
         // 收取喂价费用
         usdt.safeTransferFrom(msg.sender, address(this), tierConfig.totalFee);
 
@@ -356,9 +390,6 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
 
         orderFeedRequests[orderId].push(requestId);
 
-        // 从 OptionsCore 读取订单信息填充事件（而非发送空字符串）
-        Order memory order = optionsCore.getOrder(orderId);
-
         emit FeedRequested(
             requestId,
             orderId,
@@ -373,6 +404,10 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
             block.timestamp
         );
 
+        // 强制同步 OptionsCore 订单状态
+        // 如果状态切换失败（权限不足、状态不匹配等），整个交易回滚
+        // 避免出现"FeedRequest 已创建但订单仍停留在 MATCHED"的不一致状态
+        optionsCore.onFeedRequested(orderId, feedType);
 
         return requestId;
     }
@@ -410,6 +445,9 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
 
     /**
      * @notice 喂价员拒绝喂价
+     * @dev 拒绝也计入 submittedCount，当所有喂价员都响应后（提交或拒绝），
+     *      自动尝试 finalize。如果有效报价不足 effectiveFeeds，emit 跳过事件，
+     *      请求保持 un-finalized，最终通过 cancelOrderDueToFeedTimeout 清理。
      */
     function rejectFeed(
         uint256 requestId,
@@ -420,18 +458,50 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
         require(!hasSubmitted[requestId][msg.sender], "FeedProtocol: already submitted");
 
         hasSubmitted[requestId][msg.sender] = true;
+        request.submittedCount++;
         feeders[msg.sender].rejectedFeeds++;
 
         emit FeedRejected(requestId, msg.sender, reason, block.timestamp);
+
+        // 所有喂价员都已响应（提交或拒绝），检查是否可以 finalize
+        if (request.submittedCount >= request.totalFeeders) {
+            // 统计有效报价数
+            FeedSubmission[] storage submissions = requestSubmissions[requestId];
+            uint256 validCount = 0;
+            for (uint256 i = 0; i < submissions.length; i++) {
+                if (submissions[i].isValid && submissions[i].price > 0) {
+                    validCount++;
+                }
+            }
+
+            FeedTierConfig memory tierConfig = tierConfigs[request.tier];
+            if (validCount >= tierConfig.effectiveFeeds) {
+                // 有效报价达标，自动 finalize
+                _finalizeFeed(requestId);
+            } else {
+                // 有效报价不足，请求保持 open 等待超时清理
+                emit FeedFinalizeSkipped(requestId, "insufficient valid feeds after all responses");
+            }
+        }
     }
 
     /**
-     * @notice 完成喂价聚合（取中间位）
+     * @notice 外部触发的喂价聚合（取中间位）
+     * @dev 仅在 deadline 过期后才允许外部调用；
+     *      submitFeed 达到 totalFeeders 时会自动内部调用 _finalizeFeed
      */
     function finalizeFeed(uint256 requestId) external override returns (uint256 finalPrice) {
+        FeedRequest storage request = feedRequests[requestId];
+        require(!request.finalized, "FeedProtocol: already finalized");
+        // 外部调用必须等 deadline 过期，防止提前被任意地址抢跑
+        require(block.timestamp > request.deadline, "FeedProtocol: deadline not reached");
         return _finalizeFeed(requestId);
     }
 
+    /**
+     * @notice 内部喂价聚合 — 强制要求有效报价数 >= effectiveFeeds
+     * @dev 排序后取中位数；不满足门槛则 revert
+     */
     function _finalizeFeed(uint256 requestId) internal returns (uint256 finalPrice) {
         FeedRequest storage request = feedRequests[requestId];
         require(!request.finalized, "FeedProtocol: already finalized");
@@ -439,7 +509,7 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
         FeedSubmission[] storage submissions = requestSubmissions[requestId];
         require(submissions.length > 0, "FeedProtocol: no submissions");
 
-        // 收集有效价格
+        // ── 收集有效价格 ──
         uint256[] memory prices = new uint256[](submissions.length);
         uint256 validCount = 0;
         
@@ -450,9 +520,14 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
             }
         }
 
-        require(validCount > 0, "FeedProtocol: no valid prices");
+        // ── 强制执行档位门槛：有效报价数 >= effectiveFeeds ──
+        FeedTierConfig memory tierConfig = tierConfigs[request.tier];
+        require(
+            validCount >= tierConfig.effectiveFeeds,
+            "FeedProtocol: insufficient valid feeds for tier"
+        );
 
-        // 排序价格
+        // ── 排序价格 ──
         for (uint256 i = 0; i < validCount - 1; i++) {
             for (uint256 j = 0; j < validCount - i - 1; j++) {
                 if (prices[j] > prices[j + 1]) {
@@ -463,7 +538,7 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
             }
         }
 
-        // 取中位数
+        // ── 取中位数 ──
         if (validCount % 2 == 0) {
             finalPrice = (prices[validCount / 2 - 1] + prices[validCount / 2]) / 2;
         } else {
@@ -766,6 +841,64 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
         feeders[feeder].isBlacklisted = true;
         feeders[feeder].isActive = false;
         emit FeederBlacklisted(feeder, reason, block.timestamp);
+    }
+
+    /**
+     * @dev 校验 feedType 与订单当前状态是否匹配
+     *      Initial   → MATCHED / WAITING_INITIAL_FEED
+     *      Dynamic   → LIVE
+     *      Final     → LIVE / WAITING_FINAL_FEED
+     *      Arbitration → ARBITRATION
+     */
+    function _validateFeedTypeForStatus(FeedType feedType, OrderStatus status) internal pure {
+        if (feedType == FeedType.Initial) {
+            require(
+                status == OrderStatus.MATCHED || status == OrderStatus.WAITING_INITIAL_FEED,
+                "FeedProtocol: order not in MATCHED/WAITING_INITIAL_FEED for Initial feed"
+            );
+        } else if (feedType == FeedType.Dynamic) {
+            require(
+                status == OrderStatus.LIVE,
+                "FeedProtocol: order not LIVE for Dynamic feed"
+            );
+        } else if (feedType == FeedType.Final) {
+            require(
+                status == OrderStatus.LIVE || status == OrderStatus.WAITING_FINAL_FEED,
+                "FeedProtocol: order not in LIVE/WAITING_FINAL_FEED for Final feed"
+            );
+        } else if (feedType == FeedType.Arbitration) {
+            require(
+                status == OrderStatus.ARBITRATION,
+                "FeedProtocol: order not in ARBITRATION for Arbitration feed"
+            );
+        }
+    }
+
+    /**
+     * @dev 检查同一 orderId + feedType 是否已有未 finalized 的活跃请求
+     *      防止重复创建（浪费 gas 和喂价费用）
+     */
+    function _requireNoActiveFeedRequest(uint256 orderId, FeedType feedType) internal view {
+        uint256[] storage requestIds = orderFeedRequests[orderId];
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            FeedRequest storage req = feedRequests[requestIds[i]];
+            if (req.feedType == feedType && !req.finalized) {
+                revert("FeedProtocol: active feed request already exists for this order and type");
+            }
+        }
+    }
+
+    /**
+     * @dev 统计当前活跃喂价员数量（gas 优化：仅计数，不分配数组）
+     */
+    function _countActiveFeeders() internal view returns (uint256 count) {
+        for (uint256 i = 0; i < feederList.length; i++) {
+            if (feeders[feederList[i]].isActive &&
+                !feeders[feederList[i]].isBlacklisted &&
+                feeders[feederList[i]].stakedAmount >= config.minFeederStake()) {
+                count++;
+            }
+        }
     }
 
     /**

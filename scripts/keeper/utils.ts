@@ -30,6 +30,7 @@ const OPTIONS_SETTLEMENT_ABI = [
     'function forceLiquidate(uint256 orderId) external',
     'function forceLiquidateMarginCall(uint256 orderId) external',
     'function cancelOrderDueToFeedTimeout(uint256 orderId) external',
+    'function cancelOrderDueFinalFeedTimeout(uint256 orderId) external',
     'function triggerMarginCall(uint256 orderId, bool isCrypto) external',
 ];
 

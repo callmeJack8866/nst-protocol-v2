@@ -15,13 +15,15 @@
 
 import { ethers } from "hardhat";
 
-// ==================== 合约地址 ====================
+// ==================== 合约地址（来自 deployed-addresses.json）====================
 const ADDRESSES = {
     OptionsCore: '0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a',
     OptionsSettlement: '0x8DF881593368FD8be3F40722fcb9f555593a8257',
     Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
     VaultManager: '0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454',
     USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
+    FeedProtocol: '0x98BA4261835533FEBf2335a4edA04d1a69D45311',
+    // FeedEngine 后端钱包（非合约，仅供参考）
     FeedEngine: '0xFF486124612662E74F3055a71f45EAD3451d1CD9',
 };
 
@@ -34,9 +36,16 @@ function pass(name: string) {
     passed++;
     console.log(`  ✅ ${name}`);
 }
+/** 分类失败原因并标记 */
 function fail(name: string, reason: string) {
     failed++;
-    console.log(`  ❌ ${name}: ${reason}`);
+    let tag = '[链上逻辑]';
+    if (reason.includes('not authorized') || reason.includes('AccessControl') || reason.includes('role') || reason.includes('not settlement')) {
+        tag = '[权限配置]';
+    } else if (reason.includes('insufficient') || reason.includes('exceeds balance') || reason.includes('余额不足') || reason.includes('Config:')) {
+        tag = '[参数问题]';
+    }
+    console.log(`  ❌ ${tag} ${name}: ${reason}`);
 }
 function skip(name: string, reason: string) {
     skipped++;
@@ -84,9 +93,15 @@ async function main() {
 
     try {
         const FEED_ROLE = ethers.keccak256(ethers.toUtf8Bytes("FEED_PROTOCOL_ROLE"));
-        const hasFeed = await optionsCore.hasRole(FEED_ROLE, ADDRESSES.FeedEngine);
-        if (hasFeed) pass("FeedEngine 拥有 FEED_PROTOCOL_ROLE");
-        else fail("FeedEngine 拥有 FEED_PROTOCOL_ROLE", "角色未授予");
+        // ★ 关键检查：FeedProtocol 合约地址必须拥有此角色（自动回调路径）
+        const hasFeedProtocol = await optionsCore.hasRole(FEED_ROLE, ADDRESSES.FeedProtocol);
+        if (hasFeedProtocol) pass("FeedProtocol 合约拥有 FEED_PROTOCOL_ROLE（自动回调路径）");
+        else fail("FeedProtocol 合约拥有 FEED_PROTOCOL_ROLE", `合约 ${ADDRESSES.FeedProtocol} 未被授权，自动回调和 onFeedRequested 将无法工作`);
+
+        // 可选：FeedEngine 后端钱包（旧 keeper 后备路径）
+        const hasFeedEngine = await optionsCore.hasRole(FEED_ROLE, ADDRESSES.FeedEngine);
+        if (hasFeedEngine) pass("FeedEngine 钱包拥有 FEED_PROTOCOL_ROLE（keeper 后备）");
+        else skip("FeedEngine 钱包 FEED_PROTOCOL_ROLE", "未授予（keeper 后备路径，非必需）");
     } catch (e: any) { fail("FEED_PROTOCOL_ROLE 验证", e.message); }
 
     try {

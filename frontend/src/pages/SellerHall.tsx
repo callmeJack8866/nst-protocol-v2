@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useOptions } from '../hooks';
 import { OrderCard } from '../components/OrderCard';
 import { Link } from 'react-router-dom';
@@ -27,13 +27,8 @@ interface RFQOrder {
   createdAt: number;
 }
 
-// T+X Exercise Delay Options
-const EXERCISE_DELAY_OPTIONS = [
-  { value: 1, label: 'T+1', desc: 'Next Day' },
-  { value: 2, label: 'T+2', desc: '2 Days' },
-  { value: 3, label: 'T+3', desc: '3 Days' },
-  { value: 5, label: 'T+5', desc: '5 Days' },
-];
+
+
 
 // Liquidation Rules
 const LIQUIDATION_OPTIONS = [
@@ -55,8 +50,7 @@ export function SellerHall() {
   const [selectedRFQ, setSelectedRFQ] = useState<RFQOrder | null>(null);
   const [quoteForm, setQuoteForm] = useState({
     premiumRate: '6.5',
-    marginAmount: '150000',
-    exerciseDelay: 1,
+    marginRate: '15',
     liquidationRule: 0,
     consecutiveDays: 3,
     dailyLimitPercent: 10,
@@ -87,11 +81,9 @@ export function SellerHall() {
 
   const handleOpenQuoteModal = (rfq: RFQOrder) => {
     setSelectedRFQ(rfq);
-    const notional = Number(formatUnits(rfq.notionalUSDT, 6));
     setQuoteForm({
       premiumRate: (rfq.premiumRate / 100).toFixed(2),
-      marginAmount: String(Math.floor(notional * 0.15)),
-      exerciseDelay: 1,
+      marginRate: '15',
       liquidationRule: 0,
       consecutiveDays: 3,
       dailyLimitPercent: 10,
@@ -109,7 +101,7 @@ export function SellerHall() {
       await submitQuote({
         orderId: selectedRFQ.orderId,
         premiumRate: Math.floor(parseFloat(quoteForm.premiumRate) * 100),
-        marginRate: 1500, // 15%
+        marginRate: Math.floor(parseFloat(quoteForm.marginRate) * 100),
         liquidationRule: quoteForm.liquidationRule,
         consecutiveDays: quoteForm.consecutiveDays,
         dailyLimitPercent: quoteForm.dailyLimitPercent,
@@ -150,7 +142,7 @@ export function SellerHall() {
               <p className="text-2xl font-black text-white tracking-tight">{filteredRFQs.length}</p>
             </div>
           </div>
-          <Link to="/create-order" className="btn-gold px-10 h-16 flex items-center justify-center text-xs tracking-widest gap-3">
+          <Link to="/create-seller-order" className="btn-gold px-10 h-16 flex items-center justify-center text-xs tracking-widest gap-3">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="M12 5v14M5 12h14" /></svg>
             {t('seller_hall.post_order')}
           </Link>
@@ -265,31 +257,13 @@ export function SellerHall() {
                   <input type="text" className="obsidian-input w-full h-14 text-xl font-black text-gold-500 italic" value={quoteForm.premiumRate} onChange={e => setQuoteForm({ ...quoteForm, premiumRate: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Collateral (USDT)</label>
-                  <input type="text" className="obsidian-input w-full h-14 text-xl font-black text-white italic" value={quoteForm.marginAmount} onChange={e => setQuoteForm({ ...quoteForm, marginAmount: e.target.value })} />
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Margin Rate (%)</label>
+                  <input type="text" className="obsidian-input w-full h-14 text-xl font-black text-white italic" value={quoteForm.marginRate} onChange={e => setQuoteForm({ ...quoteForm, marginRate: e.target.value })} />
+                  {selectedRFQ && <p className="text-[8px] text-gray-600 ml-1">≈ {(Number(formatUnits(selectedRFQ.notionalUSDT, 6)) * parseFloat(quoteForm.marginRate || '0') / 100).toLocaleString()} USDT</p>}
                 </div>
               </div>
 
-              {/* T+X Exercise Delay */}
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Exercise Latency (T+X)</label>
-                <div className="grid grid-cols-4 gap-3">
-                  {EXERCISE_DELAY_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setQuoteForm({ ...quoteForm, exerciseDelay: opt.value })}
-                      className={`p-3 rounded-2xl border transition-all text-left ${quoteForm.exerciseDelay === opt.value
-                        ? 'bg-gold-500/10 border-gold-500/30 text-gold-500'
-                        : 'bg-obsidian-900 border-white/5 text-gray-500 hover:border-white/10'
-                        }`}
-                    >
-                      <p className="text-xs font-black">{opt.label}</p>
-                      <p className="text-[8px] font-bold opacity-50 mt-0.5">{opt.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
+
 
               {/* Liquidation Rules */}
               <div className="space-y-3">
@@ -350,11 +324,11 @@ export function SellerHall() {
                   </div>
                   <div>
                     <p className="text-[8px] font-black text-gray-600 uppercase mb-0.5">Locked Margin</p>
-                    <p className="text-xs font-black text-white">{Number(quoteForm.marginAmount).toLocaleString()} USDT</p>
+                    <p className="text-xs font-black text-white">{selectedRFQ ? (Number(formatUnits(selectedRFQ.notionalUSDT, 6)) * parseFloat(quoteForm.marginRate || '0') / 100).toLocaleString() : '---'} USDT</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[8px] font-black text-gray-600 uppercase mb-0.5">Total Commitment</p>
-                    <p className="text-xs font-black text-gold-500">{(Number(quoteForm.marginAmount) + 1).toLocaleString()} USDT</p>
+                    <p className="text-xs font-black text-gold-500">{selectedRFQ ? (Number(formatUnits(selectedRFQ.notionalUSDT, 6)) * parseFloat(quoteForm.marginRate || '0') / 100 + 1).toLocaleString() : '---'} USDT</p>
                   </div>
                 </div>
               </div>

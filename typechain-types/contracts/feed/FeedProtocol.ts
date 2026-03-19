@@ -199,8 +199,10 @@ export interface FeedProtocolInterface extends Interface {
   getEvent(
     nameOrSignatureOrTopic:
       | "CallbackFailed"
+      | "FeedFinalizeSkipped"
       | "FeedFinalized"
       | "FeedRejected"
+      | "FeedRequestStatusSyncFailed"
       | "FeedRequested"
       | "FeedSubmitted"
       | "FeederBlacklisted"
@@ -634,6 +636,19 @@ export namespace CallbackFailedEvent {
   export type LogDescription = TypedLogDescription<Event>;
 }
 
+export namespace FeedFinalizeSkippedEvent {
+  export type InputTuple = [requestId: BigNumberish, reason: string];
+  export type OutputTuple = [requestId: bigint, reason: string];
+  export interface OutputObject {
+    requestId: bigint;
+    reason: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
 export namespace FeedFinalizedEvent {
   export type InputTuple = [
     requestId: BigNumberish,
@@ -674,6 +689,28 @@ export namespace FeedRejectedEvent {
     feeder: string;
     reason: string;
     timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace FeedRequestStatusSyncFailedEvent {
+  export type InputTuple = [
+    requestId: BigNumberish,
+    orderId: BigNumberish,
+    reason: string
+  ];
+  export type OutputTuple = [
+    requestId: bigint,
+    orderId: bigint,
+    reason: string
+  ];
+  export interface OutputObject {
+    requestId: bigint;
+    orderId: bigint;
+    reason: string;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -1698,6 +1735,13 @@ export interface FeedProtocol extends BaseContract {
     CallbackFailedEvent.OutputObject
   >;
   getEvent(
+    key: "FeedFinalizeSkipped"
+  ): TypedContractEvent<
+    FeedFinalizeSkippedEvent.InputTuple,
+    FeedFinalizeSkippedEvent.OutputTuple,
+    FeedFinalizeSkippedEvent.OutputObject
+  >;
+  getEvent(
     key: "FeedFinalized"
   ): TypedContractEvent<
     FeedFinalizedEvent.InputTuple,
@@ -1710,6 +1754,13 @@ export interface FeedProtocol extends BaseContract {
     FeedRejectedEvent.InputTuple,
     FeedRejectedEvent.OutputTuple,
     FeedRejectedEvent.OutputObject
+  >;
+  getEvent(
+    key: "FeedRequestStatusSyncFailed"
+  ): TypedContractEvent<
+    FeedRequestStatusSyncFailedEvent.InputTuple,
+    FeedRequestStatusSyncFailedEvent.OutputTuple,
+    FeedRequestStatusSyncFailedEvent.OutputObject
   >;
   getEvent(
     key: "FeedRequested"
@@ -1822,6 +1873,17 @@ export interface FeedProtocol extends BaseContract {
       CallbackFailedEvent.OutputObject
     >;
 
+    "FeedFinalizeSkipped(uint256,string)": TypedContractEvent<
+      FeedFinalizeSkippedEvent.InputTuple,
+      FeedFinalizeSkippedEvent.OutputTuple,
+      FeedFinalizeSkippedEvent.OutputObject
+    >;
+    FeedFinalizeSkipped: TypedContractEvent<
+      FeedFinalizeSkippedEvent.InputTuple,
+      FeedFinalizeSkippedEvent.OutputTuple,
+      FeedFinalizeSkippedEvent.OutputObject
+    >;
+
     "FeedFinalized(uint256,uint256,uint256)": TypedContractEvent<
       FeedFinalizedEvent.InputTuple,
       FeedFinalizedEvent.OutputTuple,
@@ -1842,6 +1904,17 @@ export interface FeedProtocol extends BaseContract {
       FeedRejectedEvent.InputTuple,
       FeedRejectedEvent.OutputTuple,
       FeedRejectedEvent.OutputObject
+    >;
+
+    "FeedRequestStatusSyncFailed(uint256,uint256,string)": TypedContractEvent<
+      FeedRequestStatusSyncFailedEvent.InputTuple,
+      FeedRequestStatusSyncFailedEvent.OutputTuple,
+      FeedRequestStatusSyncFailedEvent.OutputObject
+    >;
+    FeedRequestStatusSyncFailed: TypedContractEvent<
+      FeedRequestStatusSyncFailedEvent.InputTuple,
+      FeedRequestStatusSyncFailedEvent.OutputTuple,
+      FeedRequestStatusSyncFailedEvent.OutputObject
     >;
 
     "FeedRequested(uint256,uint256,string,string,string,string,uint8,uint8,uint8,uint8,uint256)": TypedContractEvent<

@@ -192,6 +192,7 @@ export interface IOptionsCoreInterface extends Interface {
       | "getOrder"
       | "getQuotes"
       | "getSellerOrders"
+      | "onFeedRequested"
       | "processFeedCallback"
       | "requestFeed"
       | "submitQuote"
@@ -279,6 +280,10 @@ export interface IOptionsCoreInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "onFeedRequested",
+    values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "processFeedCallback",
     values: [BigNumberish, BigNumberish, BigNumberish]
   ): string;
@@ -319,6 +324,10 @@ export interface IOptionsCoreInterface extends Interface {
   decodeFunctionResult(functionFragment: "getQuotes", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getSellerOrders",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "onFeedRequested",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -652,6 +661,12 @@ export interface IOptionsCore extends BaseContract {
     "view"
   >;
 
+  onFeedRequested: TypedContractMethod<
+    [orderId: BigNumberish, feedType: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   processFeedCallback: TypedContractMethod<
     [orderId: BigNumberish, feedType: BigNumberish, finalPrice: BigNumberish],
     [void],
@@ -755,6 +770,13 @@ export interface IOptionsCore extends BaseContract {
   getFunction(
     nameOrSignature: "getSellerOrders"
   ): TypedContractMethod<[seller: AddressLike], [bigint[]], "view">;
+  getFunction(
+    nameOrSignature: "onFeedRequested"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, feedType: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "processFeedCallback"
   ): TypedContractMethod<

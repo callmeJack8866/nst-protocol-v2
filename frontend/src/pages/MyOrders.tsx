@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useOptions, useFeedProtocol } from '../hooks';
+import { useOptions, useFeedProtocol, useVolumeBasedFeed } from '../hooks';
 import { useToast } from '../components/Toast';
 import FeedTierModal from '../components/FeedTierModal';
 import { useWalletContext } from '../context/WalletContext';
@@ -28,6 +28,7 @@ export function MyOrders() {
 
     // Feed protocol for initiating initial feeds
     const { requestFeed, isLoading: feedLoading, getOrderFeedRequests } = useFeedProtocol();
+    const { submitSuggestedPrice, isLoading: vbfLoading } = useVolumeBasedFeed();
     const { showToast } = useToast();
 
     const [buyerOrders, setBuyerOrders] = useState<any[]>([]);
@@ -52,6 +53,14 @@ export function MyOrders() {
     // 喂价档位弹窗状态
     const [tierModalOpen, setTierModalOpen] = useState(false);
     const [tierModalOrderId, setTierModalOrderId] = useState<number | null>(null);
+
+    // 跟量成交喂价弹窗状态
+    const [vbfModalOpen, setVbfModalOpen] = useState(false);
+    const [vbfOrderId, setVbfOrderId] = useState<number | null>(null);
+    const [vbfFeedType, setVbfFeedType] = useState(0); // 0=Initial, 1=Dynamic, 2=Final
+    const [vbfIsInitial, setVbfIsInitial] = useState(true);
+    const [vbfPrice, setVbfPrice] = useState('');
+    const [vbfEvidence, setVbfEvidence] = useState('');
     const [feedFees, setFeedFees] = useState<string[]>(['', '', '']);
 
     // 已发起喂价请求的 orderId 集合（用于 UI 反馈，因为合约 status 不会立刻变化）
@@ -195,16 +204,7 @@ export function MyOrders() {
         return `${hours}H`;
     };
 
-    // Helper to safely convert premiumAmount to number
-    const getPremiumNum = (order: any): number => {
-        const val = order.premiumAmount;
-        if (typeof val === 'bigint') {
-            return Number(formatUnits(val, 6));
-        } else if (typeof val === 'number') {
-            return val;
-        }
-        return 0;
-    };
+
 
     /**
      * 计算真实结算盈亏
@@ -444,14 +444,7 @@ export function MyOrders() {
         return `${mins}m`;
     };
 
-    /**
-     * 检查是否需要追保警告
-     */
-    const needsMarginCallWarning = (order: any): boolean => {
-        const status = getMarginHealthStatus(order);
-        const deadline = Number(order.marginCallDeadline || 0);
-        return status !== 'healthy' || deadline > 0;
-    };
+
 
     // ==================== 倒计时显示函数 ====================
 
@@ -547,7 +540,28 @@ export function MyOrders() {
      * 打开喂价档位选择弹窗
      * 先从合约读取各档费用，然后显示弹窗让用户选择
      */
+    /**
+     * 根据 order.feedRule 路由到正确的喂价入口
+     * feedRule=0 (NormalFeed) → FeedProtocol 档位弹窗
+     * feedRule=1 (VolumeBasedFeed) → 跟量成交弹窗（输入建议价格）
+     */
     const handleInitiateFeed = async (orderId: number) => {
+        // 查找订单的 feedRule
+        const order = [...buyerOrders, ...sellerOrders].find(o => Number(o.orderId) === orderId);
+        const feedRule = order ? Number(order.feedRule || 0) : 0;
+
+        if (feedRule === 1) {
+            // 跟量成交：打开建议价格输入弹窗
+            setVbfOrderId(orderId);
+            setVbfFeedType(FEED_TYPE.INITIAL); // 期初喂价
+            setVbfIsInitial(true);
+            setVbfPrice('');
+            setVbfEvidence('');
+            setVbfModalOpen(true);
+            return;
+        }
+
+        // 正常喂价：打开档位选择弹窗
         setTierModalOrderId(orderId);
         setTierModalOpen(true);
 
@@ -609,16 +623,29 @@ export function MyOrders() {
     // Handle exercise with automatic final feed request
     const handleExerciseWithFeed = async (orderId: number | bigint) => {
         const orderIdNum = Number(orderId);
+        const order = [...buyerOrders, ...sellerOrders].find(o => Number(o.orderId) === orderIdNum);
+        const feedRule = order ? Number(order.feedRule || 0) : 0;
+
         try {
             // Step 1: Call earlyExercise
             showToast('info', t('portfolio.exercising') || '正在执行行权...');
             await earlyExercise(orderIdNum);
             showToast('success', t('portfolio.exercise_success') || '行权成功');
 
-            // Step 2: Automatically create final feed request
-            showToast('info', t('portfolio.requesting_final_feed') || '正在请求期末喂价...');
-            await requestFeed(orderIdNum, 2, 0); // feedType=2 (Final: Initial=0, Dynamic=1, Final=2), tier=0
-            showToast('success', t('portfolio.final_feed_requested') || '期末喂价请求已发起');
+            if (feedRule === 1) {
+                // 跟量成交：打开建议价格输入弹窗 (期末喂价)
+                setVbfOrderId(orderIdNum);
+                setVbfFeedType(2); // Final
+                setVbfIsInitial(false);
+                setVbfPrice('');
+                setVbfEvidence('');
+                setVbfModalOpen(true);
+            } else {
+                // 正常喂价：自动发起期末喂价
+                showToast('info', t('portfolio.requesting_final_feed') || '正在请求期末喂价...');
+                await requestFeed(orderIdNum, 2, 0);
+                showToast('success', t('portfolio.final_feed_requested') || '期末喂价请求已发起');
+            }
 
             setRefreshKey(k => k + 1);
         } catch (err: any) {
@@ -679,6 +706,20 @@ export function MyOrders() {
 
     // 发起动态保证金喂价
     const handleDynamicFeed = async (orderId: number) => {
+        const order = [...buyerOrders, ...sellerOrders].find(o => Number(o.orderId) === orderId);
+        const feedRule = order ? Number(order.feedRule || 0) : 0;
+
+        if (feedRule === 1) {
+            // 跟量成交：打开建议价格输入弹窗 (动态喂价)
+            setVbfOrderId(orderId);
+            setVbfFeedType(1); // Dynamic
+            setVbfIsInitial(false);
+            setVbfPrice('');
+            setVbfEvidence('');
+            setVbfModalOpen(true);
+            return;
+        }
+
         setDynamicFeedLoading(orderId);
         try {
             // feedType=1 (Dynamic), tier=0
@@ -690,6 +731,36 @@ export function MyOrders() {
             showToast('error', `动态喂价失败: ${message}`);
         } finally {
             setDynamicFeedLoading(null);
+        }
+    };
+
+    /**
+     * 跟量成交弹窗确认 — 提交建议价格到 VolumeBasedFeed 合约
+     */
+    const handleVbfSubmit = async () => {
+        if (!vbfOrderId || !vbfPrice || parseFloat(vbfPrice) <= 0) {
+            showToast('error', '请输入有效建议价格');
+            return;
+        }
+        if (!vbfEvidence.trim()) {
+            showToast('error', '请填写价格依据说明');
+            return;
+        }
+        try {
+            await submitSuggestedPrice(
+                vbfOrderId,
+                vbfPrice,
+                vbfEvidence,
+                vbfFeedType,
+                vbfIsInitial
+            );
+            showToast('success', '跟量成交建议价格已提交，等待喂价员验证');
+            setVbfModalOpen(false);
+            setFeedRequestedOrders(prev => new Set(prev).add(vbfOrderId));
+            setRefreshKey(k => k + 1);
+        } catch (err: any) {
+            const message = err?.reason || err?.message || 'Operation failed';
+            showToast('error', `提交建议价格失败: ${message}`);
         }
     };
 
@@ -808,6 +879,9 @@ export function MyOrders() {
                                         <span className={`px-4 py-1.5 rounded-full text-[9px] font-black border tracking-[0.2em] italic ${order.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10'}`}>
                                             {String(order.status).toUpperCase()}
                                         </span>
+                                        {Number(order.feedRule) === 1 && (
+                                            <span className="px-3 py-1 rounded-full text-[8px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/20 tracking-[0.15em] italic">跟量成交</span>
+                                        )}
                                         <span className="text-[10px] font-mono font-bold text-white/20">ORD_REF_{order.orderId}</span>
                                     </div>
                                     <div className="flex items-end gap-6">
@@ -1148,6 +1222,69 @@ export function MyOrders() {
                 loading={initFeedLoading !== null}
                 feedFees={feedFees}
             />
+
+            {/* 跟量成交喂价弹窗 */}
+            {vbfModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="obsidian-glass w-full max-w-lg p-8 rounded-[32px] border border-purple-500/20 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <span className="text-purple-500 text-2xl">📊</span>
+                                <div>
+                                    <h3 className="text-lg font-black text-white italic">跟量成交喂价</h3>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                        {vbfFeedType === 0 ? '期初喂价 (Initial)' : vbfFeedType === 1 ? '动态喂价 (Dynamic)' : '期末喂价 (Final)'}
+                                        {' · '}订单 #{vbfOrderId}
+                                    </p>
+                                </div>
+                            </div>
+                            <button onClick={() => setVbfModalOpen(false)} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all">✕</button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">建议成交价格 (USD)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={vbfPrice}
+                                    onChange={e => setVbfPrice(e.target.value)}
+                                    placeholder="例: 2100.50"
+                                    className="obsidian-input w-full h-14 text-xl font-black italic text-purple-400 px-6"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">价格依据说明</label>
+                                <textarea
+                                    value={vbfEvidence}
+                                    onChange={e => setVbfEvidence(e.target.value)}
+                                    placeholder="例: 上海黄金交易所实时成交价 / Bloomberg 终端报价"
+                                    rows={3}
+                                    className="obsidian-input w-full text-sm font-bold px-6 py-4 resize-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-purple-500/5 border border-purple-500/10">
+                            <p className="text-[10px] font-bold text-purple-400/70">
+                                ⚡ 提交后将由喂价员验证您的建议价格。验证通过后价格将自动写入订单。
+                                {vbfIsInitial && ' 如果被拒绝，订单将被取消。'}
+                            </p>
+                        </div>
+
+                        <div className="flex gap-4 pt-2">
+                            <button onClick={() => setVbfModalOpen(false)} className="flex-1 h-12 rounded-2xl border border-white/10 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all">取消</button>
+                            <button
+                                onClick={handleVbfSubmit}
+                                disabled={vbfLoading || !vbfPrice || !vbfEvidence.trim()}
+                                className="flex-1 h-12 rounded-2xl bg-purple-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-purple-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
+                            >
+                                {vbfLoading ? '提交中...' : '提交建议价格'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

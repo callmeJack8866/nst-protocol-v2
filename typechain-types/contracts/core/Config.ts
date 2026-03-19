@@ -57,12 +57,16 @@ export interface ConfigInterface extends Interface {
       | "initialFeedDeadline"
       | "initialFeedPenaltyRate"
       | "lpPoolShare"
+      | "maxArbitrationWindow"
       | "maxConsecutiveDays"
       | "maxExerciseDelay"
+      | "maxMarginCallDeadline"
       | "maxQuotesPerBuyerOrder"
       | "maxQuotesPerSellerOrder"
+      | "minArbitrationWindow"
       | "minExerciseDelay"
       | "minFeederStake"
+      | "minMarginCallDeadline"
       | "minMarginRate"
       | "nodeRewardShare"
       | "nstDiscount"
@@ -236,11 +240,19 @@ export interface ConfigInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "maxArbitrationWindow",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "maxConsecutiveDays",
     values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "maxExerciseDelay",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "maxMarginCallDeadline",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -252,11 +264,19 @@ export interface ConfigInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "minArbitrationWindow",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "minExerciseDelay",
     values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "minFeederStake",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "minMarginCallDeadline",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -525,11 +545,19 @@ export interface ConfigInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "maxArbitrationWindow",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "maxConsecutiveDays",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
     functionFragment: "maxExerciseDelay",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "maxMarginCallDeadline",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -541,11 +569,19 @@ export interface ConfigInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "minArbitrationWindow",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "minExerciseDelay",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
     functionFragment: "minFeederStake",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "minMarginCallDeadline",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -959,17 +995,25 @@ export interface Config extends BaseContract {
 
   lpPoolShare: TypedContractMethod<[], [bigint], "view">;
 
+  maxArbitrationWindow: TypedContractMethod<[], [bigint], "view">;
+
   maxConsecutiveDays: TypedContractMethod<[], [bigint], "view">;
 
   maxExerciseDelay: TypedContractMethod<[], [bigint], "view">;
+
+  maxMarginCallDeadline: TypedContractMethod<[], [bigint], "view">;
 
   maxQuotesPerBuyerOrder: TypedContractMethod<[], [bigint], "view">;
 
   maxQuotesPerSellerOrder: TypedContractMethod<[], [bigint], "view">;
 
+  minArbitrationWindow: TypedContractMethod<[], [bigint], "view">;
+
   minExerciseDelay: TypedContractMethod<[], [bigint], "view">;
 
   minFeederStake: TypedContractMethod<[], [bigint], "view">;
+
+  minMarginCallDeadline: TypedContractMethod<[], [bigint], "view">;
 
   minMarginRate: TypedContractMethod<[], [bigint], "view">;
 
@@ -1231,10 +1275,16 @@ export interface Config extends BaseContract {
     nameOrSignature: "lpPoolShare"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
+    nameOrSignature: "maxArbitrationWindow"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
     nameOrSignature: "maxConsecutiveDays"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "maxExerciseDelay"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "maxMarginCallDeadline"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "maxQuotesPerBuyerOrder"
@@ -1243,10 +1293,16 @@ export interface Config extends BaseContract {
     nameOrSignature: "maxQuotesPerSellerOrder"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
+    nameOrSignature: "minArbitrationWindow"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
     nameOrSignature: "minExerciseDelay"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "minFeederStake"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "minMarginCallDeadline"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "minMarginRate"

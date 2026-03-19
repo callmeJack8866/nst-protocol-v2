@@ -206,6 +206,7 @@ export interface OptionsCoreInterface extends Interface {
       | "hasRole"
       | "nextOrderId"
       | "nextQuoteId"
+      | "onFeedRequested"
       | "orderQuotes"
       | "orders"
       | "pause"
@@ -372,6 +373,10 @@ export interface OptionsCoreInterface extends Interface {
   encodeFunctionData(
     functionFragment: "nextQuoteId",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "onFeedRequested",
+    values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "orderQuotes",
@@ -541,6 +546,10 @@ export interface OptionsCoreInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "nextQuoteId",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "onFeedRequested",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -1076,6 +1085,12 @@ export interface OptionsCore extends BaseContract {
 
   nextQuoteId: TypedContractMethod<[], [bigint], "view">;
 
+  onFeedRequested: TypedContractMethod<
+    [orderId: BigNumberish, feedType: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   orderQuotes: TypedContractMethod<
     [arg0: BigNumberish, arg1: BigNumberish],
     [
@@ -1483,6 +1498,13 @@ export interface OptionsCore extends BaseContract {
   getFunction(
     nameOrSignature: "nextQuoteId"
   ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "onFeedRequested"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, feedType: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "orderQuotes"
   ): TypedContractMethod<

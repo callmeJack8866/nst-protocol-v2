@@ -1,10 +1,20 @@
 /**
- * Contract Addresses Configuration
- * Updated: 2026-01-28 17:15 BSC Testnet Deployment
- * Upgrade: Added exerciseDelay & feedRule support to createSellerOrder
+ * Contract Addresses & Network Configuration
+ *
+ * Network is controlled by VITE_TARGET_CHAIN_ID env variable:
+ *   97  = BSC Testnet (default for dev)
+ *   56  = BSC Mainnet (set in .env.production)
  */
 
-// BSC Testnet (ChainID: 97) - 2026-03-11 FeedProtocol 重部署（事件数据修复）
+/** Target chain driven by env var, defaults to 97 (Testnet) */
+export const TARGET_CHAIN_ID = Number(import.meta.env.VITE_TARGET_CHAIN_ID || 97);
+
+/** Set of chain IDs that this app supports */
+export const SUPPORTED_CHAIN_IDS = new Set([56, 97]);
+
+// ─── Contract Addresses ─────────────────────────────────────────────
+
+// BSC Testnet (ChainID: 97) — 2026-03-11 latest deployment
 export const BSC_TESTNET_ADDRESSES = {
     USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
     Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
@@ -18,7 +28,7 @@ export const BSC_TESTNET_ADDRESSES = {
     FeederSelector: '',
 };
 
-// BSC Mainnet (ChainID: 56) - Not deployed yet
+// BSC Mainnet (ChainID: 56) — placeholder, fill when deployed
 export const BSC_MAINNET_ADDRESSES = {
     USDT: '0x55d398326f99059fF775485246999027B3197955',
     Config: '',
@@ -32,17 +42,8 @@ export const BSC_MAINNET_ADDRESSES = {
     FeederSelector: '',
 };
 
-// Contract Display Names
-export const CONTRACT_NAMES: Record<string, string> = {
-    Config: 'System Config',
-    VaultManager: 'Vault Manager',
-    OptionsCore: 'Options Core',
-    FeedProtocol: 'Feed Protocol',
-    SeatManager: 'Seat Manager',
-    PointsManager: 'Points Manager',
-};
+// ─── Chain Config ────────────────────────────────────────────────────
 
-// Chain configurations
 export const CHAINS = {
     BSC_MAINNET: {
         chainId: 56,
@@ -60,16 +61,31 @@ export const CHAINS = {
     },
 };
 
-// Get contract addresses by chainId
+// Contract Display Names
+export const CONTRACT_NAMES: Record<string, string> = {
+    Config: 'System Config',
+    VaultManager: 'Vault Manager',
+    OptionsCore: 'Options Core',
+    FeedProtocol: 'Feed Protocol',
+    SeatManager: 'Seat Manager',
+    PointsManager: 'Points Manager',
+    VolumeBasedFeed: 'Volume Based Feed',
+};
+
+/** Get contract addresses by chainId */
 export const getContractAddresses = (chainId: number) => {
     if (chainId === 56) return BSC_MAINNET_ADDRESSES;
     if (chainId === 97) return BSC_TESTNET_ADDRESSES;
-    return BSC_TESTNET_ADDRESSES;
+    // Unsupported chain — return target chain addresses as fallback
+    return TARGET_CHAIN_ID === 56 ? BSC_MAINNET_ADDRESSES : BSC_TESTNET_ADDRESSES;
 };
 
-// Get chain config by chainId
+/** Get chain config by chainId */
 export const getChainConfig = (chainId: number) => {
     if (chainId === 56) return CHAINS.BSC_MAINNET;
     if (chainId === 97) return CHAINS.BSC_TESTNET;
-    return CHAINS.BSC_TESTNET;
+    return TARGET_CHAIN_ID === 56 ? CHAINS.BSC_MAINNET : CHAINS.BSC_TESTNET;
 };
+
+/** Get the target chain config (the chain this app wants to be on) */
+export const getTargetChainConfig = () => getChainConfig(TARGET_CHAIN_ID);
