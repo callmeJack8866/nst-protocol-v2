@@ -53,13 +53,15 @@ export async function runMarginKeeper(): Promise<void> {
                 }
 
                 const currentMargin = order.currentMargin;
-                const initialMargin = order.initialMargin;
+                const notionalUSDT = order.notionalUSDT;
                 const minMarginRate = Number(order.minMarginRate);
                 const marginCallDeadline = Number(order.marginCallDeadline);
                 const market = order.market || '';
 
-                // 计算最低保证金要求
-                const minRequired = (initialMargin * BigInt(minMarginRate)) / 10000n;
+                // ✅ 正确公式：最低保证金 = notionalUSDT * minMarginRate / 10000
+                // （minMarginRate 是对名义本金的比率，不是对 initialMargin）
+                const minRequired = (notionalUSDT * BigInt(minMarginRate)) / 10000n;
+
                 const isUnderMargin = currentMargin < minRequired;
 
                 if (!isUnderMargin) {

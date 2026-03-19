@@ -16,6 +16,13 @@ async function main() {
     const optionsCore = await ethers.getContractAt("OptionsCore", OPTIONS_CORE_ADDRESS);
     const usdt = await ethers.getContractAt("IERC20", USDT_ADDRESS);
 
+    // 自动检测 USDT 精度
+    let decimals = 18;
+    try {
+        const usdtFull = await ethers.getContractAt("MockERC20", USDT_ADDRESS);
+        decimals = Number(await usdtFull.decimals());
+    } catch { /* fallback 18 */ }
+
     console.log("\n=== Step 1: Check OptionsCore State ===");
     try {
         const nextOrderId = await optionsCore.nextOrderId();
@@ -52,16 +59,16 @@ async function main() {
 
     console.log("\n=== Step 4: Check USDT balance and allowance ===");
     const balance = await usdt.balanceOf(deployer.address);
-    console.log("USDT Balance:", ethers.formatUnits(balance, 6));
+    console.log("USDT Balance:", ethers.formatUnits(balance, decimals));
 
     const allowance = await usdt.allowance(deployer.address, OPTIONS_CORE_ADDRESS);
-    console.log("USDT Allowance to OptionsCore:", ethers.formatUnits(allowance, 6));
+    console.log("USDT Allowance to OptionsCore:", ethers.formatUnits(allowance, decimals));
 
     // 如果 allowance 不够，先 approve
-    const requiredAmount = ethers.parseUnits("100", 6);
+    const requiredAmount = ethers.parseUnits("100", decimals);
     if (allowance < requiredAmount) {
         console.log("\nApproving USDT...");
-        const approveTx = await usdt.approve(OPTIONS_CORE_ADDRESS, ethers.parseUnits("1000000", 6));
+        const approveTx = await usdt.approve(OPTIONS_CORE_ADDRESS, ethers.parseUnits("1000000", decimals));
         await approveTx.wait();
         console.log("✓ USDT approved");
     }
@@ -79,7 +86,7 @@ async function main() {
             "CN",               // country
             "1800",             // refPrice
             0,                  // direction (Call)
-            ethers.parseUnits("100", 6),  // notionalUSDT
+            ethers.parseUnits("100", decimals),  // notionalUSDT
             expiryTimestamp,    // expiryTimestamp
             500,                // premiumRate (5%)
             2000,               // marginRate (20%)
@@ -103,7 +110,7 @@ async function main() {
             "CN",
             "1800",
             0,
-            ethers.parseUnits("100", 6),
+            ethers.parseUnits("100", decimals),
             expiryTimestamp,
             500,
             2000,

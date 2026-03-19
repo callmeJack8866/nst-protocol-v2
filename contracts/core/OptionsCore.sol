@@ -45,6 +45,17 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
     mapping(string => uint256[]) private ordersByMarket;
     mapping(string => uint256[]) private ordersByCode;
 
+    // ==================== 事件 ====================
+
+    /// @notice 动态喂价后发现保证金不足，需追保（由 marginKeeper 监听并触发链上 triggerMarginCall）
+    event DynamicFeedMarginAlert(
+        uint256 indexed orderId,
+        address indexed seller,
+        uint256 currentMargin,
+        uint256 minRequired,
+        uint256 lastFeedPrice
+    );
+
     // ==================== 构造函数 ====================
     constructor(
         address _config,
@@ -147,7 +158,9 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         order.sellerType = acceptedSellerType;
         order.designatedSeller = designatedSeller;
         order.arbitrationWindow = arbitrationWindow;
-        order.marginCallDeadline = marginCallDeadline;
+        // NOTE: marginCallDeadline 参数在 createBuyerRFQ 中用于配置/范围校验，
+        //       但不直接赋值给 order.marginCallDeadline（该字段初始为 0，
+        //       仅由 triggerMarginCall 在追保触发时写入实际截止时间戳）
         order.dividendAdjustment = dividendAdjustment;
         order.exerciseDelay = 0;
         // 新增：平仓规则和喂价规则
@@ -583,6 +596,15 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
         orders[orderId].strikePrice = price;
     }
 
+    /**
+     * @notice 更新终轮喂价请求发起时间（仅 Settlement 合约可调用）
+     */
+    function updateOrderFinalFeedRequestedAt(uint256 orderId, uint256 timestamp) external 
+        validOrder(orderId) onlyRole(SETTLEMENT_ROLE) 
+    {
+        orders[orderId].finalFeedRequestedAt = timestamp;
+    }
+
     // ==================== 查询功能 ====================
 
     function getOrder(uint256 orderId) external view override returns (Order memory) {
@@ -679,6 +701,7 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
             if (order.status == OrderStatus.LIVE) {
                 OrderStatus oldStatus = order.status;
                 order.status = OrderStatus.WAITING_FINAL_FEED;
+                order.finalFeedRequestedAt = block.timestamp;
                 emit OrderStatusChanged(orderId, oldStatus, OrderStatus.WAITING_FINAL_FEED, "final feed requested via FeedProtocol", block.timestamp);
             }
         }
@@ -731,7 +754,27 @@ contract OptionsCore is IOptionsCore, AccessControl, ReentrancyGuard, Pausable {
                 "OptionsCore: dynamic feed only for LIVE orders"
             );
             order.lastFeedPrice = finalPrice;
+
+            // ==============================
+            // 动态喂价后驱动风险状态
+            // 计算当前最低保证金要求：notionalUSDT * minMarginRate / 10000
+            // 如果当前保证金不足，发出追保预警事件（由 marginKeeper 监听后链上触发 triggerMarginCall）
+            // ==============================
+            if (order.minMarginRate > 0 && order.notionalUSDT > 0) {
+                uint256 minRequired = (order.notionalUSDT * order.minMarginRate) / 10000;
+                if (order.currentMargin < minRequired && order.marginCallDeadline == 0) {
+                    emit DynamicFeedMarginAlert(
+                        orderId,
+                        order.seller,
+                        order.currentMargin,
+                        minRequired,
+                        finalPrice
+                    );
+                }
+            }
+
             emit OrderStatusChanged(orderId, OrderStatus.LIVE, OrderStatus.LIVE, "dynamic feed callback", block.timestamp);
+
 
         } else if (feedType == FeedType.Final) {
             require(

@@ -215,6 +215,39 @@ contract VolumeBasedFeed is AccessControl, ReentrancyGuard, Pausable {
         require(suggestedPrice > 0, "VolumeBasedFeed: price must be positive");
         require(bytes(priceEvidence).length > 0, "VolumeBasedFeed: evidence required");
 
+        // ===== 业务校验 =====
+        // ① 订单必须存在且 orderId 有效
+        require(address(optionsCore) != address(0), "VolumeBasedFeed: optionsCore not set");
+        Order memory order = optionsCore.getOrder(orderId);
+        require(order.orderId > 0, "VolumeBasedFeed: order does not exist");
+
+        // ② msg.sender 必须是订单的 seller（买方不得提交建议价格）
+        require(msg.sender == order.seller, "VolumeBasedFeed: caller is not order seller");
+
+        // ③ 订单的 feedRule 必须是 VolumeBasedFeed
+        require(order.feedRule == FeedRule.VolumeBasedFeed, "VolumeBasedFeed: order feedRule is not VolumeBasedFeed");
+
+        // ④ feedType 必须匹配订单当前状态
+        if (feedType == FeedType.Initial) {
+            require(
+                order.status == OrderStatus.MATCHED || order.status == OrderStatus.WAITING_INITIAL_FEED,
+                "VolumeBasedFeed: order not in correct status for initial feed"
+            );
+        } else if (feedType == FeedType.Dynamic) {
+            require(
+                order.status == OrderStatus.LIVE,
+                "VolumeBasedFeed: order must be LIVE for dynamic feed"
+            );
+        } else if (feedType == FeedType.Final) {
+            require(
+                order.status == OrderStatus.LIVE || order.status == OrderStatus.WAITING_FINAL_FEED,
+                "VolumeBasedFeed: order not in correct status for final feed"
+            );
+        }
+
+        // ⑤ 同一 orderId + feedType 不允许存在未完成（Pending）的请求
+        require(!_hasPendingRequest(orderId, feedType), "VolumeBasedFeed: pending request already exists for this order and feedType");
+
         requestId = nextRequestId++;
 
         requests[requestId] = VolumeBasedFeedRequest({
@@ -441,28 +474,41 @@ contract VolumeBasedFeed is AccessControl, ReentrancyGuard, Pausable {
     // ==================== 内部函数 ====================
 
     /**
+     * @dev 检查是否已有相同 orderId + feedType 的 Pending 请求
+     * @return true = 存在未完成请求，不允许重复提交
+     */
+    function _hasPendingRequest(uint256 orderId, FeedType feedType) internal view returns (bool) {
+        uint256[] storage reqIds = orderVolumeRequests[orderId];
+        for (uint256 i = 0; i < reqIds.length; i++) {
+            VolumeBasedFeedRequest storage req = requests[reqIds[i]];
+            if (req.feedType == feedType && req.status == VolumeBasedFeedStatus.Pending) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * @dev 回调 OptionsCore，将确认的价格写入订单
      *      先 onFeedRequested 同步状态，再 processFeedCallback 写价格
+     *      任一步骤失败都会 revert，不静默吞掉错误
      */
     function _callbackOptionsCore(VolumeBasedFeedRequest storage request) internal {
-        if (address(optionsCore) == address(0)) return;
+        require(address(optionsCore) != address(0), "VolumeBasedFeed: optionsCore not set");
 
         // ① 同步订单状态（MATCHED → WAITING_INITIAL_FEED 等）
-        try optionsCore.onFeedRequested(request.orderId, request.feedType) {
-        } catch {}
+        //    不再 try/catch 静默吞掉 — 失败则整个 approve/modify 回滚
+        optionsCore.onFeedRequested(request.orderId, request.feedType);
 
         // ② 写入最终价格并推进状态（WAITING_INITIAL_FEED → LIVE 等）
-        try optionsCore.processFeedCallback(
+        //    同样不再 try/catch — 失败则回滚
+        optionsCore.processFeedCallback(
             request.orderId,
             request.feedType,
             request.finalPrice
-        ) {
-            request.status = VolumeBasedFeedStatus.Finalized;
-        } catch Error(string memory reason) {
-            emit CallbackFailed(request.requestId, request.orderId, reason);
-        } catch {
-            emit CallbackFailed(request.requestId, request.orderId, "unknown error");
-        }
+        );
+
+        request.status = VolumeBasedFeedStatus.Finalized;
     }
 
     // ==================== 管理功能 ====================

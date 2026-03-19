@@ -56,6 +56,7 @@ export type OrderStruct = {
   createdAt: BigNumberish;
   matchedAt: BigNumberish;
   settledAt: BigNumberish;
+  finalFeedRequestedAt: BigNumberish;
   lastFeedPrice: BigNumberish;
   dividendAmount: BigNumberish;
 };
@@ -93,6 +94,7 @@ export type OrderStructOutput = [
   createdAt: bigint,
   matchedAt: bigint,
   settledAt: bigint,
+  finalFeedRequestedAt: bigint,
   lastFeedPrice: bigint,
   dividendAmount: bigint
 ] & {
@@ -128,6 +130,7 @@ export type OrderStructOutput = [
   createdAt: bigint;
   matchedAt: bigint;
   settledAt: bigint;
+  finalFeedRequestedAt: bigint;
   lastFeedPrice: bigint;
   dividendAmount: bigint;
 };
@@ -225,6 +228,7 @@ export interface OptionsCoreInterface extends Interface {
       | "supportsInterface"
       | "unpause"
       | "updateOrderDividend"
+      | "updateOrderFinalFeedRequestedAt"
       | "updateOrderMargin"
       | "updateOrderMarginCallDeadline"
       | "updateOrderPrice"
@@ -237,6 +241,7 @@ export interface OptionsCoreInterface extends Interface {
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "DynamicFeedMarginAlert"
       | "FeedRequestEmitted"
       | "OrderCancelled"
       | "OrderCreated"
@@ -449,6 +454,10 @@ export interface OptionsCoreInterface extends Interface {
     values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "updateOrderFinalFeedRequestedAt",
+    values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "updateOrderMargin",
     values: [BigNumberish, BigNumberish]
   ): string;
@@ -604,6 +613,10 @@ export interface OptionsCoreInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "updateOrderFinalFeedRequestedAt",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "updateOrderMargin",
     data: BytesLike
   ): Result;
@@ -632,6 +645,34 @@ export interface OptionsCoreInterface extends Interface {
     functionFragment: "vaultManager",
     data: BytesLike
   ): Result;
+}
+
+export namespace DynamicFeedMarginAlertEvent {
+  export type InputTuple = [
+    orderId: BigNumberish,
+    seller: AddressLike,
+    currentMargin: BigNumberish,
+    minRequired: BigNumberish,
+    lastFeedPrice: BigNumberish
+  ];
+  export type OutputTuple = [
+    orderId: bigint,
+    seller: string,
+    currentMargin: bigint,
+    minRequired: bigint,
+    lastFeedPrice: bigint
+  ];
+  export interface OutputObject {
+    orderId: bigint;
+    seller: string;
+    currentMargin: bigint;
+    minRequired: bigint;
+    lastFeedPrice: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace FeedRequestEmittedEvent {
@@ -1166,6 +1207,7 @@ export interface OptionsCore extends BaseContract {
         bigint,
         bigint,
         bigint,
+        bigint,
         bigint
       ] & {
         orderId: bigint;
@@ -1200,6 +1242,7 @@ export interface OptionsCore extends BaseContract {
         createdAt: bigint;
         matchedAt: bigint;
         settledAt: bigint;
+        finalFeedRequestedAt: bigint;
         lastFeedPrice: bigint;
         dividendAmount: bigint;
       }
@@ -1322,6 +1365,12 @@ export interface OptionsCore extends BaseContract {
 
   updateOrderDividend: TypedContractMethod<
     [orderId: BigNumberish, amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  updateOrderFinalFeedRequestedAt: TypedContractMethod<
+    [orderId: BigNumberish, timestamp: BigNumberish],
     [void],
     "nonpayable"
   >;
@@ -1583,6 +1632,7 @@ export interface OptionsCore extends BaseContract {
         bigint,
         bigint,
         bigint,
+        bigint,
         bigint
       ] & {
         orderId: bigint;
@@ -1617,6 +1667,7 @@ export interface OptionsCore extends BaseContract {
         createdAt: bigint;
         matchedAt: bigint;
         settledAt: bigint;
+        finalFeedRequestedAt: bigint;
         lastFeedPrice: bigint;
         dividendAmount: bigint;
       }
@@ -1751,6 +1802,13 @@ export interface OptionsCore extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "updateOrderFinalFeedRequestedAt"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, timestamp: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "updateOrderMargin"
   ): TypedContractMethod<
     [orderId: BigNumberish, newMargin: BigNumberish],
@@ -1799,6 +1857,13 @@ export interface OptionsCore extends BaseContract {
     nameOrSignature: "vaultManager"
   ): TypedContractMethod<[], [string], "view">;
 
+  getEvent(
+    key: "DynamicFeedMarginAlert"
+  ): TypedContractEvent<
+    DynamicFeedMarginAlertEvent.InputTuple,
+    DynamicFeedMarginAlertEvent.OutputTuple,
+    DynamicFeedMarginAlertEvent.OutputObject
+  >;
   getEvent(
     key: "FeedRequestEmitted"
   ): TypedContractEvent<
@@ -1885,6 +1950,17 @@ export interface OptionsCore extends BaseContract {
   >;
 
   filters: {
+    "DynamicFeedMarginAlert(uint256,address,uint256,uint256,uint256)": TypedContractEvent<
+      DynamicFeedMarginAlertEvent.InputTuple,
+      DynamicFeedMarginAlertEvent.OutputTuple,
+      DynamicFeedMarginAlertEvent.OutputObject
+    >;
+    DynamicFeedMarginAlert: TypedContractEvent<
+      DynamicFeedMarginAlertEvent.InputTuple,
+      DynamicFeedMarginAlertEvent.OutputTuple,
+      DynamicFeedMarginAlertEvent.OutputObject
+    >;
+
     "FeedRequestEmitted(uint256,string,string,string,uint8,uint8,address,uint256,uint256)": TypedContractEvent<
       FeedRequestEmittedEvent.InputTuple,
       FeedRequestEmittedEvent.OutputTuple,

@@ -23,14 +23,21 @@ async function main() {
     const vaultManager = await ethers.getContractAt("VaultManager", VAULT_MANAGER_ADDRESS);
     const usdt = await ethers.getContractAt("IERC20", USDT_ADDRESS);
 
+    // 自动检测 USDT 精度
+    let decimals = 18;
+    try {
+        const usdtFull = await ethers.getContractAt("MockERC20", USDT_ADDRESS);
+        decimals = Number(await usdtFull.decimals());
+    } catch { /* fallback 18 */ }
+
     // 检查 VaultManager 的 USDT 余额
     const vmUsdtBalance = await usdt.balanceOf(VAULT_MANAGER_ADDRESS);
-    console.log("VaultManager USDT balance:", ethers.formatUnits(vmUsdtBalance, 6), "USDT");
+    console.log("VaultManager USDT balance:", ethers.formatUnits(vmUsdtBalance, decimals), "USDT");
 
     try {
         // 检查卖方在 VaultManager 中的保证金
         const sellerMargin = await vaultManager.userMarginBalance(SELLER_ADDRESS, USDT_ADDRESS);
-        console.log("Seller margin in VM:", ethers.formatUnits(sellerMargin, 6), "USDT");
+        console.log("Seller margin in VM:", ethers.formatUnits(sellerMargin, decimals), "USDT");
     } catch (e: any) {
         console.log("Error reading seller margin:", e.message?.slice(0, 200));
     }

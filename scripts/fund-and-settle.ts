@@ -19,20 +19,27 @@ async function main() {
     const vaultManager = await ethers.getContractAt("VaultManager", VAULT_MANAGER_ADDRESS);
     const usdt = await ethers.getContractAt("IERC20", USDT_ADDRESS);
 
+    // 自动检测 USDT 精度
+    let decimals = 18;
+    try {
+        const usdtFull = await ethers.getContractAt("MockERC20", USDT_ADDRESS);
+        decimals = Number(await usdtFull.decimals());
+    } catch { /* fallback 18 */ }
+
     console.log("\n=== Step 1: Check Order 1 ===");
     const order = await optionsCore.getOrder(1);
     console.log("Status:", order.status.toString(), "(should be 6)");
-    console.log("CurrentMargin:", ethers.formatUnits(order.currentMargin, 6), "USDT");
+    console.log("CurrentMargin:", ethers.formatUnits(order.currentMargin, decimals), "USDT");
     console.log("Seller:", order.seller);
 
     console.log("\n=== Step 2: Check VaultManager Seller Balance ===");
     try {
         const sellerBalance = await vaultManager.userMarginBalance(SELLER_ADDRESS, USDT_ADDRESS);
-        console.log("Seller margin in VM:", ethers.formatUnits(sellerBalance, 6), "USDT");
+        console.log("Seller margin in VM:", ethers.formatUnits(sellerBalance, decimals), "USDT");
 
         if (sellerBalance < order.currentMargin) {
             console.log("\n⚠️ Seller margin insufficient!");
-            console.log("Required:", ethers.formatUnits(order.currentMargin, 6), "USDT");
+            console.log("Required:", ethers.formatUnits(order.currentMargin, decimals), "USDT");
 
             // 需要为卖方存入保证金
             // 方案1: 直接转 USDT 到 VaultManager 并手动更新余额
@@ -52,8 +59,8 @@ async function main() {
             }
 
             // 先把 USDT approve 给 VaultManager
-            const amount = order.currentMargin + ethers.parseUnits("1", 6); // 多 1 USDT 余量
-            console.log("Approving", ethers.formatUnits(amount, 6), "USDT to VaultManager...");
+            const amount = order.currentMargin + ethers.parseUnits("1", decimals); // 多 1 USDT 余量
+            console.log("Approving", ethers.formatUnits(amount, decimals), "USDT to VaultManager...");
             await (await usdt.approve(VAULT_MANAGER_ADDRESS, amount)).wait();
             console.log("✓ Approved");
 

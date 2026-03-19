@@ -134,10 +134,12 @@ export async function runExerciseFeedKeeper(): Promise<void> {
                 // Phase 1: WAITING_FINAL_FEED 且未发起喂价请求 → 代发喂价请求
                 // ============================================================
                 if (status === OrderStatus.WAITING_FINAL_FEED && !phase1Processed.has(orderId)) {
-                    // 使用 settledAt 作为行权发起时间
-                    const exerciseInitiatedAt = Number(order.settledAt) > 0
-                        ? Number(order.settledAt)
-                        : Number(order.matchedAt); // 保守回退
+                    // ✅ 使用链上真实字段 finalFeedRequestedAt（由 earlyExercise / onFeedRequested 写入）
+                    const exerciseInitiatedAt = Number(order.finalFeedRequestedAt);
+                    if (exerciseInitiatedAt === 0) {
+                        log(moduleName, `  ⚠ Order #${orderId}: WAITING_FINAL_FEED 但 finalFeedRequestedAt=0 — 数据异常，跳过`);
+                        continue;
+                    }
 
                     const timeoutAt = exerciseInitiatedAt + CLOSING_FEED_DEADLINE_SECONDS + PHASE1_BUFFER_SECONDS;
 

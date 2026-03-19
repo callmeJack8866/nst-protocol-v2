@@ -54,6 +54,7 @@ export type OrderStruct = {
   createdAt: BigNumberish;
   matchedAt: BigNumberish;
   settledAt: BigNumberish;
+  finalFeedRequestedAt: BigNumberish;
   lastFeedPrice: BigNumberish;
   dividendAmount: BigNumberish;
 };
@@ -91,6 +92,7 @@ export type OrderStructOutput = [
   createdAt: bigint,
   matchedAt: bigint,
   settledAt: bigint,
+  finalFeedRequestedAt: bigint,
   lastFeedPrice: bigint,
   dividendAmount: bigint
 ] & {
@@ -126,6 +128,7 @@ export type OrderStructOutput = [
   createdAt: bigint;
   matchedAt: bigint;
   settledAt: bigint;
+  finalFeedRequestedAt: bigint;
   lastFeedPrice: bigint;
   dividendAmount: bigint;
 };
@@ -136,6 +139,7 @@ export interface IOptionsCoreForSettlementInterface extends Interface {
       | "getOrder"
       | "nextOrderId"
       | "updateOrderDividend"
+      | "updateOrderFinalFeedRequestedAt"
       | "updateOrderMargin"
       | "updateOrderMarginCallDeadline"
       | "updateOrderPrice"
@@ -154,6 +158,10 @@ export interface IOptionsCoreForSettlementInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "updateOrderDividend",
+    values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "updateOrderFinalFeedRequestedAt",
     values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
@@ -188,6 +196,10 @@ export interface IOptionsCoreForSettlementInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "updateOrderDividend",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "updateOrderFinalFeedRequestedAt",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -273,6 +285,12 @@ export interface IOptionsCoreForSettlement extends BaseContract {
     "nonpayable"
   >;
 
+  updateOrderFinalFeedRequestedAt: TypedContractMethod<
+    [orderId: BigNumberish, timestamp: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   updateOrderMargin: TypedContractMethod<
     [orderId: BigNumberish, newMargin: BigNumberish],
     [void],
@@ -323,6 +341,13 @@ export interface IOptionsCoreForSettlement extends BaseContract {
     nameOrSignature: "updateOrderDividend"
   ): TypedContractMethod<
     [orderId: BigNumberish, amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "updateOrderFinalFeedRequestedAt"
+  ): TypedContractMethod<
+    [orderId: BigNumberish, timestamp: BigNumberish],
     [void],
     "nonpayable"
   >;

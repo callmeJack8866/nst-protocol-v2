@@ -6,6 +6,7 @@ import { useWalletContext } from '../context/WalletContext';
 import { usePerspective } from '../context/PerspectiveContext';
 import { formatUnits, Contract } from 'ethers';
 import { useTranslation } from 'react-i18next';
+import { formatUSDTAmount, usdtToNumber } from '../utils/transformers';
 import { ORDER_STATUS, FEED_TYPE, FEED_TIER } from '../constants/orderStatus';
 import { getContractAddresses } from '../contracts/config';
 
@@ -171,18 +172,18 @@ export function MyOrders() {
 
     const formatAmount = (val: any) => {
         // Handle both BigInt and Number types safely
-        let num: number;
         if (typeof val === 'bigint') {
-            num = Number(formatUnits(val, 6));
+            return formatUSDTAmount(val);
         } else if (typeof val === 'number') {
-            num = val;
+            const num = val;
+            if (num >= 1e6) return `$${(num / 1e6).toFixed(1)}M`;
+            return `$${num.toLocaleString()}`;
         } else if (val && typeof val === 'string') {
-            num = parseFloat(val);
-        } else {
-            num = 0;
+            const num = parseFloat(val);
+            if (num >= 1e6) return `$${(num / 1e6).toFixed(1)}M`;
+            return `$${num.toLocaleString()}`;
         }
-        if (num >= 1e6) return `$${(num / 1e6).toFixed(1)}M`;
-        return `$${num.toLocaleString()}`;
+        return '$0';
     };
 
     // Safe direction conversion: handles both string and number
@@ -516,8 +517,8 @@ export function MyOrders() {
             return null;
         }
 
-        // 使用 exerciseRequestedAt 或 finalFeedRequestedAt 作为起始时间
-        const requestedAt = Number(order.exerciseRequestedAt || order.finalFeedRequestedAt || 0);
+        // 使用链上真实字段 finalFeedRequestedAt 作为起始时间
+        const requestedAt = Number(order.finalFeedRequestedAt || 0);
         const FEED_DEADLINE = 10 * 60; // 10分钟
 
         if (requestedAt === 0) return null;
@@ -551,6 +552,12 @@ export function MyOrders() {
         const feedRule = order ? Number(order.feedRule || 0) : 0;
 
         if (feedRule === 1) {
+            // 跟量成交：仅卖方可以提交建议价格
+            // 合约层已校验 msg.sender === order.seller，前端提前拦截避免无效交易
+            if (!order || !account || order.seller.toLowerCase() !== account.toLowerCase()) {
+                showToast('error', t('errors.vbf_seller_only', '只有卖方可以提交跟量成交建议价格'));
+                return;
+            }
             // 跟量成交：打开建议价格输入弹窗
             setVbfOrderId(orderId);
             setVbfFeedType(FEED_TYPE.INITIAL); // 期初喂价
@@ -558,6 +565,7 @@ export function MyOrders() {
             setVbfPrice('');
             setVbfEvidence('');
             setVbfModalOpen(true);
+
             return;
         }
 
@@ -789,7 +797,7 @@ export function MyOrders() {
                         return orders.reduce((acc, o) => {
                             const val = o[field];
                             if (typeof val === 'bigint') {
-                                return acc + Number(formatUnits(val, 6));
+                                return acc + usdtToNumber(val);
                             } else if (typeof val === 'number') {
                                 return acc + val;
                             }

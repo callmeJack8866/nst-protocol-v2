@@ -183,6 +183,11 @@ const _abi = [
           },
           {
             internalType: "uint256",
+            name: "finalFeedRequestedAt",
+            type: "uint256",
+          },
+          {
+            internalType: "uint256",
             name: "lastFeedPrice",
             type: "uint256",
           },
@@ -227,6 +232,24 @@ const _abi = [
       },
     ],
     name: "updateOrderDividend",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "orderId",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "timestamp",
+        type: "uint256",
+      },
+    ],
+    name: "updateOrderFinalFeedRequestedAt",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

@@ -3,7 +3,7 @@ import { useOptions } from '../hooks';
 import { useWalletContext } from '../context/WalletContext';
 import { OrderCard } from '../components/OrderCard';
 import { Link } from 'react-router-dom';
-import { formatUnits } from 'ethers';
+import { usdtToNumber } from '../utils/transformers';
 import { useTranslation } from 'react-i18next';
 
 interface RFQOrder {
@@ -16,7 +16,7 @@ interface RFQOrder {
   refPrice: string;
   direction: string;
   notionalUSDT: bigint;
-  premiumRate: number;
+  maxPremiumRate: number;
   expiryTimestamp: number;
   status: string;
   createdAt: number;
@@ -202,8 +202,8 @@ export function BuyerHall() {
                     underlyingCode: rfq.underlyingCode,
                     market: rfq.market,
                     direction: rfq.direction,
-                    notionalUSDT: Number(formatUnits(rfq.notionalUSDT, 6)),
-                    premiumRate: rfq.premiumRate,
+                    notionalUSDT: usdtToNumber(rfq.notionalUSDT),
+                    premiumRate: rfq.maxPremiumRate,
                     expiryTimestamp: rfq.expiryTimestamp,
                     status: rfq.status,
                     sellerType: 'Open Market',
@@ -247,10 +247,10 @@ export function BuyerHall() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12 py-8 border-y border-white/5">
-              <MetricItem label="Notional" value={`$${Number(formatUnits(selectedRFQ.notionalUSDT, 6)).toLocaleString()}`} />
+              <MetricItem label="Notional" value={`$${usdtToNumber(selectedRFQ.notionalUSDT).toLocaleString()}`} />
               <MetricItem label="Direction" value={getDirectionStr(selectedRFQ.direction).toUpperCase()} gold />
               <MetricItem label="Reference" value={`$${selectedRFQ.refPrice}`} />
-              <MetricItem label="Target rate" value={`${(selectedRFQ.premiumRate / 100).toFixed(2)}%`} />
+              <MetricItem label="Max Rate" value={`${(selectedRFQ.maxPremiumRate / 100).toFixed(2)}%`} />
             </div>
 
             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scroll">

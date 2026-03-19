@@ -61,6 +61,7 @@ export interface OptionsSettlementInterface extends Interface {
     nameOrSignatureOrTopic:
       | "ArbitrationResolved"
       | "DividendRecorded"
+      | "MarginCallRequired"
       | "MarginCallTriggered"
       | "MarginChanged"
       | "OrderCancelled"
@@ -316,6 +317,34 @@ export namespace DividendRecordedEvent {
     dividendPerShare: bigint;
     totalDividend: bigint;
     timestamp: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace MarginCallRequiredEvent {
+  export type InputTuple = [
+    orderId: BigNumberish,
+    seller: AddressLike,
+    currentMargin: BigNumberish,
+    minRequired: BigNumberish,
+    lastFeedPrice: BigNumberish
+  ];
+  export type OutputTuple = [
+    orderId: bigint,
+    seller: string,
+    currentMargin: bigint,
+    minRequired: bigint,
+    lastFeedPrice: bigint
+  ];
+  export interface OutputObject {
+    orderId: bigint;
+    seller: string;
+    currentMargin: bigint;
+    minRequired: bigint;
+    lastFeedPrice: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -888,6 +917,13 @@ export interface OptionsSettlement extends BaseContract {
     DividendRecordedEvent.OutputObject
   >;
   getEvent(
+    key: "MarginCallRequired"
+  ): TypedContractEvent<
+    MarginCallRequiredEvent.InputTuple,
+    MarginCallRequiredEvent.OutputTuple,
+    MarginCallRequiredEvent.OutputObject
+  >;
+  getEvent(
     key: "MarginCallTriggered"
   ): TypedContractEvent<
     MarginCallTriggeredEvent.InputTuple,
@@ -986,6 +1022,17 @@ export interface OptionsSettlement extends BaseContract {
       DividendRecordedEvent.InputTuple,
       DividendRecordedEvent.OutputTuple,
       DividendRecordedEvent.OutputObject
+    >;
+
+    "MarginCallRequired(uint256,address,uint256,uint256,uint256)": TypedContractEvent<
+      MarginCallRequiredEvent.InputTuple,
+      MarginCallRequiredEvent.OutputTuple,
+      MarginCallRequiredEvent.OutputObject
+    >;
+    MarginCallRequired: TypedContractEvent<
+      MarginCallRequiredEvent.InputTuple,
+      MarginCallRequiredEvent.OutputTuple,
+      MarginCallRequiredEvent.OutputObject
     >;
 
     "MarginCallTriggered(uint256,address,uint256,uint256,uint256)": TypedContractEvent<

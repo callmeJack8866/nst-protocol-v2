@@ -73,9 +73,8 @@ async function main() {
     // ==================== Step 2: Approve ====================
     console.log("\n=== Step 2: Approve USDT ===");
     const approveAmount = ethers.parseUnits("100", decimals);
-    await (await usdt.approve(OPTIONS_CORE_ADDRESS, approveAmount)).wait();
     await (await usdt.approve(VAULT_MANAGER_ADDRESS, approveAmount)).wait();
-    console.log(`${LOG_PREFIX.INFO} ✓ USDT approved (${ethers.formatUnits(approveAmount, decimals)})`);
+    console.log(`${LOG_PREFIX.INFO} ✓ USDT approved to VaultManager (${ethers.formatUnits(approveAmount, decimals)})`);
 
     // ==================== Step 3: 卖方建单 ====================
     console.log("\n=== Step 3: 创建卖方订单 ===");
@@ -95,7 +94,7 @@ async function main() {
             notionalUSDT,       // notionalUSDT
             expiryTimestamp,    // expiryTimestamp
             500,                // premiumRate (5%)
-            2000,               // marginRate (20%)
+            ethers.parseUnits("2", decimals),  // marginAmount (notional 的 20% = 2 USDT)
             0,                  // liquidationRule
             3,                  // consecutiveDays (≤ 10)
             10,                 // dailyLimitPercent

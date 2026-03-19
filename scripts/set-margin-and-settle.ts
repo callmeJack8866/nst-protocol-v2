@@ -19,9 +19,16 @@ async function main() {
     const vaultManager = await ethers.getContractAt("VaultManager", VAULT_MANAGER_ADDRESS);
     const usdt = await ethers.getContractAt("IERC20", USDT_ADDRESS);
 
+    // 自动检测 USDT 精度
+    let decimals = 18;
+    try {
+        const usdtFull = await ethers.getContractAt("MockERC20", USDT_ADDRESS);
+        decimals = Number(await usdtFull.decimals());
+    } catch { /* fallback 18 */ }
+
     console.log("\n=== Step 1: Check VaultManager USDT Balance ===");
     const vmBalance = await usdt.balanceOf(VAULT_MANAGER_ADDRESS);
-    console.log("VaultManager USDT:", ethers.formatUnits(vmBalance, 6));
+    console.log("VaultManager USDT:", ethers.formatUnits(vmBalance, decimals));
 
     console.log("\n=== Step 2: Set Seller Margin Balance ===");
 
@@ -30,14 +37,14 @@ async function main() {
     const order2 = await optionsCore.getOrder(2);
 
     const totalNeeded = order1.currentMargin + order2.currentMargin;
-    console.log("Order 1 currentMargin:", ethers.formatUnits(order1.currentMargin, 6), "USDT");
-    console.log("Order 2 currentMargin:", ethers.formatUnits(order2.currentMargin, 6), "USDT");
-    console.log("Total needed:", ethers.formatUnits(totalNeeded, 6), "USDT");
+    console.log("Order 1 currentMargin:", ethers.formatUnits(order1.currentMargin, decimals), "USDT");
+    console.log("Order 2 currentMargin:", ethers.formatUnits(order2.currentMargin, decimals), "USDT");
+    console.log("Total needed:", ethers.formatUnits(totalNeeded, decimals), "USDT");
 
     // 使用 adminSetMarginBalance 设置卖方余额（需要手动转 USDT 到 VaultManager）
     if (vmBalance < totalNeeded) {
-        const diff = totalNeeded - vmBalance + ethers.parseUnits("10", 6); // 多 10 USDT
-        console.log("Need to transfer", ethers.formatUnits(diff, 6), "more USDT to VaultManager");
+        const diff = totalNeeded - vmBalance + ethers.parseUnits("10", decimals); // 多 10 USDT
+        console.log("Need to transfer", ethers.formatUnits(diff, decimals), "more USDT to VaultManager");
         await (await usdt.transfer(VAULT_MANAGER_ADDRESS, diff)).wait();
         console.log("✓ USDT transferred");
     }
@@ -45,11 +52,11 @@ async function main() {
     // 设置卖方余额
     console.log("Setting seller margin balance...");
     await (await vaultManager.adminSetMarginBalance(SELLER_ADDRESS, USDT_ADDRESS, totalNeeded)).wait();
-    console.log("✓ Seller margin set to", ethers.formatUnits(totalNeeded, 6), "USDT");
+    console.log("✓ Seller margin set to", ethers.formatUnits(totalNeeded, decimals), "USDT");
 
     // 验证
     const sellerBalance = await vaultManager.userMarginBalance(SELLER_ADDRESS, USDT_ADDRESS);
-    console.log("Seller VM Balance:", ethers.formatUnits(sellerBalance, 6), "USDT");
+    console.log("Seller VM Balance:", ethers.formatUnits(sellerBalance, decimals), "USDT");
 
     console.log("\n=== Step 3: Check Order Status ===");
     const updatedOrder1 = await optionsCore.getOrder(1);

@@ -44,7 +44,7 @@ async function main() {
 
     // ==================== 合约地址（来自 deployed-addresses.json）====================
     const OPTIONS_CORE_ADDRESS = "0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a";
-    const FEED_PROTOCOL_ADDRESS = "0x98BA4261835533FEBf2335a4edA04d1a69D45311";
+    const FEED_PROTOCOL_ADDRESS = "0x45E4ee36e6fA443a7318cd549c6AC20d83b6C1A7";
     const VAULT_MANAGER_ADDRESS = "0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454";
     const USDT_ADDRESS = "0x6ae0833E637D1d99F3FCB6204860386f6a6713C0";
 
@@ -62,12 +62,52 @@ async function main() {
         console.log("   请先运行: optionsCore.grantRole(FEED_PROTOCOL_ROLE, feedProtocolAddress)");
     }
 
-    console.log("\n=== Step 1: Approve USDT ===");
+    // ==================== 工具函数 ====================
+    /** 带重试的发送交易 */
+    async function safeSendTx(
+        label: string,
+        txFn: (overrides: { nonce: number }) => Promise<any>,
+    ): Promise<any> {
+        const nonce = await deployer.getNonce();
+        const feeData = await ethers.provider.getFeeData();
+        // BSC Testnet: 用 gasPrice 模式，加 20% 防止 underpriced
+        const gasPrice = (feeData.gasPrice || 5000000000n) * 120n / 100n;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const tx = await txFn({ nonce, gasPrice } as any);
+                const receipt = await tx.wait();
+                return receipt;
+            } catch (e: any) {
+                const msg = e.message || '';
+                if (attempt < 3 && (msg.includes('underpriced') || msg.includes('nonce') || msg.includes('already known'))) {
+                    console.log(`${LOG.INFO} ⚠ ${label} 第 ${attempt} 次失败 (${msg.slice(0, 80)})，等待 3s 重试...`);
+                    await new Promise(r => setTimeout(r, 3000));
+                    continue;
+                }
+                throw e;
+            }
+        }
+    }
+
+    /** 检查 allowance 并在不足时 approve */
+    async function ensureAllowance(spender: string, spenderName: string, required: bigint) {
+        const current = await usdt.allowance(deployer.address, spender);
+        if (current >= required) {
+            console.log(`${LOG.INFO} ✓ ${spenderName} allowance 充足 (${ethers.formatEther(current)})，跳过 approve`);
+            return;
+        }
+        console.log(`${LOG.INFO} ${spenderName} allowance 不足 (${ethers.formatEther(current)} < ${ethers.formatEther(required)})，发送 approve...`);
+        await safeSendTx(`approve(${spenderName})`, (overrides) =>
+            usdt.approve(spender, required, overrides)
+        );
+        console.log(`${LOG.INFO} ✓ ${spenderName} approved ${ethers.formatEther(required)}`);
+    }
+
+    console.log("\n=== Step 1: Approve USDT (allowance-aware) ===");
     const approveAmount = ethers.parseEther("10000");
-    await (await usdt.approve(OPTIONS_CORE_ADDRESS, approveAmount)).wait();
-    await (await usdt.approve(VAULT_MANAGER_ADDRESS, approveAmount)).wait();
-    await (await usdt.approve(FEED_PROTOCOL_ADDRESS, approveAmount)).wait();
-    console.log("✓ USDT approved for OptionsCore + VaultManager + FeedProtocol");
+    await ensureAllowance(VAULT_MANAGER_ADDRESS, "VaultManager", approveAmount);
+    await ensureAllowance(FEED_PROTOCOL_ADDRESS, "FeedProtocol", approveAmount);
+    console.log("✓ USDT allowance 就绪");
 
     // ==================== 买方创建 RFQ ====================
     console.log("\n=== Step 2: Create Buyer RFQ ===");

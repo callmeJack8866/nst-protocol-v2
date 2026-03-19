@@ -17,21 +17,28 @@ async function main() {
     const optionsCore = await ethers.getContractAt("OptionsCore", OPTIONS_CORE_ADDRESS);
     const vaultManager = await ethers.getContractAt("VaultManager", VAULT_MANAGER_ADDRESS);
 
+    // 自动检测 USDT 精度
+    let decimals = 18;
+    try {
+        const usdtFull = await ethers.getContractAt("MockERC20", USDT_ADDRESS);
+        decimals = Number(await usdtFull.decimals());
+    } catch { /* fallback 18 */ }
+
     // 获取订单 3
     const order = await optionsCore.getOrder(3);
     console.log("Order 3 status:", order.status.toString());
     console.log("Order 3 seller:", order.seller);
-    console.log("Order 3 currentMargin:", ethers.formatUnits(order.currentMargin, 6), "USDT");
+    console.log("Order 3 currentMargin:", ethers.formatUnits(order.currentMargin, decimals), "USDT");
 
     // 设置卖方保证金
-    const marginAmount = order.currentMargin + ethers.parseUnits("5", 6);
-    console.log("\nSetting seller margin to:", ethers.formatUnits(marginAmount, 6), "USDT");
+    const marginAmount = order.currentMargin + ethers.parseUnits("5", decimals);
+    console.log("\nSetting seller margin to:", ethers.formatUnits(marginAmount, decimals), "USDT");
     await (await vaultManager.adminSetMarginBalance(order.seller, USDT_ADDRESS, marginAmount)).wait();
     console.log("✓ Seller margin set");
 
     // 验证
     const sellerBalance = await vaultManager.userMarginBalance(order.seller, USDT_ADDRESS);
-    console.log("Seller VM Balance:", ethers.formatUnits(sellerBalance, 6), "USDT");
+    console.log("Seller VM Balance:", ethers.formatUnits(sellerBalance, decimals), "USDT");
 
     console.log("\n✅ Order 3 is now ready for settle!");
 }

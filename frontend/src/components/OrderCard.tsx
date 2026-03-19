@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 
 interface OrderCardProps {
     order: {
@@ -136,7 +136,7 @@ export function OrderCard({ order, onAction, actionLabel }: OrderCardProps) {
                             <span className="text-lg font-black text-white tracking-tight">{formatAmount(order.notionalUSDT)}</span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="data-label mb-1.5 opacity-40">Premium</span>
+                            <span className="data-label mb-1.5 opacity-40">Max Rate</span>
                             <span className="text-lg font-black text-gold-500 italic">{(order.premiumRate / 100).toFixed(2)}%</span>
                         </div>
                         <div className="flex flex-col">

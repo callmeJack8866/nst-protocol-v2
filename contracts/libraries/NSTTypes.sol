@@ -142,6 +142,7 @@ struct Order {
     uint256 createdAt;
     uint256 matchedAt;
     uint256 settledAt;
+    uint256 finalFeedRequestedAt; // 终轮喂价请求发起时间（earlyExercise/到期触发时写入）
     uint256 lastFeedPrice;      // 最后一次喂价价格
     uint256 dividendAmount;     // 累计分红金额 (用于调整行权价)
 }

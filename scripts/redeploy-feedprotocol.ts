@@ -17,6 +17,13 @@ async function main() {
     const USDT_ADDRESS = "0x9f2140319726F9b851073a303415f13EC0cdA269";
     const OPTIONS_CORE_ADDRESS = "0x3eF66aFCe1DD7598460A0fE6AEeF18cbF3c92964";
 
+    // 自动检测 USDT 精度
+    let decimals = 18;
+    try {
+        const usdtFull = await ethers.getContractAt("MockERC20", USDT_ADDRESS);
+        decimals = Number(await usdtFull.decimals());
+    } catch { /* fallback 18 */ }
+
     // 1. 部署新的 FeedProtocol
     console.log("\n1️⃣ Deploying new FeedProtocol...");
     const FeedProtocol = await ethers.getContractFactory("FeedProtocol");
@@ -43,13 +50,13 @@ async function main() {
     // 4. 验证配置
     console.log("\n4️⃣ Verifying tier configs...");
     const tier0 = await feedProtocol.tierConfigs(0);
-    console.log(`   Tier 5-3: totalFee = ${ethers.formatUnits(tier0.totalFee, 6)} USDT`);
+    console.log(`   Tier 5-3: totalFee = ${ethers.formatUnits(tier0.totalFee, decimals)} USDT`);
 
     const tier1 = await feedProtocol.tierConfigs(1);
-    console.log(`   Tier 7-5: totalFee = ${ethers.formatUnits(tier1.totalFee, 6)} USDT`);
+    console.log(`   Tier 7-5: totalFee = ${ethers.formatUnits(tier1.totalFee, decimals)} USDT`);
 
     const tier2 = await feedProtocol.tierConfigs(2);
-    console.log(`   Tier 10-7: totalFee = ${ethers.formatUnits(tier2.totalFee, 6)} USDT`);
+    console.log(`   Tier 10-7: totalFee = ${ethers.formatUnits(tier2.totalFee, decimals)} USDT`);
 
     console.log("\n" + "=".repeat(60));
     console.log("📋 NEW CONTRACT ADDRESS:");

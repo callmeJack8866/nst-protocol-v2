@@ -17,6 +17,13 @@ async function main() {
 
     const optionsCore = await ethers.getContractAt("OptionsCore", OPTIONS_CORE_ADDRESS);
     const usdt = await ethers.getContractAt("IERC20", USDT_ADDRESS);
+
+    // 自动检测 USDT 精度
+    let decimals = 18;
+    try {
+        const usdtFull = await ethers.getContractAt("MockERC20", USDT_ADDRESS);
+        decimals = Number(await usdtFull.decimals());
+    } catch { /* fallback 18 */ }
     const config = await ethers.getContractAt("Config", CONFIG_ADDRESS);
 
     console.log("\n=== Checking Config ===");
@@ -29,11 +36,11 @@ async function main() {
 
     console.log("\n=== Checking USDT Balance ===");
     const balance = await usdt.balanceOf(deployer.address);
-    console.log("USDT Balance:", ethers.formatUnits(balance, 6));
+    console.log("USDT Balance:", ethers.formatUnits(balance, decimals));
 
     console.log("\n=== Checking USDT Allowance ===");
     const allowance = await usdt.allowance(deployer.address, OPTIONS_CORE_ADDRESS);
-    console.log("USDT Allowance to OptionsCore:", ethers.formatUnits(allowance, 6));
+    console.log("USDT Allowance to OptionsCore:", ethers.formatUnits(allowance, decimals));
 
     console.log("\n=== Checking Contract State ===");
     const nextOrderId = await optionsCore.nextOrderId();
@@ -53,7 +60,7 @@ async function main() {
         country: "CN",
         refPrice: "1800",
         direction: 0, // Call
-        notionalUSDT: ethers.parseUnits("100", 6), // 100 USDT
+        notionalUSDT: ethers.parseUnits("100", decimals), // 100 USDT
         expiryTimestamp: Math.floor(Date.now() / 1000) + 86400 * 30, // 30 days
         premiumRate: 500, // 5%
         marginRate: 2000, // 20%

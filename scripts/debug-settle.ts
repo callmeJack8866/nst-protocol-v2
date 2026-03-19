@@ -17,6 +17,13 @@ async function main() {
     const optionsCore = await ethers.getContractAt("OptionsCore", OPTIONS_CORE_ADDRESS);
     const usdt = await ethers.getContractAt("IERC20", USDT_ADDRESS);
 
+    // 自动检测 USDT 精度
+    let decimals = 18;
+    try {
+        const usdtFull = await ethers.getContractAt("MockERC20", USDT_ADDRESS);
+        decimals = Number(await usdtFull.decimals());
+    } catch { /* fallback 18 */ }
+
     console.log("\n=== Order 1 Details ===");
     const order = await optionsCore.getOrder(1);
     console.log("Status:", order.status.toString(), "(should be 6)");
@@ -58,10 +65,10 @@ async function main() {
 
     try {
         const sellerBalance = await vm.userMarginBalance(order.seller, USDT_ADDRESS);
-        console.log("Seller margin in VaultManager:", ethers.formatUnits(sellerBalance, 6), "USDT");
+        console.log("Seller margin in VaultManager:", ethers.formatUnits(sellerBalance, decimals), "USDT");
 
         const poolBalance = await vm.marginPoolBalance(USDT_ADDRESS);
-        console.log("Total margin pool:", ethers.formatUnits(poolBalance, 6), "USDT");
+        console.log("Total margin pool:", ethers.formatUnits(poolBalance, decimals), "USDT");
 
         if (sellerBalance < order.currentMargin) {
             console.log("⚠️ Seller margin balance is less than currentMargin!");

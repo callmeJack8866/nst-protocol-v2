@@ -1,281 +1,264 @@
-# 进展记录 — NST Protocol
+# NST Protocol Progress
 
-## [2026-03-19 15:42] 联调脚本统一清理 — 可信诊断工具
+## [2026-03-19 22:20 / Latest Session] Status: Done
 
-**[Status]**: Done
+### [Status]: Done
+### [Changes]:
+**FeedProtocol 重部署完成 + 地址全局替换**
 
-**[Changes]**:
-- **`test-full-flow.ts`** — 终轮 `requestFeedPublic` 后增加 `WAITING_FINAL_FEED(5)` 状态断言（与初始喂价同标准）；所有 catch 块加 `classifyError()` 分类日志；feedRule=1 路由冲突提示
-- **`quick-test-full-flow.ts`** — 完全重写：自动检测 USDT decimals（修复 formatUnits(6) 精度 bug）；余额预检查；分类错误日志
-- **`integration-test.ts`** — `fail()` 函数自动标记 `[链上逻辑]`/`[参数问题]`/`[权限配置]`
-- 日志分类标准统一：`[链上逻辑]` = 合约 revert、`[参数问题]` = 余额/精度/Config 约束、`[权限配置]` = 角色缺失
-- `hardhat compile` 零错误
+新地址: `0x45E4ee36e6fA443a7318cd549c6AC20d83b6C1A7`
 
-**[Next Step]**: 使用脚本执行联调
+已替换 5 处旧地址 (`0x98BA...`)：
+- `deployed-addresses.json`（脚本自动）
+- `frontend/src/contracts/config.ts` 第 24 行
+- `scripts/keeper/utils.ts` 第 15 行
+- `scripts/test-full-flow.ts` 第 47 行
+- `scripts/integration-test.ts` 第 25 行
+
+### [Next Step]
+- 复跑 test-full-flow.ts 验证 requestFeedPublic 后状态切换到 WAITING_INITIAL_FEED
+
+## [2026-03-19 22:17 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**创建 FeedProtocol 一键重部署脚本**
+
+#### 根因
+测试网部署的 FeedProtocol(`0x98BA...`) 是旧版本，`requestFeedPublic` 中不含 `onFeedRequested` 回调，导致喂价请求成功但订单状态不切换。
+
+#### 修复
+创建 `scripts/redeploy-feedprotocol-v2.ts`，7 步自动化：
+1. 部署新 FeedProtocol（含 onFeedRequested 回调）
+2. setOptionsCore
+3. 授予 OptionsCore PROTOCOL_ROLE
+4. 授予新 FeedProtocol FEED_PROTOCOL_ROLE
+5. 撤销旧 FeedProtocol 角色
+6. 验证 tier 配置
+7. 自动更新 deployed-addresses.json
+
+#### 部署后还需手动更新
+- `frontend/src/contracts/config.ts` 第 24 行
+- `scripts/keeper/utils.ts` 第 15 行
+- `scripts/test-full-flow.ts` 第 47 行
+
+### [Next Step]
+- 执行部署脚本: `npx hardhat run scripts/redeploy-feedprotocol-v2.ts --network bscTestnet`
+
+## [2026-03-19 22:03 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**清理 scripts 目录 6 位精度残留（续：额外 5 个脚本）**
+
+- `fund-and-settle.ts` — 5 处
+- `fix-order3.ts` — 4 处
+- `redeploy-feedprotocol.ts` — 3 处
+- `full-diagnosis.ts` — 2 处
+- `full-redeploy-and-setup.ts` — 1 处
+
+✅ 全局扫描确认 `scripts/` 目录零残留
+
+### [Next Step]
+- 测试网联调
+
+## [2026-03-19 22:00 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**清理 scripts 目录 6 位精度残留（5 个目标文件）**
+
+每个文件新增自动 decimals 检测（MockERC20 接口 + fallback 18），所有 `formatUnits(*, 6)` 和 `parseUnits(*, 6)` 替换为动态 `decimals`。
+
+- `check-vault-balance.ts` — 2 处 formatUnits
+- `debug-settle.ts` — 2 处 formatUnits
+- `set-margin-and-settle.ts` — 7 处 formatUnits + 1 处 parseUnits
+- `debug-create-order.ts` — 2 处 formatUnits + 1 处 parseUnits
+- `deep-debug-create-order.ts` — 2 处 formatUnits + 4 处 parseUnits
+
+#### ⚠ 全局扫描发现额外残留（未在本次任务范围）
+`redeploy-feedprotocol.ts`(3)、`fund-and-settle.ts`(5)、`full-redeploy-and-setup.ts`(1)、`full-diagnosis.ts`(2)、`fix-order3.ts`(4)
+
+### [Next Step]
+- 决定是否继续清理额外残留脚本
+
+## [2026-03-19 21:58 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**修复 test-full-flow.ts 交易发送可靠性**
+
+#### 问题
+两个 `usdt.approve()` 连续发送，BSC testnet RPC 节点 nonce 同步延迟导致 `ProviderError: replacement transaction underpriced`。
+
+#### 修复
+- 新增 `safeSendTx()` — 显式获取 nonce、gasPrice 加 20%、最多 3 次重试（仅对 underpriced/nonce/already known 重试）
+- 新增 `ensureAllowance()` — 先查链上 allowance，充足则跳过，不足才发 approve
+- approve 阶段改为 allowance-aware，脚本可稳定重复执行
+
+### [Next Step]
+- 测试网联调执行
+
+## [2026-03-19 21:43 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**同步 finalFeedRequestedAt 字段到所有手写 ABI**
+
+#### 问题
+合约 NSTTypes.sol Order struct 已新增 `finalFeedRequestedAt`（位于 settledAt 和 lastFeedPrice 之间），但前端和 keeper 的手写 ABI tuple 缺少该字段，导致 ethers 解码位移 — `lastFeedPrice` 读到的是 `finalFeedRequestedAt` 的值，`dividendAmount` 读到的是 `lastFeedPrice` 的值，而 `finalFeedRequestedAt` 本身完全无法访问。
+
+#### 修复
+- `frontend/src/contracts/abis.ts` 第 22 行 (`getOrder` tuple) — 插入 `uint256 finalFeedRequestedAt`
+- `frontend/src/contracts/abis.ts` 第 33 行 (`orders` tuple) — 插入 `uint256 finalFeedRequestedAt`
+- `scripts/keeper/utils.ts` 第 23 行 (`getOrder` tuple) — 插入 `uint256 finalFeedRequestedAt`
+
+#### 下游消费者（无需改代码，ABI 修复后自动生效）
+- `MyOrders.tsx` 第 521 行: `order.finalFeedRequestedAt` ✓
+- `exerciseFeedKeeper.ts` 第 138 行: `order.finalFeedRequestedAt` ✓
+
+### [Next Step]
+- 联调验证 MyOrders 倒计时和 exerciseFeedKeeper 超时判断读到非零值
+
+## [2026-03-19 21:30 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**修复联调脚本参数签名和 approve 对象**
+
+#### quick-test-full-flow.ts（核心 bug）
+- `marginRate=2000` → `marginAmount=parseUnits("2", decimals)` — 合约第 10 参数是 bigint 金额而非基点费率
+- approve 目标 OptionsCore → VaultManager
+- 清理重复 approve 行
+
+#### integration-test.ts（6 处）
+- 全部 `usdt.allowance/approve(OptionsCore)` → `VaultManager`
+
+#### test-full-flow.ts
+- 移除多余的 `usdt.approve(OptionsCore)` 行
+- `createBuyerRFQ` 参数顺序验证正确 ✓
+
+### [Next Step]
+- 部署测试网联调
+
+## [2026-03-19 21:25 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**修复 RFQ 权利金率字段映射错误 (premiumRate → maxPremiumRate)**
+
+#### 问题
+`getAllActiveRFQs` 返回 `order.premiumRate`（成交后实际费率，RFQ 阶段为 0），而 RFQ 应展示 `maxPremiumRate`（买方可接受上限）。
+
+#### useContracts.ts
+- `getAllActiveRFQs` 新增 `maxPremiumRate: Number(order.maxPremiumRate)` 字段映射
+
+#### SellerHall.tsx
+- 接口 `premiumRate` → `maxPremiumRate`
+- Modal 初始化 quoteForm、OrderCard prop、弹窗 Target Rate 三处改读 `maxPremiumRate`
+
+#### BuyerHall.tsx
+- 接口 `premiumRate` → `maxPremiumRate`
+- OrderCard prop、MetricItem 标签改读 `maxPremiumRate`，标签改为 "Max Rate"
+
+#### OrderCard.tsx
+- 指标标签 "Premium" → "Max Rate"
+
+#### SubmitQuotePage.tsx
+- fallback 优先级反转：`maxPremiumRate || premiumRate`
+
+### [Next Step]
+- 前端联调验证 RFQ 列表展示正确的买方最高费率
+
+## [2026-03-19 21:22 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**修复 CreateBuyerRFQ / CreateSellerOrder allowance 展示和授权对象错误**
+
+#### useContracts.ts
+- 将内部 `getVaultManagerAddress()` 添加到 `useOptions()` 的 return 导出
+
+#### CreateBuyerRFQ.tsx（3 处）
+- `refreshFinancials`: `fetchAllowance(OptionsCore)` → `fetchAllowance(VaultManager)`
+- approve 按钮: `approve(OptionsCore, ...)` → `approve(VaultManager, ...)`
+- 解构: `getOptionsCoreAddress` → `getVaultManagerAddress`
+
+#### CreateSellerOrder.tsx（2 处）
+- `refreshFinancials`: `fetchAllowance(OptionsCore)` → `fetchAllowance(VaultManager)`
+- 解构: `getOptionsCoreAddress` → `getVaultManagerAddress`
+
+#### 验证
+- 页面层 `getOptionsCoreAddress` 零残留 ✓
+- hooks 层自动授权原本已正确指向 VaultManager，无需修改
+
+### [Next Step]
+- 启动前端 dev server 验证页面 allowance 显示正确
+
+## [2026-03-19 22:30 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**统一修复前端 USDT 精度显示问题**
+
+#### transformers.ts（新增工具函数）
+- `USDT_DECIMALS = 18` — 全局精度常量，禁止再硬编码 6
+- `formatUSDTAmount(bigint)` — 链上原始值 → 人类可读字符串（支持 K/M 缩写）
+- `usdtToNumber(bigint)` — 链上原始值 → 纯数字
+
+#### 修复页面清单（7 个文件 17 处）
+| 页面 | 修复数 | 说明 |
+|------|--------|------|
+| SubmitQuotePage.tsx | 3 | formatAmount + calculateEstimates 精度 |
+| SellerHall.tsx | 5 | OrderCard.notionalUSDT + Modal 内 3 处估算 |
+| SeatManagement.tsx | 3 | formatAmount + 1e6 → 1e18 乘法修复 |
+| OrderMarket.tsx | 1 | formatAmount |
+| MyOrders.tsx | 2 | formatAmount(bigint 分支) + safeSum |
+| BuyerHall.tsx | 2 | OrderCard.notionalUSDT + MetricItem |
+| CreateSellerOrder.tsx | 2 | balance/allowance 显示 |
+
+### [Next Step]
+- 启动前端 dev server 验证页面渲染正常
+- 部署测试网联调
+
+## [2026-03-19 21:09 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**修复终轮喂价时间基准（本次变更）**
+
+#### NSTTypes.sol
+- Order struct 新增 `finalFeedRequestedAt` 字段（终轮喂价请求发起时间）
+
+#### OptionsCore.sol
+- 新增 `updateOrderFinalFeedRequestedAt(orderId, timestamp)` — SETTLEMENT_ROLE 专用
+- `onFeedRequested(FeedType.Final)` 中写入 `order.finalFeedRequestedAt = block.timestamp`
+
+#### OptionsSettlement.sol
+- IOptionsCoreAdmin 接口新增 `updateOrderFinalFeedRequestedAt`
+- `earlyExercise()` 中新增 `optionsCore.updateOrderFinalFeedRequestedAt(orderId, block.timestamp)`
+
+#### exerciseFeedKeeper.ts
+- Phase 1 超时计算改用 `order.finalFeedRequestedAt`（不再回退到 `settledAt→matchedAt`）
+- `finalFeedRequestedAt=0` 时显式报错跳过
+
+#### MyOrders.tsx
+- 倒计时改读 `order.finalFeedRequestedAt`（移除不存在的 `exerciseRequestedAt`）
+
+#### test/FinalFeedTimeBasis.test.ts（新建）
+- 4 条回归测试全部通过
+- 覆盖：earlyExercise 写入、onFeedRequested 写入、权限控制、Final 回调不覆盖
 
 ---
 
-## [2026-03-19 15:38] ExerciseFeedKeeper 兜底逻辑完全闭环
-
-**[Status]**: Done
-
-**[Changes]**:
-- **`exerciseFeedKeeper.ts`** — 完全重写，两阶段兜底：
-  - Phase 1: WAITING_FINAL_FEED 超时 → 代发 `FeedProtocol.requestFeedPublic(orderId, 2, 0)`
-  - Phase 2 (新增): 喂价请求超时 + 喂价员未提交 → 调用 `OptionsSettlement.cancelOrderDueFinalFeedTimeout()` → 买方权利金退还 + 卖方保证金全额退还
-  - 操作失败不再静默：每个失败场景输出具体人工处理指引（合约地址 + 函数签名 + 检查步骤）
-  - 新增 `hasFinalizedFinalFeed()` 检查，避免误取消已完成喂价的订单
-  - 使用 `safeExecute()` 统一交易执行和日志
-- **`utils.ts`** — ABI 增加 `cancelOrderDueFinalFeedTimeout`
-- TypeScript 编译零错误
-
-**[Next Step]**: 联调部署后测试完整行权→超时→取消流程
-
----
-
-## [2026-03-19 15:31] VolumeBasedFeed 完整链路打通
-
-**[Status]**: Done
-
-**[Changes]**:
-- **审查结论** — 前端 VBF 链路 80% 已就绪：合约完整、Hook 功能齐全、MyOrders 已有 feedRule 路由 + VBF 弹窗（初始/动态/终轮三场景）
-- **`CreateSellerOrder.tsx`** — 删除 `suggestedPrice` 废字段（合约不接受），添加跟量成交提示文案「建议价格将在喂价阶段由卖方实时填写」
-- **`useContracts.ts`** — 删除 `suggestedPrice` 接口声明和 order struct 映射（2处）
-- **`MyOrders.tsx`** — 订单卡片新增 `feedRule=1` 的「跟量成交」琥珀色标签
-- 前端 `tsc -b && vite build` 零错误通过
-
-**[Next Step]**: 联调测试 VolumeBasedFeed 完整流程
-
----
-
-## [2026-03-19 15:25] 前端表单-链上参数完全一致性修复
-
-**[Status]**: Done
-
-**[Changes]**:
-- **`CreateSellerOrder.tsx`** — formData 变量名 `marginCallDeadline` → `arbitrationWindow` 全面替换（4处）：
-  - L68: 默认值声明 `arbitrationWindow: '12h'`
-  - L95: handleSubmit 映射 `formData.arbitrationWindow === '12h' ? 12*3600 : 2*3600`
-  - L416: 按钮 onClick/状态判断 `formData.arbitrationWindow === time`
-  - L664: 确认摘要 label 从「补仓时限」→「仲裁窗口」
-- **`SubmitQuotePage.tsx`** — 彻底删除 T+X 行权延迟只读展示区（L373-387）：
-  - 原因：买方 RFQ 订单的 `exerciseDelay` 在 OptionsCore L152 硬编码为 0，且 submitQuote 不接受此参数
-  - 该字段仅对卖方单有意义，放在报价页纯属误导
-- 前端 `tsc -b && vite build` 零错误通过
-
-**[Next Step]**: 联调测试完整流程
-
----
-
-## [2026-03-19 15:20] Config 约束全面下沉 + 边界单测覆盖
-
-**[Status]**: Done
-
-**[Changes]**:
-- **`Config.sol`** — 新增 4 个边界参数：`minArbitrationWindow`(1h), `maxArbitrationWindow`(48h), `minMarginCallDeadline`(1h), `maxMarginCallDeadline`(24h)
-- **`OptionsCore.sol`** — 全面更新：
-  - `createBuyerRFQ`: arbitrationWindow/marginCallDeadline 从硬编码改为读 Config
-  - `createSellerOrder`: arbitrationWindow 从硬编码改为读 Config，exerciseDelay 错误信息统一
-  - `submitQuote`: 新增 `marginRate >= config.minMarginRate()` 校验
-- **`OptionsCore.test.ts`** — 新增 14 个边界校验测试：
-  - createBuyerRFQ: minMarginRate↓、arbitrationWindow↑↓、marginCallDeadline↑、consecutiveDays↑、合法边界值
-  - createSellerOrder: exerciseDelay↓↑、arbitrationWindow↑、合法边界值
-  - submitQuote: consecutiveDays↑、marginRate↓、maxQuotes 溢出、合法参数
-- **结果**: 61/61 测试全部通过
-
-**[Next Step]**: 前端建单/报价页面需同步使用 Config 返回的边界值做表单校验
-
----
-
-## [2026-03-19 15:10] requestFeedPublic 状态同步强制化
-
-**[Status]**: Done
-
-**[Changes]**:
-- **`FeedProtocol.sol`** — 移除 `onFeedRequested` 的 try/catch 包裹，改为直接调用。如果状态切换失败（权限、状态不匹配），整个 `requestFeedPublic` 交易回滚，彻底杜绝"FeedRequest 已创建但订单仍停留在 MATCHED"的不一致状态
-- **`OptionsCore.test.ts`** — 在初始喂价测试中新增 `expect(orderAfterRequest.status).to.equal(3)` 断言，验证 requestFeedPublic 后状态立即切换到 WAITING_INITIAL_FEED
-- **`test-full-flow.ts`** — 将 Step 6 的软警告（⚠️ Status still MATCHED）改为硬断言（status !== 3 直接终止脚本），联调时第一时间暴露权限问题
-- 47/47 测试全部通过
-
-**[Next Step]**: 部署后确认 `grantRole(FEED_PROTOCOL_ROLE, FeedProtocol地址)` 到 OptionsCore，否则 requestFeedPublic 会 revert
-
----
-
-## [2026-03-19 14:20] 运维脚本过时逻辑修复
-
-**[Status]**: Done
-
-**[Changes]**:
-- **`test-full-flow.ts`** — 完全重写：
-  - 从错误的「卖方建单→submitQuote」改为正确的「买方RFQ→卖方报价→acceptQuote」流程
-  - 修复 `exerciseDelay: 0` 违反新 T+1 约束（改用买方RFQ流程，无需此参数）
-  - 修复 `minMarginRate` 等参数使其符合新 Config 约束
-  - 新增 VaultManager USDT 授权步骤
-- **`exerciseFeedKeeper.ts`** — 全面更新：
-  - 合约地址从旧地址更新为 `0x98BA4261835533FEBf2335a4edA04d1a69D45311`
-  - TODO 替换为实际逻辑：检测超时后自动代触发 Final 喂价请求（`requestFeedPublic(orderId, 2, 0)`）
-  - 新增 `hasActiveFinalFeedRequest` 防止重复创建请求
-
-**[Next Step]**: 联调时运行 test-full-flow.ts 验证完整流程
-
----
-
-## [2026-03-19 14:15] 前端表单参数与链上一致性修复
-
-**[Status]**: Done
-
-**[Changes]**:
-- **`CreateSellerOrder.tsx`** — UI标签从「补仓时限」改为「仲裁窗口 (Arbitration Window)」，添加说明"结算后买卖方可在此窗口内发起仲裁"，消除用户将 arbitrationWindow 误认为 marginCallDeadline 的歧义
-- **`SubmitQuotePage.tsx`** — 移除虚假的 exerciseDelay 交互选择器（合约 submitQuote 不接受此参数），改为只读显示订单的 T+X 值，标注"由订单创建方设定，不可在报价时修改"
-
-**[Next Step]**: 联调验证前端表单数据与链上参数对应
-
----
-
-## [2026-03-19 14:10] Config 约束链上强制执行
-
-**[Status]**: Done
-
-**[Changes]**:
-- **`createBuyerRFQ`** — 新增 4 条 require: minMarginRate ≥ config值、arbitrationWindow ∈ [1h,48h]、marginCallDeadline ∈ [1h,24h]、consecutiveDays ≤ config.maxConsecutiveDays
-- **`createSellerOrder`** — 新增 3 条 require: exerciseDelay ∈ [T+1,T+5]、consecutiveDays、arbitrationWindow
-- **`submitQuote`** — 新增 2 条 require: 活跃报价数 < maxQuotesPerBuyerOrder(5)、consecutiveDays
-- 47/47 测试全部通过
-
-**[Next Step]**: 如需调整约束范围，通过 Config.sol 的 DAO 函数修改
-
----
-
-## [2026-03-19 13:55] feedRule/VolumeBasedFeed 功能链打通
-
-**[Status]**: Done
-
-**[Changes]**:
-- **合约层**:
-  - `VolumeBasedFeed.sol` — 添加 `IOptionsCore` 引用、`setOptionsCore` 管理函数、`_callbackOptionsCore` 内部函数（approve/modify 后自动调用 `onFeedRequested` + `processFeedCallback`），新增 `CallbackFailed`/`OptionsCoreUpdated` 事件
-  - `FeedProtocol.sol:requestFeedPublic` — 新增 feedRule=VolumeBasedFeed 拦截（revert 提示走 VolumeBasedFeed 合约）
-  - 47/47 测试全部通过
-- **前端层**:
-  - `CreateSellerOrder.tsx` — `executionMode === 'volume'` 映射到 `feedRule: 1`
-  - `useFeedAndPoints.ts` — 新增 `submitSuggestedPrice` 写入函数到 `useVolumeBasedFeed` hook
-  - `MyOrders.tsx` — `handleInitiateFeed`/`handleExerciseWithFeed`/`handleDynamicFeed` 根据 `order.feedRule` 路由；feedRule=1 弹出跟量成交弹窗（输入建议价格+依据）
-
-**[Next Step]**: 部署后需 `grantRole(FEED_PROTOCOL_ROLE, VolumeBasedFeed地址)` 到 OptionsCore
-
----
-
-## [2026-03-19 12:50] requestFeedPublic 强校验
-
-**[Status]**: Done
-
-**[Changes]**:
-- `FeedProtocol.sol:requestFeedPublic` — 新增 5 项校验：
-  - ① 订单存在性（`buyer != address(0)`）
-  - ② feedType 与订单状态匹配（`_validateFeedTypeForStatus`）
-  - ③ 无重复未完成请求（`_requireNoActiveFeedRequest`）
-  - ④ 活跃喂价员 ≥ 所选档位要求（`_countActiveFeeders`）
-  - ⑤ `onFeedRequested` 失败可追踪（`FeedRequestStatusSyncFailed` 事件）
-- `OptionsCore.test.ts` — “非 LIVE 状态不能执行动态喂价” 测试更新为 expect revert
-- 全部 **47/47 测试通过**
-
-**[Next Step]**: 继续处理剩余联调前问题
-
----
-
-## [2026-03-19 12:35] 清理联调脚本过期内容
-
-**[Status]**: Done
-
-**[Changes]**:
-- `integration-test.ts` — 新增 FeedProtocol 合约地址，FEED_PROTOCOL_ROLE 权限检查改为优先检查 FeedProtocol 合约（自动回调路径）
-- `test-full-flow.ts` — 完全重写：更新地址、修复 createPublicFeedRequest→requestFeedPublic、feedType Final=2、移除不存在的 matchOrder/adminSetMarginBalance、添加 onFeedRequested 验证
-- `quick-test-full-flow.ts` — 更新所有旧合约地址
-
-**[Next Step]**: 联调时运行 `integration-test.ts` 验证权限配置
-
----
-
-## [2026-03-19 12:30] 统一喂价请求入口与状态同步
-
-**[Status]**: Done
-
-**[Changes]**:
-- `IOptionsCore.sol` — 新增 `onFeedRequested(orderId, feedType)` 接口声明
-- `OptionsCore.sol` — 实现 `onFeedRequested`（FEED_PROTOCOL_ROLE），Initial→WAITING_INITIAL_FEED、Final→WAITING_FINAL_FEED
-- `FeedProtocol.sol` — `requestFeedPublic` 创建 FeedRequest 后 try/catch 调用 `optionsCore.onFeedRequested` 同步状态
-- 前端无需改动，继续调 `requestFeedPublic`，链上状态自动同步
-- 全部 **47/47 测试通过**
-
-**[Next Step]**: 前端可移除 localStorage 补状态逻辑，改读链上状态
-
----
-
-## [2026-03-19 12:15] 统一喂价结果回写机制
-
-**[Status]**: Done
-
-**[Changes]**:
-- `OptionsCore.sol` — 提取 `_processFeedCallbackInternal` 内部函数，消除三套重复逻辑
-- `OptionsCore.sol` — `processInitialFeedResult`/`processFinalFeedResult` 标记 `@deprecated`，内部转发到统一函数
-- `OptionsCore.sol` — `processFeedCallback`（FEED_PROTOCOL_ROLE）为正式路径，同样转发
-- `feedResultProcessor.ts` — 增加幂等检查、Dynamic/Arbitration 类型支持、明确标识为 FALLBACK 角色
-- 全部 **47/47 测试通过**
-
-**[Next Step]**: 联调确认 FeedProtocol 合约地址已被 grant FEED_PROTOCOL_ROLE
-
----
-
-## [2026-03-19 12:00] processFeedCallback 缺少 Dynamic/Arbitration 分支修复
-
-**[Status]**: Done
-
-**[Changes]**:
-- `OptionsCore.sol` — `processFeedCallback` 新增 `Dynamic` 分支：仅更新 `lastFeedPrice`，状态保持 LIVE（供保证金风控使用）
-- `OptionsCore.sol` — `processFeedCallback` 新增 `Arbitration` 分支：更新价格并转 `PENDING_SETTLEMENT`
-- `OptionsCore.test.ts` — 新增 2 个测试：LIVE状态 Dynamic 更新 lastFeedPrice、非 LIVE 状态 Dynamic 回调静默失败
-- 全部 **47/47 测试通过**
-
-**[Next Step]**: 联调验证动态喂价前后端交互
-
----
-
-## [2026-03-19 11:45] rejectFeed 导致请求卡死修复
-
-**[Status]**: Done
-
-**[Changes]**:
-- `FeedProtocol.sol` — `rejectFeed` 增加 `request.submittedCount++`，拒绝也计入响应总数
-- `FeedProtocol.sol` — `rejectFeed` 所有人响应后内联检查 `validCount >= effectiveFeeds`，满足则自动 `_finalizeFeed`，否则 emit `FeedFinalizeSkipped`
-- `FeedProtocol.sol` — 新增 `FeedFinalizeSkipped` 事件声明
-- `FeedProtocol.test.ts` — 新增 3 个测试：3提交+2拒绝自动finalize、2提交+3拒绝emit跳过事件、reject计入submittedCount
-- 全部 **45/45 测试通过**
-
-**[Next Step]**: 联调验证 FeedEngine 与链上交互正常
-
----
-
-## [2026-03-19 11:30] finalizeFeed 安全漏洞修复
-
-**[Status]**: Done
-
-**[Changes]**:
-- `FeedProtocol.sol` — `finalizeFeed` (external): 增加 `require(block.timestamp > request.deadline)` 防止 deadline 前任意地址提前调用
-- `FeedProtocol.sol` — `_finalizeFeed` (internal): 将 `require(validCount > 0)` 替换为 `require(validCount >= tierConfig.effectiveFeeds)` 强制执行 5-3/7-5/10-7 档位有效喂价门槛
-- `FeedProtocol.test.ts` — 新增 3 个安全测试用例，修复偶数中位数测试适配新 deadline 门控
-- 全部 **42/42 测试通过**
-
-**[Next Step]**: 联调验证 FeedEngine 与链上 finalizeFeed 的交互是否正常
-
----
-
-## [2026-03-19 10:30] 核心合约测试重写
-
-**[Status]**: Done
-
-**[Changes]**:
-- `OptionsCore.test.ts` 完整重写，覆盖 8 条主链路（买方RFQ→卖方挂单→报价接单→首轮喂价→结算→取消/超时→仲裁→补保证金/强平）
-- `FeedProtocol.test.ts` 完整重写，覆盖注册/质押/档位/中位数聚合/finalize回调/拒绝/错误处理
-- 发现并修正 FeedType 枚举映射 (0=Initial, 1=Dynamic, 2=Final)
-- 全部 **39/39 测试通过**
-
-**[Next Step]**: finalizeFeed 安全漏洞修复
+## [2026-03-19 / 前一次] Status: Done
+
+### [Changes]:
+**修复动态喂价 → 追保/强平风控链**
+- OptionsCore: 新增 `DynamicFeedMarginAlert` 事件 + 修复 `createBuyerRFQ` 不写 `marginCallDeadline` 到 order
+- OptionsSettlement: 三处改用 `notionalUSDT * minMarginRate / 10000` 公式
+- marginKeeper.ts: 同步公式
+- test/MarginRiskChain.test.ts: 10 条回归测试全部通过
+
+### [Next Step]
+- 部署到测试网并进行联调验证

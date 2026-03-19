@@ -19,6 +19,13 @@ async function main() {
     const feedProtocol = await ethers.getContractAt("FeedProtocol", FEED_PROTOCOL_ADDRESS);
     const vaultManager = await ethers.getContractAt("VaultManager", VAULT_MANAGER_ADDRESS);
 
+    // 自动检测 USDT 精度
+    let decimals = 18;
+    try {
+        const usdtFull = await ethers.getContractAt("MockERC20", USDT_ADDRESS);
+        decimals = Number(await usdtFull.decimals());
+    } catch { /* fallback 18 */ }
+
     console.log("\n=== Checking All Orders ===");
     const nextOrderId = await optionsCore.nextOrderId();
     console.log("Total orders:", (Number(nextOrderId) - 1));
@@ -31,12 +38,12 @@ async function main() {
         console.log("  Buyer:", order.buyer);
         console.log("  Seller:", order.seller);
         console.log("  lastFeedPrice:", order.lastFeedPrice.toString());
-        console.log("  currentMargin:", ethers.formatUnits(order.currentMargin, 6), "USDT");
+        console.log("  currentMargin:", ethers.formatUnits(order.currentMargin, decimals), "USDT");
 
         // 检查卖方在 VaultManager 中的余额
         try {
             const sellerBalance = await vaultManager.userMarginBalance(order.seller, USDT_ADDRESS);
-            console.log("  Seller VM Balance:", ethers.formatUnits(sellerBalance, 6), "USDT");
+            console.log("  Seller VM Balance:", ethers.formatUnits(sellerBalance, decimals), "USDT");
         } catch (e) {
             console.log("  Seller VM Balance: Error reading");
         }

@@ -12,7 +12,7 @@ dotenv.config();
 const CONTRACT_ADDRESSES = {
     OptionsCore: '0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a',
     OptionsSettlement: '0x8DF881593368FD8be3F40722fcb9f555593a8257',
-    FeedProtocol: '0x98BA4261835533FEBf2335a4edA04d1a69D45311',
+    FeedProtocol: '0x45E4ee36e6fA443a7318cd549c6AC20d83b6C1A7',
     Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
     USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
 };
@@ -20,7 +20,7 @@ const CONTRACT_ADDRESSES = {
 // OptionsCore ABI (仅 Keeper 需要的函数 - 创建/查询)
 const OPTIONS_CORE_ABI = [
     'function nextOrderId() view returns (uint256)',
-    'function getOrder(uint256 orderId) view returns (tuple(uint256 orderId, address buyer, address seller, string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 strikePrice, uint256 expiryTimestamp, uint256 premiumRate, uint256 premiumAmount, uint256 initialMargin, uint256 currentMargin, uint256 minMarginRate, uint256 maxPremiumRate, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint8 exerciseDelay, uint8 sellerType, address designatedSeller, uint256 arbitrationWindow, uint256 marginCallDeadline, bool dividendAdjustment, uint8 feedRule, uint8 status, uint256 createdAt, uint256 matchedAt, uint256 settledAt, uint256 lastFeedPrice, uint256 dividendAmount))',
+    'function getOrder(uint256 orderId) view returns (tuple(uint256 orderId, address buyer, address seller, string underlyingName, string underlyingCode, string market, string country, string refPrice, uint8 direction, uint256 notionalUSDT, uint256 strikePrice, uint256 expiryTimestamp, uint256 premiumRate, uint256 premiumAmount, uint256 initialMargin, uint256 currentMargin, uint256 minMarginRate, uint256 maxPremiumRate, uint8 liquidationRule, uint8 consecutiveDays, uint8 dailyLimitPercent, uint8 exerciseDelay, uint8 sellerType, address designatedSeller, uint256 arbitrationWindow, uint256 marginCallDeadline, bool dividendAdjustment, uint8 feedRule, uint8 status, uint256 createdAt, uint256 matchedAt, uint256 settledAt, uint256 finalFeedRequestedAt, uint256 lastFeedPrice, uint256 dividendAmount))',
     'function cancelRFQ(uint256 orderId) external',
 ];
 

@@ -17,6 +17,13 @@ async function main() {
 
     const usdt = await ethers.getContractAt("IERC20", USDT_ADDRESS);
 
+    // 自动检测 USDT 精度
+    let decimals = 18;
+    try {
+        const usdtFull = await ethers.getContractAt("MockERC20", USDT_ADDRESS);
+        decimals = Number(await usdtFull.decimals());
+    } catch { /* fallback 18 */ }
+
     console.log("\n=== Step 1: Deploy New VaultManager ===");
     const VaultManager = await ethers.getContractFactory("VaultManager");
     const vaultManager = await VaultManager.deploy(CONFIG_ADDRESS, deployer.address);
@@ -55,7 +62,7 @@ async function main() {
 
     console.log("\n=== Step 4: Transfer USDT to VaultManager ===");
     // 转入一些 USDT 到 VaultManager 用于保证金操作
-    const fundAmount = ethers.parseUnits("100", 6); // 100 USDT
+    const fundAmount = ethers.parseUnits("100", decimals); // 100 USDT
     await (await usdt.transfer(vmAddress, fundAmount)).wait();
     console.log("✓ Transferred 100 USDT to VaultManager");
 

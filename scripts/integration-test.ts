@@ -22,7 +22,7 @@ const ADDRESSES = {
     Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
     VaultManager: '0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454',
     USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
-    FeedProtocol: '0x98BA4261835533FEBf2335a4edA04d1a69D45311',
+    FeedProtocol: '0x45E4ee36e6fA443a7318cd549c6AC20d83b6C1A7',
     // FeedEngine 后端钱包（非合约，仅供参考）
     FeedEngine: '0xFF486124612662E74F3055a71f45EAD3451d1CD9',
 };
@@ -189,10 +189,10 @@ async function main() {
             skip("createBuyerRFQ", `USDT余额不足 (${ethers.formatEther(balance)} < ${ethers.formatEther(creationFee)})`);
         } else {
             // 先 approve USDT
-            const allowance = await usdt.allowance(deployer.address, ADDRESSES.OptionsCore);
+            const allowance = await usdt.allowance(deployer.address, ADDRESSES.VaultManager);
             if (allowance < creationFee) {
                 console.log("    → 授权 USDT...");
-                const approveTx = await usdt.approve(ADDRESSES.OptionsCore, ethers.parseEther("100"));
+                const approveTx = await usdt.approve(ADDRESSES.VaultManager, ethers.parseEther("100"));
                 await approveTx.wait();
                 pass("USDT approve 成功");
             }
@@ -265,9 +265,9 @@ async function main() {
                 skip("submitQuote", `USDT余额不足: ${ethers.formatEther(sellerBalance)} < ${ethers.formatEther(totalNeeded)}`);
             } else {
                 // approve for margin deposit
-                const currentAllowance = await usdt.allowance(deployer.address, ADDRESSES.OptionsCore);
+                const currentAllowance = await usdt.allowance(deployer.address, ADDRESSES.VaultManager);
                 if (currentAllowance < totalNeeded) {
-                    const approveTx2 = await usdt.approve(ADDRESSES.OptionsCore, ethers.parseEther("1000"));
+                    const approveTx2 = await usdt.approve(ADDRESSES.VaultManager, ethers.parseEther("1000"));
                     await approveTx2.wait();
                 }
 
@@ -296,9 +296,9 @@ async function main() {
                 // 买方接受报价
                 console.log("    → 买方接受报价...");
                 // Premium需要额外approve
-                const premiumAllowance = await usdt.allowance(deployer.address, ADDRESSES.OptionsCore);
+                const premiumAllowance = await usdt.allowance(deployer.address, ADDRESSES.VaultManager);
                 if (premiumAllowance < premiumAmount) {
-                    const approveTx3 = await usdt.approve(ADDRESSES.OptionsCore, ethers.parseEther("1000"));
+                    const approveTx3 = await usdt.approve(ADDRESSES.VaultManager, ethers.parseEther("1000"));
                     await approveTx3.wait();
                 }
 

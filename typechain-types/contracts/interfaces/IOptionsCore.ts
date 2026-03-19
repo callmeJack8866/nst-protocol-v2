@@ -56,6 +56,7 @@ export type OrderStruct = {
   createdAt: BigNumberish;
   matchedAt: BigNumberish;
   settledAt: BigNumberish;
+  finalFeedRequestedAt: BigNumberish;
   lastFeedPrice: BigNumberish;
   dividendAmount: BigNumberish;
 };
@@ -93,6 +94,7 @@ export type OrderStructOutput = [
   createdAt: bigint,
   matchedAt: bigint,
   settledAt: bigint,
+  finalFeedRequestedAt: bigint,
   lastFeedPrice: bigint,
   dividendAmount: bigint
 ] & {
@@ -128,6 +130,7 @@ export type OrderStructOutput = [
   createdAt: bigint;
   matchedAt: bigint;
   settledAt: bigint;
+  finalFeedRequestedAt: bigint;
   lastFeedPrice: bigint;
   dividendAmount: bigint;
 };

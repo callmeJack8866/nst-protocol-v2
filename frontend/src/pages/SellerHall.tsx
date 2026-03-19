@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useOptions } from '../hooks';
 import { OrderCard } from '../components/OrderCard';
 import { Link } from 'react-router-dom';
-import { formatUnits } from 'ethers';
+import { usdtToNumber } from '../utils/transformers';
 import { useTranslation } from 'react-i18next';
 
 // Safe direction conversion: handles both string and number
@@ -21,7 +21,7 @@ interface RFQOrder {
   refPrice: string;
   direction: string;
   notionalUSDT: bigint;
-  premiumRate: number;
+  maxPremiumRate: number;
   expiryTimestamp: number;
   status: string;
   createdAt: number;
@@ -82,7 +82,7 @@ export function SellerHall() {
   const handleOpenQuoteModal = (rfq: RFQOrder) => {
     setSelectedRFQ(rfq);
     setQuoteForm({
-      premiumRate: (rfq.premiumRate / 100).toFixed(2),
+      premiumRate: (rfq.maxPremiumRate / 100).toFixed(2),
       marginRate: '15',
       liquidationRule: 0,
       consecutiveDays: 3,
@@ -181,8 +181,8 @@ export function SellerHall() {
                     underlyingCode: rfq.underlyingCode,
                     market: rfq.market,
                     direction: rfq.direction,
-                    notionalUSDT: Number(formatUnits(rfq.notionalUSDT, 6)),
-                    premiumRate: rfq.premiumRate,
+                    notionalUSDT: usdtToNumber(rfq.notionalUSDT),
+                    premiumRate: rfq.maxPremiumRate,
                     expiryTimestamp: rfq.expiryTimestamp,
                     status: rfq.status,
                     sellerType: 'Market LP',
@@ -234,7 +234,7 @@ export function SellerHall() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 py-6 border-y border-white/5">
               <div className="flex flex-col">
                 <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Notional</span>
-                <span className="text-base font-black text-white">${Number(formatUnits(selectedRFQ.notionalUSDT, 6)).toLocaleString()}</span>
+                <span className="text-base font-black text-white">${usdtToNumber(selectedRFQ.notionalUSDT).toLocaleString()}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Direction</span>
@@ -246,7 +246,7 @@ export function SellerHall() {
               </div>
               <div className="flex flex-col">
                 <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">Target Rate</span>
-                <span className="text-base font-black text-gold-500 italic">{(selectedRFQ.premiumRate / 100).toFixed(2)}%</span>
+                <span className="text-base font-black text-gold-500 italic">{(selectedRFQ.maxPremiumRate / 100).toFixed(2)}%</span>
               </div>
             </div>
 
@@ -259,7 +259,7 @@ export function SellerHall() {
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest ml-1">Margin Rate (%)</label>
                   <input type="text" className="obsidian-input w-full h-14 text-xl font-black text-white italic" value={quoteForm.marginRate} onChange={e => setQuoteForm({ ...quoteForm, marginRate: e.target.value })} />
-                  {selectedRFQ && <p className="text-[8px] text-gray-600 ml-1">≈ {(Number(formatUnits(selectedRFQ.notionalUSDT, 6)) * parseFloat(quoteForm.marginRate || '0') / 100).toLocaleString()} USDT</p>}
+                  {selectedRFQ && <p className="text-[8px] text-gray-600 ml-1">≈ {(usdtToNumber(selectedRFQ.notionalUSDT) * parseFloat(quoteForm.marginRate || '0') / 100).toLocaleString()} USDT</p>}
                 </div>
               </div>
 
@@ -324,11 +324,11 @@ export function SellerHall() {
                   </div>
                   <div>
                     <p className="text-[8px] font-black text-gray-600 uppercase mb-0.5">Locked Margin</p>
-                    <p className="text-xs font-black text-white">{selectedRFQ ? (Number(formatUnits(selectedRFQ.notionalUSDT, 6)) * parseFloat(quoteForm.marginRate || '0') / 100).toLocaleString() : '---'} USDT</p>
+                    <p className="text-xs font-black text-white">{selectedRFQ ? (usdtToNumber(selectedRFQ.notionalUSDT) * parseFloat(quoteForm.marginRate || '0') / 100).toLocaleString() : '---'} USDT</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[8px] font-black text-gray-600 uppercase mb-0.5">Total Commitment</p>
-                    <p className="text-xs font-black text-gold-500">{selectedRFQ ? (Number(formatUnits(selectedRFQ.notionalUSDT, 6)) * parseFloat(quoteForm.marginRate || '0') / 100 + 1).toLocaleString() : '---'} USDT</p>
+                    <p className="text-xs font-black text-gold-500">{selectedRFQ ? (usdtToNumber(selectedRFQ.notionalUSDT) * parseFloat(quoteForm.marginRate || '0') / 100 + 1).toLocaleString() : '---'} USDT</p>
                   </div>
                 </div>
               </div>

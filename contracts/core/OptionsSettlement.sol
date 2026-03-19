@@ -27,6 +27,7 @@ interface IOptionsCoreForSettlement {
     function updateOrderMarginCallDeadline(uint256 orderId, uint256 deadline) external;
     function updateOrderDividend(uint256 orderId, uint256 amount) external;
     function updateOrderStrikePrice(uint256 orderId, uint256 price) external;
+    function updateOrderFinalFeedRequestedAt(uint256 orderId, uint256 timestamp) external;
 }
 
 /**
@@ -36,6 +37,17 @@ interface IOptionsCoreForSettlement {
  */
 contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
+
+    // ==================== 事件 ====================
+
+    /// @notice 动态喂价后保证金不足，需触发追保
+    event MarginCallRequired(
+        uint256 indexed orderId,
+        address indexed seller,
+        uint256 currentMargin,
+        uint256 minRequired,
+        uint256 lastFeedPrice
+    );
 
     // ==================== 状态变量 ====================
     IOptionsCoreForSettlement public optionsCore;
@@ -105,6 +117,7 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
 
         OrderStatus oldStatus = order.status;
         optionsCore.updateOrderStatus(orderId, OrderStatus.WAITING_FINAL_FEED);
+        optionsCore.updateOrderFinalFeedRequestedAt(orderId, block.timestamp);
 
         emit OrderStatusChanged(orderId, oldStatus, OrderStatus.WAITING_FINAL_FEED, "early exercise", block.timestamp);
     }
@@ -197,7 +210,8 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
 
         // 追保成功后，如果保证金已恢复到最低要求以上，自动清除追保状态
         if (order.marginCallDeadline > 0) {
-            uint256 minRequired = (order.initialMargin * order.minMarginRate) / 10000;
+            // ✅ 正确公式：最低保证金 = notionalUSDT * minMarginRate / 10000
+            uint256 minRequired = _calcMinRequired(order);
             if (newMargin >= minRequired) {
                 optionsCore.updateOrderMarginCallDeadline(orderId, 0);
             }
@@ -479,13 +493,16 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
 
     /**
      * @notice 触发追保 (P0 追保机制)
+     * @param orderId 订单ID
+     * @param isCrypto true=加密货币/外汇（2小时追保），false=其他（12小时追保）
      */
     function triggerMarginCall(uint256 orderId, bool isCrypto) external override nonReentrant whenNotPaused {
         Order memory order = optionsCore.getOrder(orderId);
         require(order.status == OrderStatus.LIVE, "Settlement: order not live");
         require(order.marginCallDeadline == 0, "Settlement: margin call already triggered");
 
-        uint256 minRequired = (order.initialMargin * order.minMarginRate) / 10000;
+        // ✅ 正确公式：最低保证金 = notionalUSDT * minMarginRate / 10000
+        uint256 minRequired = _calcMinRequired(order);
         require(order.currentMargin < minRequired, "Settlement: margin sufficient");
 
         uint256 deadline = block.timestamp + config.getMarginCallDeadline(isCrypto);
@@ -503,7 +520,8 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
         require(order.marginCallDeadline > 0, "Settlement: no margin call active");
         require(block.timestamp > order.marginCallDeadline, "Settlement: deadline not reached");
 
-        uint256 minRequired = (order.initialMargin * order.minMarginRate) / 10000;
+        // ✅ 正确公式：最低保证金 = notionalUSDT * minMarginRate / 10000
+        uint256 minRequired = _calcMinRequired(order);
         require(order.currentMargin < minRequired, "Settlement: margin was restored");
 
         OrderStatus oldStatus = order.status;
@@ -523,6 +541,18 @@ contract OptionsSettlement is IOptionsSettlement, AccessControl, ReentrancyGuard
 
         emit OrderLiquidated(orderId, order.buyer, buyerPayout, block.timestamp);
         emit OrderStatusChanged(orderId, oldStatus, OrderStatus.LIQUIDATED, "margin call timeout", block.timestamp);
+    }
+
+    // ==================== 内部辅助 ====================
+
+    /**
+     * @dev 计算订单的最低保证金要求
+     *      公式：notionalUSDT * minMarginRate / 10000
+     *      语义：minMarginRate 是针对名义本金的比率，不是针对 initialMargin
+     *      例：notional=10000, minMarginRate=500 → minRequired=500 USDT
+     */
+    function _calcMinRequired(Order memory order) internal pure returns (uint256) {
+        return (order.notionalUSDT * order.minMarginRate) / 10000;
     }
 
     // ==================== 管理功能 ====================

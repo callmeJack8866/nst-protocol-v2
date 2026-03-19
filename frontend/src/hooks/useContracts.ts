@@ -257,6 +257,7 @@ export function useOptions() {
                             direction: Number(order.direction) === 0 ? 'Call' : 'Put',
                             notionalUSDT: order.notionalUSDT,
                             premiumRate: Number(order.premiumRate),
+                            maxPremiumRate: Number(order.maxPremiumRate),
                             expiryTimestamp: Number(order.expiryTimestamp),
                             status: Number(order.status) === 0 ? 'RFQ_CREATED' : 'QUOTING',
                             createdAt: Number(order.createdAt),
@@ -711,6 +712,7 @@ export function useOptions() {
         acceptSellerOrder,
         getQuotesForOrder,
         getOptionsCoreAddress,
+        getVaultManagerAddress,
         processInitialFeedResult,
         processFinalFeedResult
     };
