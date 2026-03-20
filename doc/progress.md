@@ -1,5 +1,57 @@
 # NST Protocol Progress
 
+## [2026-03-20 14:30 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**Config + OptionsCore 联合重部署 — 完整流程验证通过 🎉**
+
+根因：测试网 Config 是旧版本，缺少 `minArbitrationWindow`/`maxArbitrationWindow`/`minMarginCallDeadline`/`maxMarginCallDeadline`/`maxConsecutiveDays` 等新 OptionsCore 所需的校验参数。
+
+已完成：
+1. 重部署 Config → `0x9f839C36146c0c8867c2E36E33EA5A024be38e31`
+2. 重部署 OptionsCore → `0x78F4600D6963044cCE956DC2322A92cB58142129`
+3. 配置所有角色（VAULT_OPERATOR/FEED_PROTOCOL/SETTLEMENT/PROTOCOL）
+4. 更新跨合约引用（FeedProtocol/OptionsSettlement/VaultManager → 新 Config/OC）
+5. 全局替换 17 个文件中的旧地址
+6. test-full-flow.ts 9 步完整验证通过（含 requestFeedPublic → WAITING_INITIAL_FEED）
+
+### [Next Step]
+- 联调可开始
+
+## [2026-03-20 13:57 / Latest Session] Status: Done
+
+### [Status]: Done
+### [Changes]:
+**稳定化 integration-test.ts（防止 replacement transaction underpriced）**
+
+注入 `safeSendTx`（nonce + gasPrice × 1.2 + 3 次重试）和 `ensureAllowance`（allowance-aware），替换了：
+- 3 处裸 `approve`（行 195/270/301）→ `ensureAllowance`
+- 3 处裸交易发送（`createBuyerRFQ`/`submitQuote`/`acceptQuote`）→ `safeSendTx`
+- approve 金额统一提高到 10000 USDT，减少后续 approve 次数
+
+### [Next Step]
+- 等待用户完成其他合约修改，然后一起重新部署
+
+## [2026-03-20 13:46 / Latest Session] Status: Blocked
+
+### [Status]: Blocked
+### [Changes]:
+**诊断 requestFeedPublic revert 根因**
+
+FeedProtocol 侧全部校验通过：
+- FEED_PROTOCOL_ROLE ✅
+- optionsCore 引用正确 ✅
+- Tier 配置 = 1 人 ✅
+- 活跃喂价员 = 1 ✅
+- Allowance / Balance ✅
+- Order status = MATCHED(2) ✅
+
+**唯一失败点**：`optionsCore.onFeedRequested(orderId, feedType)` 返回 raw `0x` revert → 测试网 OptionsCore (`0x98505...`) 也是旧版本，不含 `onFeedRequested` 函数。
+
+### [Next Step]
+- 需要重新部署 OptionsCore（以及可能的 OptionsSettlement）并重新配置所有角色
+
 ## [2026-03-19 22:20 / Latest Session] Status: Done
 
 ### [Status]: Done

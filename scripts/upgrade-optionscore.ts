@@ -13,7 +13,7 @@ async function main() {
     // 现有合约地址 (小写避免 checksum 问题)
     const USDT_ADDRESS = "0x6ae0833e637d1d99f3fcb6204860386f6a6713c0";
     const VAULT_MANAGER_ADDRESS = "0x3e7eef51edfb64d03738801c2d2174e3cb1400f7";
-    const CONFIG_ADDRESS = "0x63ae7d11ed0d939dee6fc67e8be89de79610c4ea";  // 正确的 Config
+    const CONFIG_ADDRESS = "0x9f839C36146c0c8867c2E36E33EA5A024be38e31";  // 正确的 Config
     const FEED_PROTOCOL_ADDRESS = "0xa4d3d2d56902f91e92cade54993f45b4376979c7";
 
     console.log("\n=== Deploying New OptionsCore ===");

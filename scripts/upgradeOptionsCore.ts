@@ -10,7 +10,7 @@ import { ethers, run, network } from "hardhat";
 
 // 已部署的 BSC Testnet 合约地址 (2026-02-02 当前版本)
 const BSC_TESTNET_CONFIG = {
-    Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
+    Config: '0x9f839C36146c0c8867c2E36E33EA5A024be38e31',
     VaultManager: '0xa81cCaE9b7aBfb2a24982A8FcA1A8Dd54dD49E54',
     USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
 };

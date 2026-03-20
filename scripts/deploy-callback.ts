@@ -12,7 +12,7 @@ async function main() {
     console.log("Deploying with account:", deployer.address);
 
     // 现有合约地址（不需要重新部署）
-    const CONFIG_ADDRESS = "0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea";
+    const CONFIG_ADDRESS = "0x9f839C36146c0c8867c2E36E33EA5A024be38e31";
     const VAULT_MANAGER_ADDRESS = "0xa81cCaE9b7aBfb2a24982A8FcA1A8Dd54dD49E54";
     const USDT_ADDRESS = "0x6ae0833E637D1d99F3FCB6204860386f6a6713C0";
 

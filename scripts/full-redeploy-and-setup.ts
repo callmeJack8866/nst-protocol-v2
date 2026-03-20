@@ -10,7 +10,7 @@ async function main() {
     const [deployer] = await ethers.getSigners();
     console.log("Deploying with account:", deployer.address);
 
-    const CONFIG_ADDRESS = "0x63ae7d11ed0d939dee6fc67e8be89de79610c4ea";
+    const CONFIG_ADDRESS = "0x9f839C36146c0c8867c2E36E33EA5A024be38e31";
     const USDT_ADDRESS = "0x6ae0833e637d1d99f3fcb6204860386f6a6713c0";
     const FEED_PROTOCOL_ADDRESS = "0xa4d3d2D56902f91e92caDE54993f45b4376979C7";
     const SELLER_ADDRESS = "0xFF486124612662E74F3055a71f45EAD3451d1CD9";

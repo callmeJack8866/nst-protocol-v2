@@ -17,9 +17,9 @@ import { ethers } from "hardhat";
 
 // ==================== 合约地址（来自 deployed-addresses.json）====================
 const ADDRESSES = {
-    OptionsCore: '0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a',
+    OptionsCore: '0x78F4600D6963044cCE956DC2322A92cB58142129',
     OptionsSettlement: '0x8DF881593368FD8be3F40722fcb9f555593a8257',
-    Config: '0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea',
+    Config: '0x9f839C36146c0c8867c2E36E33EA5A024be38e31',
     VaultManager: '0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454',
     USDT: '0x6ae0833E637D1d99F3FCB6204860386f6a6713C0',
     FeedProtocol: '0x45E4ee36e6fA443a7318cd549c6AC20d83b6C1A7',
@@ -65,6 +65,47 @@ async function main() {
     const optionsSettlement = await ethers.getContractAt("OptionsSettlement", ADDRESSES.OptionsSettlement);
     const config = await ethers.getContractAt("Config", ADDRESSES.Config);
     const usdt = await ethers.getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", ADDRESSES.USDT);
+
+    // ==================== 安全交易工具函数 ====================
+    /** 带重试的发送交易（防止 replacement transaction underpriced） */
+    async function safeSendTx(
+        label: string,
+        txFn: (overrides: { nonce: number; gasPrice: bigint }) => Promise<any>,
+    ): Promise<any> {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                // 每次重试都获取最新 nonce 和 gasPrice，避免 stale nonce
+                const nonce = await deployer.getNonce();
+                const feeData = await ethers.provider.getFeeData();
+                const gasPrice = (feeData.gasPrice || 5000000000n) * 120n / 100n;
+                const tx = await txFn({ nonce, gasPrice } as any);
+                const receipt = await tx.wait();
+                return receipt;
+            } catch (e: any) {
+                const msg = e.message || '';
+                if (attempt < 3 && (msg.includes('underpriced') || msg.includes('nonce') || msg.includes('already known'))) {
+                    console.log(`    ⚠ ${label} 第 ${attempt} 次失败 (${msg.slice(0, 80)})，等待 3s 重试...`);
+                    await new Promise(r => setTimeout(r, 3000));
+                    continue;
+                }
+                throw e;
+            }
+        }
+    }
+
+    /** 检查 allowance 并在不足时 approve（跳过已足够的 allowance） */
+    async function ensureAllowance(spender: string, spenderName: string, required: bigint) {
+        const current = await usdt.allowance(deployer.address, spender);
+        if (current >= required) {
+            console.log(`    ✓ ${spenderName} allowance 充足 (${ethers.formatEther(current)})，跳过 approve`);
+            return;
+        }
+        console.log(`    → ${spenderName} allowance 不足 (${ethers.formatEther(current)} < ${ethers.formatEther(required)})，发送 approve...`);
+        await safeSendTx(`approve(${spenderName})`, (overrides) =>
+            usdt.approve(spender, required, overrides)
+        );
+        console.log(`    ✓ ${spenderName} approved ${ethers.formatEther(required)}`);
+    }
 
     // ==================== Test 1: 合约部署验证 ====================
     console.log("📋 Test 1: 合约部署验证");
@@ -188,42 +229,39 @@ async function main() {
         if (balance < creationFee) {
             skip("createBuyerRFQ", `USDT余额不足 (${ethers.formatEther(balance)} < ${ethers.formatEther(creationFee)})`);
         } else {
-            // 先 approve USDT
-            const allowance = await usdt.allowance(deployer.address, ADDRESSES.VaultManager);
-            if (allowance < creationFee) {
-                console.log("    → 授权 USDT...");
-                const approveTx = await usdt.approve(ADDRESSES.VaultManager, ethers.parseEther("100"));
-                await approveTx.wait();
-                pass("USDT approve 成功");
-            }
+            // 确保 allowance 足够（包含建仓费 + 后续报价保证金）
+            const safeAmount = ethers.parseEther("10000");
+            await ensureAllowance(ADDRESSES.VaultManager, "VaultManager", safeAmount);
 
             // 创建 RFQ
             const expiryTime = Math.floor(Date.now() / 1000) + 86400 * 7; // 7天后
             const notional = ethers.parseEther("100"); // 100 USDT
 
             console.log("    → 创建买方RFQ...");
-            const tx = await optionsCore.createBuyerRFQ(
-                "TEST-INTEGRATION",    // underlyingName
-                "TEST",                // underlyingCode
-                "TEST_MARKET",         // market
-                "CN",                  // country
-                "100.00",              // refPrice
-                0,                     // direction (Call)
-                notional,              // notionalUSDT
-                expiryTime,            // expiryTimestamp
-                500,                   // maxPremiumRate (5%)
-                1000,                  // minMarginRate (10%)
-                0,                     // acceptedSellerType (FreeSeller)
-                ethers.ZeroAddress,    // designatedSeller
-                86400,                 // arbitrationWindow (24h)
-                43200,                 // marginCallDeadline (12h)
-                false,                 // dividendAdjustment
-                0,                     // liquidationRule (NoLiquidation)
-                0,                     // consecutiveDays
-                0,                     // dailyLimitPercent
-                0                      // feedRule (NormalFeed)
+            const receipt = await safeSendTx("createBuyerRFQ", (overrides) =>
+                optionsCore.createBuyerRFQ(
+                    "TEST-INTEGRATION",    // underlyingName
+                    "TEST",                // underlyingCode
+                    "TEST_MARKET",         // market
+                    "CN",                  // country
+                    "100.00",              // refPrice
+                    0,                     // direction (Call)
+                    notional,              // notionalUSDT
+                    expiryTime,            // expiryTimestamp
+                    500,                   // maxPremiumRate (5%)
+                    1000,                  // minMarginRate (10%)
+                    0,                     // acceptedSellerType (FreeSeller)
+                    ethers.ZeroAddress,    // designatedSeller
+                    86400,                 // arbitrationWindow (24h)
+                    43200,                 // marginCallDeadline (12h)
+                    false,                 // dividendAdjustment
+                    0,                     // liquidationRule (NoLiquidation)
+                    0,                     // consecutiveDays
+                    0,                     // dailyLimitPercent
+                    0,                     // feedRule (NormalFeed)
+                    overrides
+                )
             );
-            const receipt = await tx.wait();
             const newOrderId = await optionsCore.nextOrderId();
             pass(`createBuyerRFQ 成功 → OrderId=${Number(newOrderId) - 1}, txHash=${receipt?.hash?.slice(0, 16)}...`);
 
@@ -264,23 +302,21 @@ async function main() {
             if (sellerBalance < totalNeeded) {
                 skip("submitQuote", `USDT余额不足: ${ethers.formatEther(sellerBalance)} < ${ethers.formatEther(totalNeeded)}`);
             } else {
-                // approve for margin deposit
-                const currentAllowance = await usdt.allowance(deployer.address, ADDRESSES.VaultManager);
-                if (currentAllowance < totalNeeded) {
-                    const approveTx2 = await usdt.approve(ADDRESSES.VaultManager, ethers.parseEther("1000"));
-                    await approveTx2.wait();
-                }
+                // 确保卖方报价保证金 allowance
+                await ensureAllowance(ADDRESSES.VaultManager, "VaultManager(报价)", ethers.parseEther("10000"));
 
                 console.log("    → 卖方提交报价...");
-                const quoteTx = await optionsCore.submitQuote(
-                    createdOrderId,
-                    premiumRate,
-                    marginRate,
-                    0, // liquidationRule
-                    0, // consecutiveDays
-                    0  // dailyLimitPercent
+                await safeSendTx("submitQuote", (overrides) =>
+                    optionsCore.submitQuote(
+                        createdOrderId,
+                        premiumRate,
+                        marginRate,
+                        0, // liquidationRule
+                        0, // consecutiveDays
+                        0, // dailyLimitPercent
+                        overrides
+                    )
                 );
-                await quoteTx.wait();
                 const newQuoteId = await optionsCore.nextQuoteId();
                 const quoteId = Number(newQuoteId) - 1;
                 pass(`submitQuote 成功 → QuoteId=${quoteId}`);
@@ -295,15 +331,12 @@ async function main() {
 
                 // 买方接受报价
                 console.log("    → 买方接受报价...");
-                // Premium需要额外approve
-                const premiumAllowance = await usdt.allowance(deployer.address, ADDRESSES.VaultManager);
-                if (premiumAllowance < premiumAmount) {
-                    const approveTx3 = await usdt.approve(ADDRESSES.VaultManager, ethers.parseEther("1000"));
-                    await approveTx3.wait();
-                }
+                // 确保 premium allowance
+                await ensureAllowance(ADDRESSES.VaultManager, "VaultManager(接单)", ethers.parseEther("10000"));
 
-                const acceptTx = await optionsCore.acceptQuote(quoteId);
-                await acceptTx.wait();
+                await safeSendTx("acceptQuote", (overrides) =>
+                    optionsCore.acceptQuote(quoteId, overrides)
+                );
 
                 // 验证订单状态变为 MATCHED
                 const matchedOrder = await optionsCore.getOrder(createdOrderId);

@@ -12,7 +12,7 @@ async function main() {
 
     const VAULT_MANAGER = "0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454";
     const OPTIONS_SETTLEMENT = "0x8DF881593368FD8be3F40722fcb9f555593a8257";
-    const OPTIONS_CORE = "0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a";
+    const OPTIONS_CORE = "0x78F4600D6963044cCE956DC2322A92cB58142129";
 
     const vaultABI = [
         'function grantOperatorRole(address _operator) external',

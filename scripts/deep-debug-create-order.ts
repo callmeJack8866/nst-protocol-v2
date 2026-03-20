@@ -61,16 +61,18 @@ async function main() {
     const balance = await usdt.balanceOf(deployer.address);
     console.log("USDT Balance:", ethers.formatUnits(balance, decimals));
 
-    const allowance = await usdt.allowance(deployer.address, OPTIONS_CORE_ADDRESS);
-    console.log("USDT Allowance to OptionsCore:", ethers.formatUnits(allowance, decimals));
+    // 实际资金路径: USDT → VaultManager（非 OptionsCore）
+    const vmAddr2 = await optionsCore.vaultManager();
+    const allowance = await usdt.allowance(deployer.address, vmAddr2);
+    console.log("USDT Allowance to VaultManager:", ethers.formatUnits(allowance, decimals));
 
-    // 如果 allowance 不够，先 approve
+    // 如果 allowance 不够，approve 给 VaultManager
     const requiredAmount = ethers.parseUnits("100", decimals);
     if (allowance < requiredAmount) {
-        console.log("\nApproving USDT...");
-        const approveTx = await usdt.approve(OPTIONS_CORE_ADDRESS, ethers.parseUnits("1000000", decimals));
+        console.log("\nApproving USDT to VaultManager...");
+        const approveTx = await usdt.approve(vmAddr2, ethers.parseUnits("1000000", decimals));
         await approveTx.wait();
-        console.log("✓ USDT approved");
+        console.log("✓ USDT approved to VaultManager");
     }
 
     console.log("\n=== Step 5: Try createBuyerRFQ with staticCall ===");

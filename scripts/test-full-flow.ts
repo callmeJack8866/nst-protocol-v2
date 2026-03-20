@@ -43,7 +43,7 @@ async function main() {
     console.log("Testing with account:", deployer.address);
 
     // ==================== 合约地址（来自 deployed-addresses.json）====================
-    const OPTIONS_CORE_ADDRESS = "0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a";
+    const OPTIONS_CORE_ADDRESS = "0x78F4600D6963044cCE956DC2322A92cB58142129";
     const FEED_PROTOCOL_ADDRESS = "0x45E4ee36e6fA443a7318cd549c6AC20d83b6C1A7";
     const VAULT_MANAGER_ADDRESS = "0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454";
     const USDT_ADDRESS = "0x6ae0833E637D1d99F3FCB6204860386f6a6713C0";
@@ -66,14 +66,14 @@ async function main() {
     /** 带重试的发送交易 */
     async function safeSendTx(
         label: string,
-        txFn: (overrides: { nonce: number }) => Promise<any>,
+        txFn: (overrides: { nonce: number; gasPrice: bigint }) => Promise<any>,
     ): Promise<any> {
-        const nonce = await deployer.getNonce();
-        const feeData = await ethers.provider.getFeeData();
-        // BSC Testnet: 用 gasPrice 模式，加 20% 防止 underpriced
-        const gasPrice = (feeData.gasPrice || 5000000000n) * 120n / 100n;
         for (let attempt = 1; attempt <= 3; attempt++) {
             try {
+                // 每次重试都获取最新 nonce 和 gasPrice，避免 stale nonce
+                const nonce = await deployer.getNonce();
+                const feeData = await ethers.provider.getFeeData();
+                const gasPrice = (feeData.gasPrice || 5000000000n) * 120n / 100n;
                 const tx = await txFn({ nonce, gasPrice } as any);
                 const receipt = await tx.wait();
                 return receipt;

@@ -110,27 +110,36 @@ export function MyOrders() {
                 setSellerOrders(sData);
 
                 // 检查 MATCHED 状态订单是否已有链上 feed request（持久化状态）
+                // 注意：由于 OptionsCore 可能重部署导致 orderId 重用，
+                // 必须同时验证链上状态：只有当链上状态 >= WAITING_INITIAL_FEED(3) 时才认为 feed 已生效
                 const allData = [...bData, ...sData];
                 const matchedOrders = allData.filter(o => {
                     const s = typeof o.status === 'bigint' ? Number(o.status) : (typeof o.status === 'number' ? o.status : -1);
                     return s === 2; // MATCHED
                 });
-                if (matchedOrders.length > 0) {
-                    const feedChecks = await Promise.all(
-                        matchedOrders.map(async (o) => {
-                            const ids = await getOrderFeedRequests(Number(o.orderId));
-                            return { orderId: Number(o.orderId), hasFeedRequest: ids.length > 0 };
-                        })
-                    );
-                    const requested = new Set<number>();
-                    feedChecks.forEach(c => { if (c.hasFeedRequest) requested.add(c.orderId); });
-                    if (requested.size > 0) {
-                        setFeedRequestedOrders(prev => {
-                            const merged = new Set(prev);
-                            requested.forEach(id => merged.add(id));
-                            return merged;
-                        });
-                    }
+
+                // 对于仍在 MATCHED(2) 的订单，清理可能的 stale feedRequestedOrders 记录
+                const staleIds = matchedOrders.map(o => Number(o.orderId));
+                if (staleIds.length > 0) {
+                    setFeedRequestedOrders(prev => {
+                        const cleaned = new Set(prev);
+                        staleIds.forEach(id => cleaned.delete(id));
+                        return cleaned;
+                    });
+                }
+
+                // 真正已进入 WAITING_INITIAL_FEED 或更高状态的订单才标记为"已发起"
+                const advancedOrders = allData.filter(o => {
+                    const s = typeof o.status === 'bigint' ? Number(o.status) : (typeof o.status === 'number' ? o.status : -1);
+                    return s >= 3; // WAITING_INITIAL_FEED or beyond
+                });
+                if (advancedOrders.length > 0) {
+                    const advIds = new Set(advancedOrders.map(o => Number(o.orderId)));
+                    setFeedRequestedOrders(prev => {
+                        const merged = new Set(prev);
+                        advIds.forEach(id => merged.add(id));
+                        return merged;
+                    });
                 }
             } catch (e) {
                 console.error('Failed to fetch orders:', e);

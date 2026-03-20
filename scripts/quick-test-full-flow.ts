@@ -25,12 +25,53 @@ async function main() {
     console.log("═══════════════════════════════════════════════\n");
 
     // 合约地址（来自 deployed-addresses.json）
-    const OPTIONS_CORE_ADDRESS = "0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a";
+    const OPTIONS_CORE_ADDRESS = "0x78F4600D6963044cCE956DC2322A92cB58142129";
     const VAULT_MANAGER_ADDRESS = "0x9214D7f7b532E0fa1e6aFF7a0a6d3b6CE0754454";
     const USDT_ADDRESS = "0x6ae0833E637D1d99F3FCB6204860386f6a6713C0";
 
     const optionsCore = await ethers.getContractAt("OptionsCore", OPTIONS_CORE_ADDRESS);
     const usdt = await ethers.getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", USDT_ADDRESS);
+
+    // ==================== 安全交易工具函数 ====================
+    /** 带重试的发送交易（防止 replacement transaction underpriced） */
+    async function safeSendTx(
+        label: string,
+        txFn: (overrides: { nonce: number; gasPrice: bigint }) => Promise<any>,
+    ): Promise<any> {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                // 每次重试都获取最新 nonce 和 gasPrice，避免 stale nonce
+                const nonce = await deployer.getNonce();
+                const feeData = await ethers.provider.getFeeData();
+                const gasPrice = (feeData.gasPrice || 5000000000n) * 120n / 100n;
+                const tx = await txFn({ nonce, gasPrice } as any);
+                const receipt = await tx.wait();
+                return receipt;
+            } catch (e: any) {
+                const msg = e.message || '';
+                if (attempt < 3 && (msg.includes('underpriced') || msg.includes('nonce') || msg.includes('already known'))) {
+                    console.log(`${LOG_PREFIX.INFO} ⚠ ${label} 第 ${attempt} 次失败 (${msg.slice(0, 80)})，等待 3s 重试...`);
+                    await new Promise(r => setTimeout(r, 3000));
+                    continue;
+                }
+                throw e;
+            }
+        }
+    }
+
+    /** 检查 allowance 并在不足时 approve（跳过已足够的 allowance） */
+    async function ensureAllowance(spender: string, spenderName: string, required: bigint) {
+        const current = await usdt.allowance(deployer.address, spender);
+        if (current >= required) {
+            console.log(`${LOG_PREFIX.INFO} ✓ ${spenderName} allowance 充足 (${ethers.formatUnits(current, decimals)})，跳过 approve`);
+            return;
+        }
+        console.log(`${LOG_PREFIX.INFO} ${spenderName} allowance 不足 (${ethers.formatUnits(current, decimals)} < ${ethers.formatUnits(required, decimals)})，发送 approve...`);
+        await safeSendTx(`approve(${spenderName})`, (overrides) =>
+            usdt.approve(spender, required, overrides)
+        );
+        console.log(`${LOG_PREFIX.INFO} ✓ ${spenderName} approved ${ethers.formatUnits(required, decimals)}`);
+    }
 
     // ==================== Step 1: 自动检测 USDT 精度 ====================
     console.log("=== Step 1: 环境自检 ===");
@@ -72,9 +113,8 @@ async function main() {
 
     // ==================== Step 2: Approve ====================
     console.log("\n=== Step 2: Approve USDT ===");
-    const approveAmount = ethers.parseUnits("100", decimals);
-    await (await usdt.approve(VAULT_MANAGER_ADDRESS, approveAmount)).wait();
-    console.log(`${LOG_PREFIX.INFO} ✓ USDT approved to VaultManager (${ethers.formatUnits(approveAmount, decimals)})`);
+    const approveAmount = ethers.parseUnits("10000", decimals);
+    await ensureAllowance(VAULT_MANAGER_ADDRESS, "VaultManager", approveAmount);
 
     // ==================== Step 3: 卖方建单 ====================
     console.log("\n=== Step 3: 创建卖方订单 ===");
@@ -84,26 +124,28 @@ async function main() {
     const notionalUSDT = ethers.parseUnits("10", decimals); // 10 USDT
 
     try {
-        const tx = await optionsCore.createSellerOrder(
-            "测试标的",          // underlyingName
-            "TEST001",          // underlyingCode
-            "A股",              // market
-            "CN",               // country
-            "100",              // refPrice
-            0,                  // direction (Call)
-            notionalUSDT,       // notionalUSDT
-            expiryTimestamp,    // expiryTimestamp
-            500,                // premiumRate (5%)
-            ethers.parseUnits("2", decimals),  // marginAmount (notional 的 20% = 2 USDT)
-            0,                  // liquidationRule
-            3,                  // consecutiveDays (≤ 10)
-            10,                 // dailyLimitPercent
-            86400,              // arbitrationWindow (24h)
-            false,              // dividendAdjustment
-            1,                  // exerciseDelay (T+1)
-            0                   // feedRule (NormalFeed)
+        const receipt = await safeSendTx("createSellerOrder", (overrides) =>
+            optionsCore.createSellerOrder(
+                "测试标的",          // underlyingName
+                "TEST001",          // underlyingCode
+                "A股",              // market
+                "CN",               // country
+                "100",              // refPrice
+                0,                  // direction (Call)
+                notionalUSDT,       // notionalUSDT
+                expiryTimestamp,    // expiryTimestamp
+                500,                // premiumRate (5%)
+                ethers.parseUnits("2", decimals),  // marginAmount (notional 的 20% = 2 USDT)
+                0,                  // liquidationRule
+                3,                  // consecutiveDays (≤ 10)
+                10,                 // dailyLimitPercent
+                86400,              // arbitrationWindow (24h)
+                false,              // dividendAdjustment
+                1,                  // exerciseDelay (T+1)
+                0,                  // feedRule (NormalFeed)
+                overrides
+            )
         );
-        const receipt = await tx.wait();
         const newOrderId = (await optionsCore.nextOrderId()) - 1n;
         console.log(`${LOG_PREFIX.INFO} ✓ 卖方订单创建成功 OrderId=${newOrderId} TX=${receipt?.hash?.slice(0, 16)}...`);
 

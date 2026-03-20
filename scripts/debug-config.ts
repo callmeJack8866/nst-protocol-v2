@@ -49,7 +49,7 @@ async function main() {
 
     // 直接用 OptionsCore 中的配置地址尝试读取
     console.log("\n=== Trying Direct Read ===");
-    const configOld = "0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea";
+    const configOld = "0x9f839C36146c0c8867c2E36E33EA5A024be38e31";
     try {
         const config2 = await ethers.getContractAt("Config", configOld);
         const rate = await config2.tradingFeeRate();

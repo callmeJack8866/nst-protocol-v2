@@ -39,16 +39,15 @@ async function main() {
     console.log("USDT Balance:", ethers.formatUnits(balance, decimals));
 
     console.log("\n=== Checking USDT Allowance ===");
-    const allowance = await usdt.allowance(deployer.address, OPTIONS_CORE_ADDRESS);
-    console.log("USDT Allowance to OptionsCore:", ethers.formatUnits(allowance, decimals));
+    // 实际资金路径: USDT → VaultManager（非 OptionsCore）
+    const vmAddress = await optionsCore.vaultManager();
+    console.log("VaultManager:", vmAddress);
+    const allowance = await usdt.allowance(deployer.address, vmAddress);
+    console.log("USDT Allowance to VaultManager:", ethers.formatUnits(allowance, decimals));
 
     console.log("\n=== Checking Contract State ===");
     const nextOrderId = await optionsCore.nextOrderId();
     console.log("nextOrderId:", nextOrderId.toString());
-
-    // 检查 VaultManager
-    const vmAddress = await optionsCore.vaultManager();
-    console.log("VaultManager:", vmAddress);
 
     // 尝试调用 createBuyerRFQ（静态调用，不实际执行）
     console.log("\n=== Testing createBuyerRFQ (static call) ===");

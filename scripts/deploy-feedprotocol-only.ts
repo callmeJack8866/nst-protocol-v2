@@ -15,9 +15,9 @@ async function main() {
     console.log("Balance:", ethers.formatEther(await deployer.provider.getBalance(deployer.address)), "BNB");
 
     // 现有合约地址（不变）
-    const CONFIG_ADDRESS = "0x63aE7d11Ed0d939DEe6FC67e8bE89De79610c4Ea";
+    const CONFIG_ADDRESS = "0x9f839C36146c0c8867c2E36E33EA5A024be38e31";
     const USDT_ADDRESS = "0x6ae0833E637D1d99F3FCB6204860386f6a6713C0";
-    const OPTIONS_CORE_ADDRESS = "0x98505CE913E9Dc70142Ca6C9ca0c9a1af3EfA19a";
+    const OPTIONS_CORE_ADDRESS = "0x78F4600D6963044cCE956DC2322A92cB58142129";
 
     console.log("\n=== Deploying New FeedProtocol ===");
     const FeedProtocol = await ethers.getContractFactory("FeedProtocol");

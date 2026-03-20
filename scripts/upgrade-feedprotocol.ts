@@ -12,7 +12,7 @@ async function main() {
 
     // 现有合约地址
     const USDT_ADDRESS = "0x6ae0833e637d1d99f3fcb6204860386f6a6713c0";
-    const CONFIG_ADDRESS = "0x63ae7d11ed0d939dee6fc67e8be89de79610c4ea";
+    const CONFIG_ADDRESS = "0x9f839C36146c0c8867c2E36E33EA5A024be38e31";
     const OPTIONS_CORE_ADDRESS = "0x758e843E2e052Ddb65B92e0a7b8Fa84D1a70e4a2";
 
     console.log("\n=== Deploying New FeedProtocol (1人即可完成) ===");
