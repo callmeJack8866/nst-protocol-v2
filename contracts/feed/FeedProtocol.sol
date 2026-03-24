@@ -875,14 +875,15 @@ contract FeedProtocol is IFeedProtocol, AccessControl, ReentrancyGuard, Pausable
     }
 
     /**
-     * @dev 检查同一 orderId + feedType 是否已有未 finalized 的活跃请求
+     * @dev 检查同一 orderId + feedType 是否已有未 finalized 且未过期的活跃请求
      *      防止重复创建（浪费 gas 和喂价费用）
+     *      已过期的请求不再阻塞新请求创建
      */
     function _requireNoActiveFeedRequest(uint256 orderId, FeedType feedType) internal view {
         uint256[] storage requestIds = orderFeedRequests[orderId];
         for (uint256 i = 0; i < requestIds.length; i++) {
             FeedRequest storage req = feedRequests[requestIds[i]];
-            if (req.feedType == feedType && !req.finalized) {
+            if (req.feedType == feedType && !req.finalized && block.timestamp <= req.deadline) {
                 revert("FeedProtocol: active feed request already exists for this order and type");
             }
         }

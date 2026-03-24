@@ -79,7 +79,7 @@ async function main() {
 
     // 2. 也直接扫描 OptionsCore orderId 1-15，找 WAITING_INITIAL_FEED
     console.log(`\n=== OptionsCore 订单直接扫描 ===\n`);
-    for (let id = 1; id <= 15; id++) {
+    for (let id = 1; id <= 30; id++) {
         try {
             const o = await optionsCore.getOrder(id);
             if (o.buyer === ethers.ZeroAddress) { console.log(`orderId ${id}: 不存在（结束）`); break; }
